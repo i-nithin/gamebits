@@ -88,7 +88,7 @@ export function GameEditor({ game }: { game?: GameRow }) {
       left={<MediaPicker items={draftMedia} onChange={setDraftMedia} />}
       right={
         <div className="flex h-full min-h-0 flex-col gap-3">
-          <div className="flex shrink-0 flex-col gap-3 xl:flex-row xl:items-start">
+          <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-start">
             <div className="flex min-w-0 flex-1 items-start gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-xl card-ring bg-graphite">
                 <RocketIcon className="size-4 text-ice-signal" strokeWidth={1.5} />
@@ -97,19 +97,19 @@ export function GameEditor({ game }: { game?: GameRow }) {
                 <h1 className="text-xl font-medium text-paper-white">
                   {isEdit ? "Edit your game" : "Add your game"}
                 </h1>
-                <p className="text-sm text-fog xl:truncate">
+                <p className="text-sm text-fog lg:truncate">
                   {isEdit
                     ? "Update listing details, media, and store links."
                     : "Tell players what you made. Upload a logo and screenshots, then add store links."}
                 </p>
               </div>
             </div>
-            <div className="w-full shrink-0 xl:w-[16rem]">
+            <div className="w-full shrink-0 lg:w-[16rem]">
               <LogoPicker value={logoUrl} onChange={setLogoUrl} />
             </div>
           </div>
 
-          <FieldGroup className="min-h-0 flex-1 gap-3 md:overflow-hidden">
+          <FieldGroup className="min-h-0 flex-1 gap-3 lg:overflow-hidden">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="name">Game name</FieldLabel>
@@ -167,14 +167,14 @@ export function GameEditor({ game }: { game?: GameRow }) {
               </Field>
             </div>
 
-            <Field className="min-h-0 flex-1">
+            <Field className="min-h-0 lg:flex-1">
               <FieldLabel htmlFor="description">Description</FieldLabel>
               <Textarea
                 id="description"
                 name="description"
                 required
                 maxLength={4000}
-                className="h-full min-h-[4.5rem] resize-none rounded-lg border-iron bg-graphite field-sizing-fixed"
+                className="min-h-[4.5rem] resize-none rounded-lg border-iron bg-graphite field-sizing-fixed lg:h-full lg:max-h-none"
                 defaultValue={game?.description}
                 placeholder="What should players know?"
               />

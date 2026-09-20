@@ -43,7 +43,7 @@ export function GameFormShell({
       action={formAction}
       className={cn(
         "flex min-h-[calc(100dvh-3.5rem-2.5rem)] flex-col",
-        "md:h-[calc(100dvh-3.5rem-2.5rem)] md:overflow-hidden",
+        "lg:h-[calc(100dvh-3.5rem-2.5rem)] lg:overflow-hidden",
         className,
       )}
     >
@@ -78,9 +78,9 @@ export function GameFormShell({
         </nav>
       </div>
 
-      <div className="grid w-full min-h-0 flex-1 gap-6 px-4 py-4 md:grid-cols-[minmax(18rem,0.75fr)_minmax(0,1.25fr)] md:gap-8 md:overflow-hidden sm:px-6 lg:px-8 xl:grid-cols-[minmax(20rem,0.6fr)_minmax(0,1.4fr)]">
-        <div className="flex h-full min-h-0 min-w-0 flex-col md:overflow-hidden">{left}</div>
-        <div className="flex h-full min-h-0 min-w-0 flex-col md:overflow-hidden">{right}</div>
+      <div className="grid w-full min-h-0 flex-1 gap-6 px-4 py-4 pb-24 lg:grid-cols-[minmax(18rem,0.75fr)_minmax(0,1.25fr)] lg:gap-8 lg:overflow-hidden lg:pb-4 sm:px-6 lg:px-8 xl:grid-cols-[minmax(20rem,0.6fr)_minmax(0,1.4fr)]">
+        <div className="flex h-full min-h-0 min-w-0 flex-col lg:overflow-hidden">{left}</div>
+        <div className="flex h-full min-h-0 min-w-0 flex-col lg:overflow-hidden">{right}</div>
       </div>
 
       {children}

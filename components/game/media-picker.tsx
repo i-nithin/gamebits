@@ -261,7 +261,7 @@ export function MediaPicker({
 
       {selected ? (
         <div
-          className="group relative min-h-56 flex-1 overflow-hidden rounded-2xl bg-graphite card-ring md:min-h-0"
+          className="group relative min-h-56 flex-1 overflow-hidden rounded-2xl bg-graphite card-ring lg:min-h-0"
           onDragOver={(event) => {
             event.preventDefault();
           }}
@@ -303,7 +303,7 @@ export function MediaPicker({
         </div>
       ) : (
         <DropzoneFrame
-          className="min-h-56 flex-1 p-6 md:min-h-0"
+          className="min-h-56 flex-1 p-6 lg:min-h-0"
           onClick={() => openFilePicker(null)}
           onFile={(file) => void handleFile(file)}
         >
