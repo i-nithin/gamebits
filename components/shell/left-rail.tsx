@@ -7,6 +7,7 @@ import {
   CompassIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
+  PlusIcon,
   SettingsIcon,
   UserIcon,
 } from "lucide-react";
@@ -27,7 +28,15 @@ export function LeftRail({ currentWeekHref }: { currentWeekHref: string }) {
       href: currentWeekHref,
       label: "Games",
       icon: LayoutGridIcon,
-      active: pathname.startsWith("/week") || pathname.startsWith("/games"),
+      active:
+        pathname.startsWith("/week") ||
+        (pathname.startsWith("/games/") && pathname !== "/games/new"),
+    },
+    {
+      href: "/games/new",
+      label: "Add game",
+      icon: PlusIcon,
+      active: pathname === "/games/new",
     },
     {
       href: "/admin",

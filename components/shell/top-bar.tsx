@@ -9,6 +9,7 @@ import {
   LayoutGridIcon,
   LifeBuoyIcon,
   MenuIcon,
+  PlusIcon,
   SearchIcon,
   SettingsIcon,
   UserIcon,
@@ -56,7 +57,15 @@ export function TopBar({ currentWeekHref }: { currentWeekHref: string }) {
       href: currentWeekHref,
       label: "Games",
       icon: LayoutGridIcon,
-      active: pathname.startsWith("/week") || pathname.startsWith("/games"),
+      active:
+        pathname.startsWith("/week") ||
+        (pathname.startsWith("/games/") && pathname !== "/games/new"),
+    },
+    {
+      href: "/games/new",
+      label: "Add game",
+      icon: PlusIcon,
+      active: pathname === "/games/new",
     },
     {
       href: "/admin",

@@ -14,6 +14,7 @@ export function isAdminUserId(userId: string | null | undefined) {
 }
 
 export async function requireAdmin() {
+  if (!clerkEnabled) return "dev";
   const userId = await getCurrentUserId();
   if (!isAdminUserId(userId)) {
     throw new Error("Unauthorized");
