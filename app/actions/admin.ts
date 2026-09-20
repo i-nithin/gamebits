@@ -2,14 +2,24 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
 import { games, weekListings } from "@/db/schema";
-import { GAME_STATUSES, WEEK_LISTING_CAP } from "@/lib/constants";
+import {
+  GAME_LINK_FIELDS,
+  GAME_STATUSES,
+  WEEK_LISTING_CAP,
+} from "@/lib/constants";
 import { requireAdmin } from "@/lib/auth-admin";
 import { getDb } from "@/lib/db";
 import { countWeekListings, getGameById } from "@/lib/queries";
+import { parseVideoEmbed } from "@/lib/urls";
+
+const assetUrl = z.string().refine(
+  (value) => value.startsWith("/uploads/") || URL.canParse(value),
+  "Enter a valid image or URL",
+);
 
 const gameSchema = z.object({
   id: z.string().uuid().optional(),
@@ -20,15 +30,47 @@ const gameSchema = z.object({
     .max(80)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   tagline: z.string().min(1).max(160),
-  description: z.string().min(1).max(2000),
-  coverUrl: z.string().url(),
-  trailerUrl: z.string().url().optional().or(z.literal("")),
+  description: z.string().min(1).max(4000),
+  coverUrl: assetUrl,
+  trailerUrl: z.string().optional().or(z.literal("")),
   developerName: z.string().min(1).max(120),
   primaryUrl: z.string().url(),
   status: z.enum(GAME_STATUSES),
   tags: z.string(),
   platforms: z.array(z.string()).min(1),
 });
+
+type MediaDraft = { kind: "image" | "video"; url: string };
+
+function parseMedia(raw: string): MediaDraft[] {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const kind = "kind" in item ? item.kind : null;
+      const url = "url" in item ? item.url : null;
+      if (
+        (kind === "image" || kind === "video") &&
+        typeof url === "string" &&
+        (url.startsWith("/uploads/") || URL.canParse(url))
+      ) {
+        return [{ kind, url }];
+      }
+      return [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function firstStoreUrl(formData: FormData) {
+  for (const field of GAME_LINK_FIELDS) {
+    const value = String(formData.get(`link_${field.kind}`) ?? "").trim();
+    if (value) return value;
+  }
+  return "";
+}
 
 function parseTags(raw: string) {
   const tags = raw
@@ -50,52 +92,76 @@ function slugify(name: string) {
     .slice(0, 80);
 }
 
-export async function upsertGameAction(formData: FormData) {
-  await requireAdmin();
-  const platforms = formData.getAll("platforms").map(String);
-  const parsed = gameSchema.parse({
-    id: formData.get("id") ? String(formData.get("id")) : undefined,
-    name: String(formData.get("name") ?? ""),
-    slug: String(formData.get("slug") ?? "") || slugify(String(formData.get("name") ?? "")),
-    tagline: String(formData.get("tagline") ?? ""),
-    description: String(formData.get("description") ?? ""),
-    coverUrl: String(formData.get("coverUrl") ?? ""),
-    trailerUrl: String(formData.get("trailerUrl") ?? ""),
-    developerName: String(formData.get("developerName") ?? ""),
-    primaryUrl: String(formData.get("primaryUrl") ?? ""),
-    status: String(formData.get("status") ?? "upcoming"),
-    tags: String(formData.get("tags") ?? ""),
-    platforms,
-  });
+export async function upsertGameAction(
+  _prev: { error?: string } | null,
+  formData: FormData,
+) {
+  try {
+    await requireAdmin();
+    const platforms = formData.getAll("platforms").map(String);
+    const media = parseMedia(String(formData.get("media") ?? "[]"));
+    const logoUrl = String(formData.get("logoUrl") ?? "").trim();
+    const coverUrl =
+      media.find((item) => item.kind === "image")?.url || logoUrl;
+    const trailerUrl = media.find((item) => item.kind === "video")?.url || "";
+    const primaryUrl = firstStoreUrl(formData);
 
-  const tags = parseTags(parsed.tags);
-  const db = getDb();
-  const values = {
-    name: parsed.name,
-    slug: parsed.slug,
-    tagline: parsed.tagline,
-    description: parsed.description,
-    coverUrl: parsed.coverUrl,
-    trailerUrl: parsed.trailerUrl || null,
-    developerName: parsed.developerName,
-    primaryUrl: parsed.primaryUrl,
-    status: parsed.status,
-    tags,
-    platforms: parsed.platforms,
-    updatedAt: new Date(),
-  };
+    if (trailerUrl && !parseVideoEmbed(trailerUrl)) {
+      return { error: "Use a YouTube or Vimeo HTTPS link" };
+    }
 
-  let id = parsed.id;
-  if (id) {
-    await db.update(games).set(values).where(eq(games.id, id));
-  } else {
-    const [created] = await db.insert(games).values(values).returning({ id: games.id });
-    id = created.id;
+    const parsed = gameSchema.parse({
+      id: formData.get("id") ? String(formData.get("id")) : undefined,
+      name: String(formData.get("name") ?? ""),
+      slug: String(formData.get("slug") ?? "") || slugify(String(formData.get("name") ?? "")),
+      tagline: String(formData.get("tagline") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      coverUrl,
+      trailerUrl,
+      developerName: String(formData.get("developerName") ?? ""),
+      primaryUrl,
+      status: String(formData.get("status") ?? "upcoming"),
+      tags: String(formData.get("tags") ?? ""),
+      platforms,
+    });
+
+    const tags = parseTags(parsed.tags);
+    const db = getDb();
+    const values = {
+      name: parsed.name,
+      slug: parsed.slug,
+      tagline: parsed.tagline,
+      description: parsed.description,
+      coverUrl: parsed.coverUrl,
+      trailerUrl: parsed.trailerUrl || null,
+      developerName: parsed.developerName,
+      primaryUrl: parsed.primaryUrl,
+      status: parsed.status,
+      tags,
+      platforms: parsed.platforms,
+      updatedAt: new Date(),
+    };
+
+    let id = parsed.id;
+    if (id) {
+      await db.update(games).set(values).where(eq(games.id, id));
+    } else {
+      const [created] = await db.insert(games).values(values).returning({ id: games.id });
+      id = created.id;
+    }
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    redirect(`/admin/games/${id}`);
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof z.ZodError) {
+      return { error: error.issues[0]?.message ?? "Check the form fields" };
+    }
+    const message =
+      error instanceof Error ? error.message : "Could not save the game";
+    return { error: message };
   }
-
-  revalidatePath("/");
-  revalidatePath("/admin");
-  redirect(`/admin/games/${id}`);
 }
 
 export async function assignWeekAction(formData: FormData) {

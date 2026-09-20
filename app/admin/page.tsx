@@ -14,13 +14,14 @@ import {
 } from "@/components/ui/table";
 import { weekListings } from "@/db/schema";
 import { isAdminUserId, getCurrentUserId } from "@/lib/auth-admin";
+import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getDb, hasDatabase } from "@/lib/db";
 import { formatIsoWeekLabel, getIsoWeekUtc } from "@/lib/iso-week";
 import { getWeekBoard, listAllGames } from "@/lib/queries";
 
 export default async function AdminPage() {
   const userId = await getCurrentUserId();
-  if (!isAdminUserId(userId)) {
+  if (clerkEnabled && !isAdminUserId(userId)) {
     redirect("/");
   }
 
@@ -50,7 +51,7 @@ export default async function AdminPage() {
             {formatIsoWeekLabel(current.year, current.week)} · {board.games.length}/20
           </p>
         </div>
-        <Link href="/admin/games/new">
+        <Link href="/games/new">
           <Button>New game</Button>
         </Link>
       </div>
