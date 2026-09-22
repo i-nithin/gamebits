@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BadgeCheckIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import { GAME_STATUS_LABELS } from "@/lib/constants";
 import type { RankedGame } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { PlatformChipList } from "@/components/game/platform-chip";
 
 const AUTO_ADVANCE_MS = 6000;
 
@@ -44,11 +45,19 @@ export function HeroCarousel({
 
   if (!current) return null;
 
-  const stats = [
-    { label: "Status", value: GAME_STATUS_LABELS[current.status] },
-    { label: "Platforms", value: current.platforms.join(", ") },
-    { label: "Votes", value: String(current.voteCount), mono: true },
-    { label: "Rank", value: `#${current.rank}`, mono: true },
+  const stats: Array<{
+    label: string;
+    value: ReactNode;
+    mono?: boolean;
+    nowrap?: boolean;
+  }> = [
+    { label: "Status", value: GAME_STATUS_LABELS[current.status], nowrap: true },
+    {
+      label: "Platforms",
+      value: <PlatformChipList platforms={current.platforms} className="max-w-48" />,
+    },
+    { label: "Votes", value: String(current.voteCount), mono: true, nowrap: true },
+    { label: "Rank", value: `#${current.rank}`, mono: true, nowrap: true },
   ];
 
   const previews = slides.filter((slide) => slide.id !== current.id).slice(0, 3);
@@ -121,7 +130,8 @@ export function HeroCarousel({
                     <span className="text-[11px] tracking-wide text-fog uppercase">{stat.label}</span>
                     <span
                       className={cn(
-                        "whitespace-nowrap text-base text-paper-white",
+                        "text-base text-paper-white",
+                        stat.nowrap && "whitespace-nowrap",
                         stat.mono && "stat-mono",
                       )}
                     >

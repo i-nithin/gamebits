@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BadgeCheckIcon, StarIcon } from "lucide-react";
 
 import { VoteButton } from "@/components/game/vote-button";
+import { PlatformChipList } from "@/components/game/platform-chip";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -64,7 +65,9 @@ export function DiscoverTable({
               </Link>
             </TableCell>
             <TableCell className="text-fog">{GAME_STATUS_LABELS[game.status]}</TableCell>
-            <TableCell className="text-fog">{game.platforms.join(", ")}</TableCell>
+            <TableCell>
+              <PlatformChipList platforms={game.platforms} />
+            </TableCell>
             <TableCell className="text-right">
               <div className="flex justify-end">
                 <VoteButton

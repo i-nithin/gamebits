@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BadgeCheckIcon, Gamepad2Icon } from "lucide-react";
 
 import { VoteButton } from "@/components/game/vote-button";
+import { PlatformChipList } from "@/components/game/platform-chip";
 import { Badge } from "@/components/ui/badge";
 import { GAME_STATUS_LABELS } from "@/lib/constants";
 import type { RankedGame } from "@/lib/types";
@@ -49,7 +50,10 @@ export function GameCardGrid({
               ))}
               <span className="inline-flex items-center gap-1 text-xs text-fog">
                 <Gamepad2Icon className="size-3" />
-                {game.platforms.join(" · ")}
+                <PlatformChipList
+                  platforms={game.platforms}
+                  chipClassName="border-0 bg-transparent px-0 py-0 text-xs normal-case tracking-normal"
+                />
               </span>
             </div>
           </div>

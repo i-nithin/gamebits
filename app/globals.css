@@ -148,6 +148,12 @@
     @apply bg-charcoal text-paper-white antialiased;
   }
 
+  a,
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+
   .lucide {
     stroke-width: 1.5;
   }

@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
+import { currentUser } from "@clerk/nextjs/server";
 
 import { GameDetail } from "@/components/game/game-detail";
 import { getCurrentUserId } from "@/lib/auth-admin";
+import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getIsoWeekUtc } from "@/lib/iso-week";
-import { getGameBoardContext } from "@/lib/queries";
-import type { RankedGame } from "@/lib/types";
+import { getGamePageData } from "@/lib/queries";
 
 export default async function GamePage({
   params,
@@ -13,39 +14,24 @@ export default async function GamePage({
 }) {
   const { slug } = await params;
   const userId = await getCurrentUserId();
-  const context = await getGameBoardContext(slug, userId);
-  if (!context) notFound();
+  const data = await getGamePageData(slug, userId);
+  if (!data) notFound();
 
+  const user = clerkEnabled ? await currentUser() : null;
   const current = getIsoWeekUtc();
-  const liveBoard = context.listings.find(
-    (board) => board.year === current.year && board.week === current.week,
+  const liveLaunch = data.launches.find((launch) => launch.live);
+  const year = liveLaunch?.year ?? data.launches[0]?.year ?? current.year;
+  const week = liveLaunch?.week ?? data.launches[0]?.week ?? current.week;
+
+  return (
+    <GameDetail
+      data={data}
+      year={year}
+      week={week}
+      live={Boolean(liveLaunch)}
+      signedIn={Boolean(userId)}
+      displayName={user?.fullName || user?.username || "Player"}
+      imageUrl={user?.imageUrl ?? null}
+    />
   );
-  const board = liveBoard ?? context.listings[0];
-  const ranked = board?.games.find((game) => game.slug === slug);
-
-  const game: RankedGame = ranked ?? {
-    id: context.game.id,
-    slug: context.game.slug,
-    name: context.game.name,
-    tagline: context.game.tagline,
-    description: context.game.description,
-    coverUrl: context.game.coverUrl,
-    trailerUrl: context.game.trailerUrl,
-    developerName: context.game.developerName,
-    primaryUrl: context.game.primaryUrl,
-    status: context.game.status,
-    tags: context.game.tags ?? [],
-    platforms: context.game.platforms ?? [],
-    outboundClicks: context.game.outboundClicks,
-    featured: false,
-    voteCount: 0,
-    voted: false,
-    rank: 0,
-  };
-
-  const year = board?.year ?? current.year;
-  const week = board?.week ?? current.week;
-  const live = board?.live ?? false;
-
-  return <GameDetail game={game} year={year} week={week} live={live} />;
 }
