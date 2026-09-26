@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BadgeCheckIcon, Gamepad2Icon } from "lucide-react";
 
 import { VoteButton } from "@/components/game/vote-button";
+import { PlatformChipList } from "@/components/game/platform-chip";
 import { Badge } from "@/components/ui/badge";
 import { GAME_STATUS_LABELS } from "@/lib/constants";
 import type { RankedGame } from "@/lib/types";
@@ -30,9 +31,9 @@ export function GameCardGrid({
           <span className="stat-mono w-5 shrink-0 text-xs text-fog">{game.rank}</span>
           <Link
             href={`/games/${game.slug}`}
-            className="relative size-12 shrink-0 overflow-hidden rounded-xl sm:size-14"
+            className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-graphite sm:size-14"
           >
-            <Image src={game.coverUrl} alt="" fill className="object-cover" sizes="56px" />
+            <Image src={game.logoUrl} alt="" fill className="object-contain p-1.5" sizes="56px" />
           </Link>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <Link href={`/games/${game.slug}`} className="flex items-center gap-1.5">
@@ -49,7 +50,10 @@ export function GameCardGrid({
               ))}
               <span className="inline-flex items-center gap-1 text-xs text-fog">
                 <Gamepad2Icon className="size-3" />
-                {game.platforms.join(" · ")}
+                <PlatformChipList
+                  platforms={game.platforms}
+                  chipClassName="border-0 bg-transparent px-0 py-0 text-xs normal-case tracking-normal"
+                />
               </span>
             </div>
           </div>

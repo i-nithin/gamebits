@@ -50,9 +50,14 @@ export default async function AdminPage() {
             {formatIsoWeekLabel(current.year, current.week)} · {board.games.length}/20
           </p>
         </div>
-        <Link href="/admin/games/new">
-          <Button>New game</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/platforms">
+            <Button variant="ghost">Platforms</Button>
+          </Link>
+          <Link href="/admin/games/new">
+            <Button>New game</Button>
+          </Link>
+        </div>
       </div>
       <div className="overflow-x-auto">
       <Table>
@@ -73,6 +78,7 @@ export default async function AdminPage() {
                   <Link href={`/admin/games/${game.id}`} className="text-ice-signal">
                     {game.name}
                   </Link>
+                  {game.archivedAt ? <span className="ml-2 text-xs text-fog">Archived</span> : null}
                 </TableCell>
                 <TableCell className="stat-mono">{game.outboundClicks}</TableCell>
                 <TableCell>{listing ? (listing.featured ? "Featured" : "Listed") : "—"}</TableCell>

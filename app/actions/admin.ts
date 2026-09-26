@@ -3,100 +3,12 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
 
-import { games, weekListings } from "@/db/schema";
-import { GAME_STATUSES, WEEK_LISTING_CAP } from "@/lib/constants";
+import { weekListings } from "@/db/schema";
+import { WEEK_LISTING_CAP } from "@/lib/constants";
 import { requireAdmin } from "@/lib/auth-admin";
 import { getDb } from "@/lib/db";
 import { countWeekListings, getGameById } from "@/lib/queries";
-
-const gameSchema = z.object({
-  id: z.string().uuid().optional(),
-  name: z.string().min(1).max(120),
-  slug: z
-    .string()
-    .min(1)
-    .max(80)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-  tagline: z.string().min(1).max(160),
-  description: z.string().min(1).max(2000),
-  coverUrl: z.string().url(),
-  trailerUrl: z.string().url().optional().or(z.literal("")),
-  developerName: z.string().min(1).max(120),
-  primaryUrl: z.string().url(),
-  status: z.enum(GAME_STATUSES),
-  tags: z.string(),
-  platforms: z.array(z.string()).min(1),
-});
-
-function parseTags(raw: string) {
-  const tags = raw
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean)
-    .slice(0, 3);
-  if (tags.length < 1) {
-    throw new Error("Add 1–3 tags");
-  }
-  return tags;
-}
-
-function slugify(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 80);
-}
-
-export async function upsertGameAction(formData: FormData) {
-  await requireAdmin();
-  const platforms = formData.getAll("platforms").map(String);
-  const parsed = gameSchema.parse({
-    id: formData.get("id") ? String(formData.get("id")) : undefined,
-    name: String(formData.get("name") ?? ""),
-    slug: String(formData.get("slug") ?? "") || slugify(String(formData.get("name") ?? "")),
-    tagline: String(formData.get("tagline") ?? ""),
-    description: String(formData.get("description") ?? ""),
-    coverUrl: String(formData.get("coverUrl") ?? ""),
-    trailerUrl: String(formData.get("trailerUrl") ?? ""),
-    developerName: String(formData.get("developerName") ?? ""),
-    primaryUrl: String(formData.get("primaryUrl") ?? ""),
-    status: String(formData.get("status") ?? "upcoming"),
-    tags: String(formData.get("tags") ?? ""),
-    platforms,
-  });
-
-  const tags = parseTags(parsed.tags);
-  const db = getDb();
-  const values = {
-    name: parsed.name,
-    slug: parsed.slug,
-    tagline: parsed.tagline,
-    description: parsed.description,
-    coverUrl: parsed.coverUrl,
-    trailerUrl: parsed.trailerUrl || null,
-    developerName: parsed.developerName,
-    primaryUrl: parsed.primaryUrl,
-    status: parsed.status,
-    tags,
-    platforms: parsed.platforms,
-    updatedAt: new Date(),
-  };
-
-  let id = parsed.id;
-  if (id) {
-    await db.update(games).set(values).where(eq(games.id, id));
-  } else {
-    const [created] = await db.insert(games).values(values).returning({ id: games.id });
-    id = created.id;
-  }
-
-  revalidatePath("/");
-  revalidatePath("/admin");
-  redirect(`/admin/games/${id}`);
-}
 
 export async function assignWeekAction(formData: FormData) {
   await requireAdmin();

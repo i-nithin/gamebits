@@ -57,7 +57,7 @@ export function WeekFilter({
                 isSelected
                   ? "bg-void text-paper-white"
                   : isFuture
-                    ? "cursor-default text-fog/40"
+                    ? "cursor-pointer text-fog/40"
                     : "text-fog hover:bg-slate/50 hover:text-paper-white",
               )}
             >

@@ -15,6 +15,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { compareIsoWeek, type IsoWeek } from "@/lib/iso-week";
+import { cn } from "@/lib/utils";
 import type { RankedGame, WeekBoard } from "@/lib/types";
 
 export function HomeBoard({
@@ -33,6 +34,7 @@ export function HomeBoard({
   const slides = carouselGames.slice(0, 5);
   const [heroIndex, setHeroIndex] = useState(0);
   const [selectedWeek, setSelectedWeek] = useState<IsoWeek>(currentWeek);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [windowStart, setWindowStart] = useState(() => {
     const currentIndex = weeks.findIndex(
       (week) => week.year === currentWeek.year && week.week === currentWeek.week,
@@ -59,6 +61,18 @@ export function HomeBoard({
       live: false,
       games: [],
     };
+
+  const tags = useMemo(() => {
+    const unique = new Set<string>();
+    for (const game of board.games) {
+      for (const tag of game.tags) unique.add(tag);
+    }
+    return [...unique].sort((a, b) => a.localeCompare(b));
+  }, [board.games]);
+  const activeTag = selectedTag && tags.includes(selectedTag) ? selectedTag : null;
+  const launches = activeTag
+    ? board.games.filter((game) => game.tags.includes(activeTag))
+    : board.games;
 
   useEffect(() => {
     if (heroIndex >= slides.length) setHeroIndex(0);
@@ -118,6 +132,39 @@ export function HomeBoard({
               onSelect={selectWeek}
               onWindowStartChange={setWindowStart}
             />
+            {tags.length > 0 ? (
+              <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <button
+                  type="button"
+                  aria-pressed={activeTag === null}
+                  onClick={() => setSelectedTag(null)}
+                  className={cn(
+                    "h-8 shrink-0 rounded-full border border-iron px-3 text-sm",
+                    activeTag === null
+                      ? "bg-graphite text-paper-white"
+                      : "text-fog hover:bg-slate/50 hover:text-paper-white",
+                  )}
+                >
+                  All
+                </button>
+                {tags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    aria-pressed={activeTag === tag}
+                    onClick={() => setSelectedTag(tag)}
+                    className={cn(
+                      "h-8 shrink-0 rounded-full border border-iron px-3 text-sm",
+                      activeTag === tag
+                        ? "bg-graphite text-paper-white"
+                        : "text-fog hover:bg-slate/50 hover:text-paper-white",
+                    )}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {board.games.length === 0 ? (
               <Empty className="border border-dashed border-iron">
                 <EmptyHeader>
@@ -129,7 +176,7 @@ export function HomeBoard({
               </Empty>
             ) : (
               <GameCardGrid
-                games={board.games}
+                games={launches}
                 year={board.year}
                 week={board.week}
                 live={board.live}

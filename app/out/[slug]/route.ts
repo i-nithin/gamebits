@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const { slug } = await params;
   const game = await getGameBySlug(slug);
-  if (!game) {
+  if (!game || game.archivedAt) {
     return NextResponse.redirect(new URL("/", _request.url));
   }
 

@@ -2,7 +2,7 @@
 
 Discovery platform for games: a weekly campaign board (ScrollLaunch’s mechanism, games-only). Not “what physically released this calendar week.”
 
-**Status:** Grilled and locked. Do not expand scope without a new decision. Implementation starts only when explicitly requested.
+**Status:** Core weekly board is shipped. Signed-in users can now add/own games, archive them, and post star+comment reviews. Owner Launch is still a stub.
 
 ## Problem (MVP slice)
 
@@ -14,7 +14,7 @@ Players cannot find interesting games in one place. Developers cannot get a fair
 |------|---------|----------------|
 | Players | Yes | Browse the week, sign in, upvote, click out to the game |
 | You (admin / curator) | Yes | Seed ~20 games per ISO week |
-| Developers | Not self-serve | Their games appear because you listed them |
+| Developers | Self-serve add | Signed-in users create a game they own; admin still assigns weekly launches |
 | Creators | Browse only | Same as players |
 
 Cold start: **you seed and curate the first weeks.** Open developer submit, apply-to-launch, and Premium slot-skip are out of MVP.
@@ -37,9 +37,10 @@ A **GameBits Launch** is a **weekly campaign slot**.
 
 1. **Homepage** — current ISO week, ranked list of that week’s ~20 games.
 2. **`/week/[year]/[week]`** — frozen (or live, if current) leaderboard for that week.
-3. **`/games/[slug]`** — permanent game page.
+3. **`/games/[slug]`** — permanent game page (media gallery, details/launches/reviews).
+4. **`/games/new`** and **`/games/[slug]/edit`** — signed-in create/edit (owner or admin).
 
-Out of MVP: Today’s Hunts, Trending, New, Upcoming, Popular, Hidden Gems, Categories, Platforms as separate products, `/games` directory, comments, follows, saves, streaks, personalized feeds, similar games, developer dashboard, paid launch tiers, SEO badge/dofollow marketplace.
+Out of MVP: Today’s Hunts, Trending, New, Upcoming, Popular, Hidden Gems, Categories, Platforms as separate products, `/games` directory, follows, saves, streaks, personalized feeds, similar games, paid launch tiers, SEO badge/dofollow marketplace. Owner launch onto the board is stubbed.
 
 ## Player loop
 
@@ -55,15 +56,16 @@ Later: comments, follows, saves, streaks, richer ranking.
 
 **Card:** cover, name, tagline, real-world status, 1–3 tags, platforms, rank, vote count.
 
-**Page:** card fields + short description, developer name, one **primary outbound URL** (tracked), optional trailer URL.
+**Page:** split media/details layout, store links, launches history, reviews (1–5 stars + comment, one per user).
 
-Not in MVP: screenshot gallery, price, system requirements, markdown essays, maker credits, related games.
+Not in MVP: price, system requirements, markdown essays, maker credits, related games.
 
 ## Admin
 
-- No public self-serve submit.
-- Optional later: “suggest a game” form that **never auto-publishes**.
-- You add/edit games and assign them to an ISO week (cap ~20 per week for scannability).
+- Signed-in users add games they own. Owners can edit and archive/unarchive.
+- Archived games are hidden from the board and search.
+- You (admin) still assign games to an ISO week (cap ~20 per week for scannability).
+- Admin also curates the platforms catalog (name + logo). Game submitters pick from that list; they cannot invent platforms.
 - Admin = your Clerk user id (`ADMIN_USER_ID`).
 - Click counts are for admin insight; public ranking is votes only.
 

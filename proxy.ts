@@ -2,10 +2,15 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
+const isGameWriteRoute = createRouteMatcher([
+  "/games/new",
+  "/games/(.*)/edit",
+  "/games/(.*)/launch",
+]);
 
 export default process.env.CLERK_SECRET_KEY
   ? clerkMiddleware(async (auth, req) => {
-      if (isAdminRoute(req)) {
+      if (isAdminRoute(req) || isGameWriteRoute(req)) {
         await auth.protect();
       }
     })

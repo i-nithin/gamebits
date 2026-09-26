@@ -18,6 +18,8 @@ export function VoteButton({
   voted,
   live,
   compact = false,
+  wide = false,
+  className,
 }: {
   gameId: string;
   year: number;
@@ -26,6 +28,8 @@ export function VoteButton({
   voted: boolean;
   live: boolean;
   compact?: boolean;
+  wide?: boolean;
+  className?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -41,19 +45,25 @@ export function VoteButton({
     });
   }
 
+  const classes = cn(
+    wide
+      ? "h-12 min-w-0 flex-1 flex-row rounded-full border-iron px-6 text-paper-white"
+      : "flex flex-col gap-0.5 rounded-lg border-iron px-2 py-1 text-paper-white",
+    voted && "border-ice-signal bg-ice-soft",
+    className,
+  );
+
   const control = (
     <Button
       type="button"
       variant="outline"
-      size={compact ? "sm" : "default"}
+      size={compact ? "sm" : wide ? "lg" : "default"}
       disabled={!live || pending}
       onClick={vote}
-      className={cn(
-        "flex flex-col gap-0.5 rounded-lg border-iron px-2 py-1 text-paper-white",
-        voted && "border-ice-signal bg-ice-soft",
-      )}
+      className={classes}
     >
       <ChevronUpIcon data-icon="inline-start" />
+      {wide ? "Vote" : null}
       <span className="stat-mono text-xs">{voteCount}</span>
     </Button>
   );
@@ -71,10 +81,11 @@ export function VoteButton({
             <Button
               type="button"
               variant="outline"
-              size={compact ? "sm" : "default"}
-              className="flex flex-col gap-0.5 rounded-lg border-iron px-2 py-1"
+              size={compact ? "sm" : wide ? "lg" : "default"}
+              className={classes}
             >
               <ChevronUpIcon data-icon="inline-start" />
+              {wide ? "Vote" : null}
               <span className="stat-mono text-xs">{voteCount}</span>
             </Button>
           </SignInButton>

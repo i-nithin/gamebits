@@ -1,10 +1,22 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { cache } from "react";
 
-import { games, votes, weekListings } from "@/db/schema";
+import { bookmarks, gameLinks, gameMedia, gamePlatforms, gameReviews, games, likes, platforms, votes, weekListings } from "@/db/schema";
+import { canManageGame, isAdminUserId } from "@/lib/auth-admin";
+import { REVIEW_PAGE_SIZE } from "@/lib/constants";
 import { getDb, hasDatabase } from "@/lib/db";
 import { isIsoWeekLive } from "@/lib/iso-week";
-import type { RankedGame, SearchGame, WeekBoard } from "@/lib/types";
+import type {
+  GameLaunchItem,
+  GamePageData,
+  GamePlatformItem,
+  GameReviewItem,
+  RankedGame,
+  SavedGame,
+  SearchGame,
+  WeekBoard,
+} from "@/lib/types";
+import { withVideosFirst } from "@/lib/urls";
 
 function toRanked(
   rows: Array<{
@@ -19,25 +31,177 @@ function toRanked(
     return a.game.name.localeCompare(b.game.name);
   });
 
-  return ranked.map((row, index) => ({
-    id: row.game.id,
-    slug: row.game.slug,
-    name: row.game.name,
-    tagline: row.game.tagline,
-    description: row.game.description,
-    coverUrl: row.game.coverUrl,
-    trailerUrl: row.game.trailerUrl,
-    developerName: row.game.developerName,
-    primaryUrl: row.game.primaryUrl,
-    status: row.game.status,
-    tags: row.game.tags ?? [],
-    platforms: row.game.platforms ?? [],
-    outboundClicks: row.game.outboundClicks,
+  return ranked.map((row, index) => rankedGame(row.game, {
     featured: row.featured,
     voteCount: row.voteCount,
     voted: row.voted,
     rank: index + 1,
   }));
+}
+
+function rankedGame(
+  game: typeof games.$inferSelect,
+  extras: { featured: boolean; voteCount: number; voted: boolean; rank: number },
+  platformItems: GamePlatformItem[] = [],
+): RankedGame {
+  return {
+    id: game.id,
+    slug: game.slug,
+    name: game.name,
+    tagline: game.tagline,
+    description: game.description,
+    coverUrl: game.coverUrl,
+    logoUrl: game.logoUrl,
+    trailerUrl: game.trailerUrl,
+    developerName: game.developerName,
+    primaryUrl: game.primaryUrl,
+    status: game.status,
+    tags: game.tags ?? [],
+    platforms: platformItems,
+    outboundClicks: game.outboundClicks,
+    featured: extras.featured,
+    voteCount: extras.voteCount,
+    voted: extras.voted,
+    rank: extras.rank,
+  };
+}
+
+function toPlatformItem(row: {
+  id: string;
+  slug: string;
+  name: string;
+  logoUrl: string;
+}): GamePlatformItem {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    logoUrl: row.logoUrl,
+  };
+}
+
+async function platformsByGameIds(gameIds: string[]): Promise<Map<string, GamePlatformItem[]>> {
+  const map = new Map<string, GamePlatformItem[]>();
+  if (gameIds.length === 0 || !hasDatabase()) return map;
+
+  const db = getDb();
+  const rows = await db
+    .select({
+      gameId: gamePlatforms.gameId,
+      id: platforms.id,
+      slug: platforms.slug,
+      name: platforms.name,
+      logoUrl: platforms.logoUrl,
+    })
+    .from(gamePlatforms)
+    .innerJoin(platforms, eq(gamePlatforms.platformId, platforms.id))
+    .where(inArray(gamePlatforms.gameId, gameIds))
+    .orderBy(asc(platforms.sortOrder), asc(platforms.name));
+
+  for (const row of rows) {
+    const list = map.get(row.gameId) ?? [];
+    list.push(toPlatformItem(row));
+    map.set(row.gameId, list);
+  }
+  return map;
+}
+
+async function withPlatforms(games: RankedGame[]): Promise<RankedGame[]> {
+  const byGame = await platformsByGameIds(games.map((game) => game.id));
+  return games.map((game) => ({
+    ...game,
+    platforms: byGame.get(game.id) ?? [],
+  }));
+}
+
+export const listAllPlatforms = cache(async function listAllPlatforms() {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  return db
+    .select()
+    .from(platforms)
+    .orderBy(asc(platforms.sortOrder), asc(platforms.name));
+});
+
+export const listPlatformCatalog = cache(async function listPlatformCatalog() {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: platforms.id,
+      slug: platforms.slug,
+      name: platforms.name,
+      logoUrl: platforms.logoUrl,
+      sortOrder: platforms.sortOrder,
+      archivedAt: platforms.archivedAt,
+      gameCount: count(gamePlatforms.id),
+    })
+    .from(platforms)
+    .leftJoin(gamePlatforms, eq(gamePlatforms.platformId, platforms.id))
+    .groupBy(
+      platforms.id,
+      platforms.slug,
+      platforms.name,
+      platforms.logoUrl,
+      platforms.sortOrder,
+      platforms.archivedAt,
+    )
+    .orderBy(asc(platforms.sortOrder), asc(platforms.name));
+  return rows.map((row) => ({
+    ...row,
+    gameCount: Number(row.gameCount),
+  }));
+});
+
+export const listActivePlatforms = cache(async function listActivePlatforms(): Promise<
+  GamePlatformItem[]
+> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: platforms.id,
+      slug: platforms.slug,
+      name: platforms.name,
+      logoUrl: platforms.logoUrl,
+    })
+    .from(platforms)
+    .where(isNull(platforms.archivedAt))
+    .orderBy(asc(platforms.sortOrder), asc(platforms.name));
+  return rows.map(toPlatformItem);
+});
+
+export const listEditorPlatforms = cache(async function listEditorPlatforms(
+  selectedIds: string[],
+): Promise<GamePlatformItem[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: platforms.id,
+      slug: platforms.slug,
+      name: platforms.name,
+      logoUrl: platforms.logoUrl,
+      archivedAt: platforms.archivedAt,
+    })
+    .from(platforms)
+    .orderBy(asc(platforms.sortOrder), asc(platforms.name));
+  const selected = new Set(selectedIds);
+  return rows
+    .filter((row) => !row.archivedAt || selected.has(row.id))
+    .map(toPlatformItem);
+});
+
+export async function getPlatformById(id: string) {
+  if (!hasDatabase()) return null;
+  const db = getDb();
+  const [row] = await db.select().from(platforms).where(eq(platforms.id, id)).limit(1);
+  return row ?? null;
+}
+
+export async function listGamePlatforms(gameId: string): Promise<GamePlatformItem[]> {
+  const map = await platformsByGameIds([gameId]);
+  return map.get(gameId) ?? [];
 }
 
 export const getWeekBoard = cache(async function getWeekBoard(
@@ -69,14 +233,20 @@ export const getWeekBoard = cache(async function getWeekBoard(
         eq(votes.isoWeek, weekListings.isoWeek),
       ),
     )
-    .where(and(eq(weekListings.isoYear, year), eq(weekListings.isoWeek, week)))
+    .where(
+      and(
+        eq(weekListings.isoYear, year),
+        eq(weekListings.isoWeek, week),
+        isNull(games.archivedAt),
+      ),
+    )
     .groupBy(games.id, weekListings.id);
 
   return {
     year,
     week,
     live: isIsoWeekLive(year, week),
-    games: toRanked(rows),
+    games: await withPlatforms(toRanked(rows)),
   };
 });
 
@@ -130,6 +300,7 @@ export const listSearchableGames = cache(async function listSearchableGames(): P
     })
     .from(games)
     .leftJoin(votes, eq(votes.gameId, games.id))
+    .where(isNull(games.archivedAt))
     .groupBy(games.id)
     .orderBy(games.name)
     .limit(100);
@@ -156,7 +327,14 @@ export async function countWeekListings(year: number, week: number) {
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(weekListings)
-    .where(and(eq(weekListings.isoYear, year), eq(weekListings.isoWeek, week)));
+    .innerJoin(games, eq(weekListings.gameId, games.id))
+    .where(
+      and(
+        eq(weekListings.isoYear, year),
+        eq(weekListings.isoWeek, week),
+        isNull(games.archivedAt),
+      ),
+    );
   return row?.count ?? 0;
 }
 
@@ -169,7 +347,7 @@ export async function incrementOutboundClicks(gameId: string) {
       outboundClicks: sql`${games.outboundClicks} + 1`,
       updatedAt: new Date(),
     })
-    .where(eq(games.id, gameId));
+    .where(and(eq(games.id, gameId), isNull(games.archivedAt)));
 }
 
 export async function toggleWeekVote(opts: {
@@ -179,6 +357,13 @@ export async function toggleWeekVote(opts: {
   week: number;
 }) {
   const db = getDb();
+  const [game] = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(and(eq(games.id, opts.gameId), isNull(games.archivedAt)))
+    .limit(1);
+  if (!game) throw new Error("Game not found");
+
   const existing = await db
     .select({ id: votes.id })
     .from(votes)
@@ -204,4 +389,308 @@ export async function toggleWeekVote(opts: {
     isoWeek: opts.week,
   });
   return { voted: true };
+}
+
+export async function toggleBookmark(opts: { userId: string; gameId: string }) {
+  const db = getDb();
+  const [game] = await db
+    .select({ id: games.id, slug: games.slug })
+    .from(games)
+    .where(and(eq(games.id, opts.gameId), isNull(games.archivedAt)))
+    .limit(1);
+  if (!game) return null;
+
+  const existing = await db
+    .select({ id: bookmarks.id })
+    .from(bookmarks)
+    .where(and(eq(bookmarks.clerkUserId, opts.userId), eq(bookmarks.gameId, opts.gameId)))
+    .limit(1);
+
+  if (existing[0]) {
+    await db.delete(bookmarks).where(eq(bookmarks.id, existing[0].id));
+    return { bookmarked: false, slug: game.slug };
+  }
+
+  await db.insert(bookmarks).values({
+    clerkUserId: opts.userId,
+    gameId: opts.gameId,
+  });
+  return { bookmarked: true, slug: game.slug };
+}
+
+export async function toggleLike(opts: { userId: string; gameId: string }) {
+  const db = getDb();
+  const [game] = await db
+    .select({ id: games.id, slug: games.slug })
+    .from(games)
+    .where(and(eq(games.id, opts.gameId), isNull(games.archivedAt)))
+    .limit(1);
+  if (!game) return null;
+
+  const existing = await db
+    .select({ id: likes.id })
+    .from(likes)
+    .where(and(eq(likes.clerkUserId, opts.userId), eq(likes.gameId, opts.gameId)))
+    .limit(1);
+
+  if (existing[0]) {
+    await db.delete(likes).where(eq(likes.id, existing[0].id));
+  } else {
+    await db.insert(likes).values({
+      clerkUserId: opts.userId,
+      gameId: opts.gameId,
+    });
+  }
+
+  const [countRow] = await db
+    .select({ likeCount: sql<number>`count(*)::int` })
+    .from(likes)
+    .where(eq(likes.gameId, opts.gameId));
+
+  return {
+    liked: !existing[0],
+    likeCount: countRow?.likeCount ?? 0,
+    slug: game.slug,
+  };
+}
+
+export async function listBookmarks(userId: string): Promise<SavedGame[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: games.id,
+      slug: games.slug,
+      name: games.name,
+      tagline: games.tagline,
+      logoUrl: games.logoUrl,
+      status: games.status,
+      tags: games.tags,
+    })
+    .from(bookmarks)
+    .innerJoin(games, eq(bookmarks.gameId, games.id))
+    .where(and(eq(bookmarks.clerkUserId, userId), isNull(games.archivedAt)))
+    .orderBy(desc(bookmarks.createdAt));
+
+  const platformMap = await platformsByGameIds(rows.map((row) => row.id));
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    tagline: row.tagline,
+    logoUrl: row.logoUrl,
+    status: row.status,
+    tags: row.tags ?? [],
+    platforms: platformMap.get(row.id) ?? [],
+  }));
+}
+
+function encodeReviewCursor(createdAt: Date, id: string) {
+  return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString("base64url");
+}
+
+function decodeReviewCursor(cursor: string | null) {
+  if (!cursor) return null;
+  try {
+    const decoded = Buffer.from(cursor, "base64url").toString("utf8");
+    const [iso, id] = decoded.split("|");
+    if (!iso || !id) return null;
+    const createdAt = new Date(iso);
+    if (Number.isNaN(createdAt.getTime())) return null;
+    return { createdAt, id };
+  } catch {
+    return null;
+  }
+}
+
+export async function listGameReviews(opts: {
+  gameId: string;
+  cursor?: string | null;
+  limit?: number;
+}): Promise<{ items: GameReviewItem[]; nextCursor: string | null }> {
+  if (!hasDatabase()) return { items: [], nextCursor: null };
+  const db = getDb();
+  const limit = opts.limit ?? REVIEW_PAGE_SIZE;
+  const parsed = decodeReviewCursor(opts.cursor ?? null);
+
+  const rows = await db
+    .select()
+    .from(gameReviews)
+    .where(
+      parsed
+        ? and(
+            eq(gameReviews.gameId, opts.gameId),
+            or(
+              lt(gameReviews.createdAt, parsed.createdAt),
+              and(eq(gameReviews.createdAt, parsed.createdAt), lt(gameReviews.id, parsed.id)),
+            ),
+          )
+        : eq(gameReviews.gameId, opts.gameId),
+    )
+    .orderBy(desc(gameReviews.createdAt), desc(gameReviews.id))
+    .limit(limit + 1);
+
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page[page.length - 1];
+  return {
+    items: page.map((row) => ({
+      id: row.id,
+      rating: row.rating,
+      body: row.body,
+      displayName: row.displayName,
+      imageUrl: row.imageUrl,
+      createdAt: row.createdAt.toISOString(),
+      clerkUserId: row.clerkUserId,
+    })),
+    nextCursor: hasMore && last ? encodeReviewCursor(last.createdAt, last.id) : null,
+  };
+}
+
+export async function getGamePageData(
+  slug: string,
+  userId?: string | null,
+): Promise<GamePageData | null> {
+  const gameRow = await getGameBySlug(slug);
+  if (!gameRow) return null;
+
+  const isAdmin = isAdminUserId(userId);
+  const isOwner = canManageGame(userId, gameRow.ownerClerkUserId);
+  if (gameRow.archivedAt && !isOwner) return null;
+
+  if (!hasDatabase()) return null;
+  const db = getDb();
+
+  const [mediaRows, linkRows, listingRows, reviewAgg, viewerRows, firstReviews, platformMap, bookmarkRows, likeRows] =
+    await Promise.all([
+      db
+        .select()
+        .from(gameMedia)
+        .where(eq(gameMedia.gameId, gameRow.id))
+        .orderBy(gameMedia.sortOrder),
+      db.select().from(gameLinks).where(eq(gameLinks.gameId, gameRow.id)),
+      db
+        .select({
+          isoYear: weekListings.isoYear,
+          isoWeek: weekListings.isoWeek,
+          featured: weekListings.featured,
+        })
+        .from(weekListings)
+        .where(eq(weekListings.gameId, gameRow.id))
+        .orderBy(desc(weekListings.isoYear), desc(weekListings.isoWeek)),
+      db
+        .select({
+          count: sql<number>`count(*)::int`,
+          average: sql<number | null>`avg(${gameReviews.rating})`,
+        })
+        .from(gameReviews)
+        .where(eq(gameReviews.gameId, gameRow.id)),
+      userId
+        ? db
+            .select({ rating: gameReviews.rating, body: gameReviews.body })
+            .from(gameReviews)
+            .where(and(eq(gameReviews.gameId, gameRow.id), eq(gameReviews.clerkUserId, userId)))
+            .limit(1)
+        : Promise.resolve([]),
+      listGameReviews({ gameId: gameRow.id }),
+      platformsByGameIds([gameRow.id]),
+      userId
+        ? db
+            .select({ id: bookmarks.id })
+            .from(bookmarks)
+            .where(and(eq(bookmarks.gameId, gameRow.id), eq(bookmarks.clerkUserId, userId)))
+            .limit(1)
+        : Promise.resolve([]),
+      db
+        .select({
+          likeCount: sql<number>`count(*)::int`,
+          liked: userId
+            ? sql<boolean>`coalesce(bool_or(${likes.clerkUserId} = ${userId}), false)`
+            : sql<boolean>`false`,
+        })
+        .from(likes)
+        .where(eq(likes.gameId, gameRow.id)),
+    ]);
+
+  const boards = await Promise.all(
+    listingRows.map((listing) => getWeekBoard(listing.isoYear, listing.isoWeek, userId)),
+  );
+
+  const launches: GameLaunchItem[] = listingRows.map((listing, index) => {
+    const board = boards[index];
+    const ranked = board?.games.find((item) => item.id === gameRow.id);
+    return {
+      year: listing.isoYear,
+      week: listing.isoWeek,
+      live: board?.live ?? false,
+      featured: listing.featured,
+      voteCount: ranked?.voteCount ?? 0,
+      rank: ranked?.rank ?? 0,
+    };
+  });
+
+  const liveBoard = launches.find((launch) => launch.live);
+  const extras = liveBoard
+    ? {
+        featured: liveBoard.featured,
+        voteCount: liveBoard.voteCount,
+        voted: boards.find((board) => board.live)?.games.find((item) => item.id === gameRow.id)?.voted ?? false,
+        rank: liveBoard.rank,
+      }
+    : {
+        featured: false,
+        voteCount: launches[0]?.voteCount ?? 0,
+        voted: false,
+        rank: launches[0]?.rank ?? 0,
+      };
+
+  const agg = reviewAgg[0];
+
+  return {
+    game: rankedGame(gameRow, extras, platformMap.get(gameRow.id) ?? []),
+    media: withVideosFirst(
+      mediaRows.map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        url: row.url,
+        sortOrder: row.sortOrder,
+      })),
+    ),
+    links: linkRows.map((row) => ({ kind: row.kind, url: row.url })),
+    launches,
+    isOwner,
+    isAdmin,
+    archived: Boolean(gameRow.archivedAt),
+    reviewAverage: agg?.average != null ? Number(agg.average) : null,
+    reviewCount: agg?.count ?? 0,
+    reviews: firstReviews.items,
+    reviewsNextCursor: firstReviews.nextCursor,
+    viewerReview: viewerRows[0] ?? null,
+    bookmarked: Boolean(bookmarkRows[0]),
+    liked: Boolean(likeRows[0]?.liked),
+    likeCount: likeRows[0]?.likeCount ?? 0,
+  };
+}
+
+export async function getGameEditorData(id: string) {
+  const game = await getGameById(id);
+  if (!game) return null;
+  if (!hasDatabase()) return { game, media: [], links: [], platformIds: [] as string[] };
+  const db = getDb();
+  const [media, links, selected] = await Promise.all([
+    db.select().from(gameMedia).where(eq(gameMedia.gameId, id)).orderBy(gameMedia.sortOrder),
+    db.select().from(gameLinks).where(eq(gameLinks.gameId, id)),
+    db
+      .select({ platformId: gamePlatforms.platformId })
+      .from(gamePlatforms)
+      .innerJoin(platforms, eq(gamePlatforms.platformId, platforms.id))
+      .where(eq(gamePlatforms.gameId, id))
+      .orderBy(asc(platforms.sortOrder), asc(platforms.name)),
+  ]);
+  return {
+    game,
+    media: withVideosFirst(media),
+    links,
+    platformIds: selected.map((row) => row.platformId),
+  };
 }

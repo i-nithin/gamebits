@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  BookmarkIcon,
   CompassIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
+  PlusIcon,
   SettingsIcon,
   UserIcon,
 } from "lucide-react";
@@ -27,7 +29,19 @@ export function LeftRail({ currentWeekHref }: { currentWeekHref: string }) {
       href: currentWeekHref,
       label: "Games",
       icon: LayoutGridIcon,
-      active: pathname.startsWith("/week") || pathname.startsWith("/games"),
+      active: pathname.startsWith("/week") || (pathname.startsWith("/games/") && pathname !== "/games/new"),
+    },
+    {
+      href: "/bookmarks",
+      label: "Saved",
+      icon: BookmarkIcon,
+      active: pathname === "/bookmarks",
+    },
+    {
+      href: "/games/new",
+      label: "Add game",
+      icon: PlusIcon,
+      active: pathname === "/games/new",
     },
     {
       href: "/admin",
