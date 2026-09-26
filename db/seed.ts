@@ -1,8 +1,9 @@
 import { config } from "dotenv";
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-import { gamePlatforms, games, platforms, weekListings } from "./schema";
+import { categories, gameCategories, gamePlatforms, games, platforms, weekListings } from "./schema";
 import { getIsoWeekUtc } from "../lib/iso-week";
 import { DEFAULT_PLATFORMS, LEGACY_PLATFORM_SLUGS } from "../lib/platform-catalog";
 
@@ -16,6 +17,19 @@ if (!url) {
 
 const pool = new Pool({ connectionString: url });
 const db = drizzle(pool);
+
+const seedCategories = [
+  { slug: "racing", name: "Racing", sortOrder: 10 },
+  { slug: "indie", name: "Indie", sortOrder: 20 },
+  { slug: "sim", name: "Sim", sortOrder: 30 },
+  { slug: "cozy", name: "Cozy", sortOrder: 40 },
+  { slug: "puzzle", name: "Puzzle", sortOrder: 50 },
+  { slug: "stealth", name: "Stealth", sortOrder: 60 },
+  { slug: "tactics", name: "Tactics", sortOrder: 70 },
+  { slug: "rpg", name: "RPG", sortOrder: 80 },
+  { slug: "co-op", name: "Co-op", sortOrder: 90 },
+  { slug: "party", name: "Party", sortOrder: 100 },
+];
 
 const seedGames = [
   {
@@ -32,7 +46,7 @@ const seedGames = [
     developerName: "Icebox Works",
     primaryUrl: "https://example.com/northstar-drift",
     status: "demo" as const,
-    tags: ["racing", "indie"],
+    categorySlugs: ["racing", "indie"],
     platforms: ["PC", "Web"],
   },
   {
@@ -48,7 +62,7 @@ const seedGames = [
     developerName: "Leaf Runtime",
     primaryUrl: "https://example.com/garden-protocol",
     status: "upcoming" as const,
-    tags: ["sim", "cozy"],
+    categorySlugs: ["sim", "cozy"],
     platforms: ["PC", "iOS"],
   },
   {
@@ -64,7 +78,7 @@ const seedGames = [
     developerName: "Null Antenna",
     primaryUrl: "https://example.com/signal-fold",
     status: "playtest" as const,
-    tags: ["puzzle", "stealth"],
+    categorySlugs: ["puzzle", "stealth"],
     platforms: ["PC"],
   },
   {
@@ -80,7 +94,7 @@ const seedGames = [
     developerName: "Brine Assembly",
     primaryUrl: "https://example.com/salt-kingdom",
     status: "early_access" as const,
-    tags: ["tactics", "rpg"],
+    categorySlugs: ["tactics", "rpg"],
     platforms: ["PC", "Console"],
   },
   {
@@ -96,7 +110,7 @@ const seedGames = [
     developerName: "Galley Soft",
     primaryUrl: "https://example.com/orbit-kitchen",
     status: "released" as const,
-    tags: ["co-op", "party"],
+    categorySlugs: ["co-op", "party"],
     platforms: ["PC", "Console", "Web"],
   },
 ];
@@ -112,15 +126,45 @@ function platformSlugsFor(names: string[]) {
 
 async function main() {
   const { year, week } = getIsoWeekUtc();
-  await db.insert(platforms).values([...DEFAULT_PLATFORMS]).onConflictDoNothing({
-    target: platforms.slug,
-  });
-  const catalog = await db.select({ id: platforms.id, slug: platforms.slug }).from(platforms);
+  await Promise.all([
+    db.insert(platforms).values([...DEFAULT_PLATFORMS]).onConflictDoNothing({
+      target: platforms.slug,
+    }),
+    db
+      .insert(categories)
+      .values(seedCategories)
+      .onConflictDoUpdate({
+        target: categories.slug,
+        set: {
+          name: sql`excluded.name`,
+          sortOrder: sql`excluded.sort_order`,
+          updatedAt: new Date(),
+        },
+      }),
+  ]);
+  const [catalog, categoryCatalog] = await Promise.all([
+    db.select({ id: platforms.id, slug: platforms.slug }).from(platforms),
+    db.select({ id: categories.id, slug: categories.slug }).from(categories),
+  ]);
   const platformIdBySlug = new Map(catalog.map((row) => [row.slug, row.id]));
+  const categoryIdBySlug = new Map(categoryCatalog.map((row) => [row.slug, row.id]));
 
   const inserted = await db
     .insert(games)
-    .values(seedGames.map(({ platforms: _platforms, ...game }) => game))
+    .values(
+      seedGames.map((game) => ({
+        slug: game.slug,
+        name: game.name,
+        tagline: game.tagline,
+        description: game.description,
+        coverUrl: game.coverUrl,
+        logoUrl: game.logoUrl,
+        trailerUrl: "trailerUrl" in game ? game.trailerUrl : null,
+        developerName: game.developerName,
+        primaryUrl: game.primaryUrl,
+        status: game.status,
+      })),
+    )
     .onConflictDoNothing({ target: games.slug })
     .returning({ id: games.id, slug: games.slug });
 
@@ -155,9 +199,24 @@ async function main() {
   if (listingValues.length > 0) {
     await db.insert(weekListings).values(listingValues).onConflictDoNothing();
   }
+  const gameCategoryValues = seedGames.flatMap((game) => {
+    const gameId = bySlug.get(game.slug);
+    if (!gameId) return [];
+    return game.categorySlugs.flatMap((slug) => {
+      const categoryId = categoryIdBySlug.get(slug);
+      if (!categoryId) return [];
+      return [{ gameId, categoryId }];
+    });
+  });
+
   if (gamePlatformValues.length > 0) {
     await db.insert(gamePlatforms).values(gamePlatformValues).onConflictDoNothing({
       target: [gamePlatforms.gameId, gamePlatforms.platformId],
+    });
+  }
+  if (gameCategoryValues.length > 0) {
+    await db.insert(gameCategories).values(gameCategoryValues).onConflictDoNothing({
+      target: [gameCategories.gameId, gameCategories.categoryId],
     });
   }
 

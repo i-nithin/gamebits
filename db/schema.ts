@@ -33,25 +33,28 @@ export const gameLinkKindEnum = pgEnum("game_link_kind", [
   "x",
 ]);
 
-export const games = pgTable("games", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  slug: text("slug").notNull().unique(),
-  name: text("name").notNull(),
-  tagline: text("tagline").notNull(),
-  description: text("description").notNull(),
-  coverUrl: text("cover_url").notNull(),
-  logoUrl: text("logo_url").notNull(),
-  trailerUrl: text("trailer_url"),
-  developerName: text("developer_name").notNull(),
-  primaryUrl: text("primary_url").notNull(),
-  status: gameStatusEnum("status").notNull(),
-  tags: text("tags").array().notNull(),
-  ownerClerkUserId: text("owner_clerk_user_id"),
-  archivedAt: timestamp("archived_at", { withTimezone: true }),
-  outboundClicks: integer("outbound_clicks").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const games = pgTable(
+  "games",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    tagline: text("tagline").notNull(),
+    description: text("description").notNull(),
+    coverUrl: text("cover_url").notNull(),
+    logoUrl: text("logo_url").notNull(),
+    trailerUrl: text("trailer_url"),
+    developerName: text("developer_name").notNull(),
+    primaryUrl: text("primary_url").notNull(),
+    status: gameStatusEnum("status").notNull(),
+    ownerClerkUserId: text("owner_clerk_user_id"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    outboundClicks: integer("outbound_clicks").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("games_catalog_idx").on(table.createdAt, table.id)],
+);
 
 export const gameMedia = pgTable(
   "game_media",
@@ -83,6 +86,37 @@ export const platforms = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("platforms_sort_idx").on(table.sortOrder, table.name)],
+);
+
+export const categories = pgTable(
+  "categories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("categories_sort_idx").on(table.sortOrder, table.name)],
+);
+
+export const gameCategories = pgTable(
+  "game_categories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    uniqueIndex("game_categories_game_category_idx").on(table.gameId, table.categoryId),
+    index("game_categories_category_idx").on(table.categoryId),
+  ],
 );
 
 export const gamePlatforms = pgTable(

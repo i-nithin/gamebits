@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { AssignWeekForm } from "@/components/admin/game-form";
 import { GameEditor } from "@/components/game/game-editor";
 import { isAdminUserId, getCurrentUserId } from "@/lib/auth-admin";
-import { getGameEditorData, listEditorPlatforms } from "@/lib/queries";
+import { getGameEditorData, listEditorCategories, listEditorPlatforms } from "@/lib/queries";
 
 export default async function EditAdminGamePage({
   params,
@@ -16,7 +16,10 @@ export default async function EditAdminGamePage({
   const { id } = await params;
   const editor = await getGameEditorData(id);
   if (!editor) notFound();
-  const catalog = await listEditorPlatforms(editor.platformIds);
+  const [catalog, categories] = await Promise.all([
+    listEditorPlatforms(editor.platformIds),
+    listEditorCategories(editor.categoryIds),
+  ]);
 
   return (
     <div className="flex flex-col">
@@ -25,7 +28,9 @@ export default async function EditAdminGamePage({
         media={editor.media}
         links={editor.links}
         catalog={catalog}
+        categories={categories}
         selectedPlatformIds={editor.platformIds}
+        selectedCategoryIds={editor.categoryIds}
       />
       <div className="mx-auto w-full max-w-6xl border-t border-iron px-4 py-8 sm:px-6">
         <div className="flex flex-col gap-3">

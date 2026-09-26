@@ -1,7 +1,12 @@
 export const WEEK_LISTING_CAP = 20;
+export const CATEGORY_CAP = 3;
 export const GAME_MEDIA_CAP = 8;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 export const REVIEW_PAGE_SIZE = 10;
+export const COLLECTION_PAGE_SIZE = 24;
+export const COLLECTION_SORTS = ["newest", "name", "status", "votes"] as const;
+export type CollectionSort = (typeof COLLECTION_SORTS)[number];
+export type SortDirection = "asc" | "desc";
 export const REVIEW_BODY_MAX = 1000;
 
 export const GAME_STATUSES = [

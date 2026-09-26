@@ -5,13 +5,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { gameLinks, gameMedia, gamePlatforms, games, platforms } from "@/db/schema";
+import { categories, gameCategories, gameLinks, gameMedia, gamePlatforms, games, platforms } from "@/db/schema";
 import {
   canManageGame,
   getCurrentUserId,
   requireSignedIn,
 } from "@/lib/auth-admin";
 import {
+  CATEGORY_CAP,
   GAME_LINK_KINDS,
   GAME_MEDIA_CAP,
   GAME_STATUSES,
@@ -22,21 +23,13 @@ import { getDb } from "@/lib/db";
 import { isPlatformId } from "@/lib/platform-catalog";
 import { ensureCurrentProfile, getProfileHandle } from "@/lib/profile";
 import { getGameById } from "@/lib/queries";
-import { sanitizeMultiline, sanitizePlainText, slugify } from "@/lib/sanitize";
+import { isUuid, sanitizeMultiline, sanitizePlainText, slugify } from "@/lib/sanitize";
 import { isAllowedImageUrl, parseVideoEmbed, sanitizeGameLink, withVideosFirst } from "@/lib/urls";
 
 const mediaItemSchema = z.object({
   kind: z.enum(["image", "video"]),
   url: z.string().min(1).max(500),
 });
-
-function parseTags(raw: string) {
-  return raw
-    .split(",")
-    .map((tag) => sanitizePlainText(tag, 32))
-    .filter(Boolean)
-    .slice(0, 3);
-}
 
 function parseMedia(raw: string) {
   if (!raw.trim()) return [];
@@ -140,6 +133,9 @@ export async function upsertOwnedGameAction(
   const requestedIds = [
     ...new Set(formData.getAll("platforms").map(String).filter(isPlatformId)),
   ];
+  const requestedCategoryIds = [
+    ...new Set(formData.getAll("categories").map(String).filter(isUuid)),
+  ].slice(0, CATEGORY_CAP);
   const requestedSlug = slugify(String(formData.get("slug") ?? "") || name);
 
   if (!name || !tagline || !description || !developerName) {
@@ -152,14 +148,36 @@ export async function upsertOwnedGameAction(
   if (!isAllowedImageUrl(logoUrl)) return { error: "Upload a valid logo image" };
 
   const db = getDb();
-  const catalogRows = await db
-    .select({ id: platforms.id })
-    .from(platforms)
-    .where(inArray(platforms.id, requestedIds));
+  const [catalogRows, categoryRows, currentCategoryIds] = await Promise.all([
+    db
+      .select({ id: platforms.id })
+      .from(platforms)
+      .where(inArray(platforms.id, requestedIds)),
+    requestedCategoryIds.length > 0
+      ? db
+          .select({ id: categories.id, archivedAt: categories.archivedAt })
+          .from(categories)
+          .where(inArray(categories.id, requestedCategoryIds))
+      : Promise.resolve([]),
+    existing
+      ? db
+          .select({ categoryId: gameCategories.categoryId })
+          .from(gameCategories)
+          .where(eq(gameCategories.gameId, existing.id))
+      : Promise.resolve([]),
+  ]);
   if (catalogRows.length !== requestedIds.length) {
     return { error: "Select a valid platform" };
   }
+  if (categoryRows.length !== requestedCategoryIds.length) {
+    return { error: "Select a valid category" };
+  }
+  const keptCategoryIds = new Set(currentCategoryIds.map((row) => row.categoryId));
+  if (categoryRows.some((row) => row.archivedAt && !keptCategoryIds.has(row.id))) {
+    return { error: "Select a live category" };
+  }
   const platformIds = catalogRows.map((row) => row.id);
+  const categoryIds = categoryRows.map((row) => row.id);
 
   let media;
   let links;
@@ -169,7 +187,6 @@ export async function upsertOwnedGameAction(
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Invalid media or links" };
   }
-  const tags = parseTags(String(formData.get("tags") ?? ""));
   const firstImage = media.find((item) => item.kind === "image");
   const firstVideo = media.find((item) => item.kind === "video");
   const coverUrl = firstImage?.url ?? logoUrl;
@@ -189,7 +206,6 @@ export async function upsertOwnedGameAction(
     developerName,
     primaryUrl,
     status: statusRaw as (typeof GAME_STATUSES)[number],
-    tags,
     archivedAt: archived ? (existing?.archivedAt ?? new Date()) : null,
     updatedAt: new Date(),
   };
@@ -200,6 +216,7 @@ export async function upsertOwnedGameAction(
     await db.delete(gameMedia).where(eq(gameMedia.gameId, gameId));
     await db.delete(gameLinks).where(eq(gameLinks.gameId, gameId));
     await db.delete(gamePlatforms).where(eq(gamePlatforms.gameId, gameId));
+    await db.delete(gameCategories).where(eq(gameCategories.gameId, gameId));
   } else {
     const [created] = await db
       .insert(games)
@@ -234,8 +251,17 @@ export async function upsertOwnedGameAction(
       platformId,
     })),
   );
+  if (categoryIds.length > 0) {
+    await db.insert(gameCategories).values(
+      categoryIds.map((categoryId) => ({
+        gameId: gameId!,
+        categoryId,
+      })),
+    );
+  }
 
   revalidatePath("/");
+  revalidatePath("/collections");
   revalidatePath("/admin");
   revalidatePath(`/games/${slug}`);
   await revalidateOwnerProfile(existing?.ownerClerkUserId ?? userId, userId);
@@ -259,6 +285,7 @@ export async function setGameArchivedAction(formData: FormData) {
     .where(eq(games.id, id));
 
   revalidatePath("/");
+  revalidatePath("/collections");
   revalidatePath("/admin");
   revalidatePath(`/games/${game.slug}`);
   revalidatePath(`/games/${game.slug}/edit`);

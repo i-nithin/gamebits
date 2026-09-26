@@ -51,6 +51,9 @@ export default async function AdminPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link href="/admin/categories">
+            <Button variant="ghost">Categories</Button>
+          </Link>
           <Link href="/admin/platforms">
             <Button variant="ghost">Platforms</Button>
           </Link>

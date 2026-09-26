@@ -5,6 +5,7 @@ import {
   type GameStatus,
 } from "@/lib/constants";
 import { isPlatformId } from "@/lib/platform-catalog";
+import { isUuid } from "@/lib/sanitize";
 
 const DRAFT_KEY = "gamebits:add-game:v1";
 const UPLOAD_CACHE_KEY = "gamebits:uploads:v1";
@@ -22,7 +23,7 @@ export type GameDraft = {
   tagline: string;
   description: string;
   status: GameStatus;
-  tags: string;
+  categories: string[];
   platforms: string[];
   logoUrl: string;
   media: GameDraftMedia[];
@@ -41,7 +42,7 @@ export function emptyGameDraft(): GameDraft {
     tagline: "",
     description: "",
     status: "upcoming",
-    tags: "",
+    categories: [],
     platforms: [],
     logoUrl: "",
     media: [],
@@ -55,7 +56,7 @@ export function isGameDraftEmpty(draft: GameDraft) {
     !draft.developerName &&
     !draft.tagline &&
     !draft.description &&
-    !draft.tags &&
+    draft.categories.length === 0 &&
     !draft.logoUrl &&
     draft.media.length === 0 &&
     draft.platforms.length === 0 &&
@@ -88,8 +89,8 @@ function isDraft(value: unknown): value is GameDraft {
     typeof draft.developerName === "string" &&
     typeof draft.tagline === "string" &&
     typeof draft.description === "string" &&
-    typeof draft.tags === "string" &&
     typeof draft.logoUrl === "string" &&
+    Array.isArray(draft.categories) &&
     Array.isArray(draft.platforms) &&
     Array.isArray(draft.media)
   );
@@ -104,6 +105,9 @@ export function loadGameDraft(): GameDraft | null {
     : "upcoming";
   const platforms = parsed.platforms.filter(
     (platform): platform is string => typeof platform === "string" && isPlatformId(platform),
+  );
+  const categories = parsed.categories.filter(
+    (category): category is string => typeof category === "string" && isUuid(category),
   );
   const media = parsed.media.filter(
     (item): item is GameDraftMedia =>
@@ -124,7 +128,7 @@ export function loadGameDraft(): GameDraft | null {
     tagline: parsed.tagline,
     description: parsed.description,
     status,
-    tags: parsed.tags,
+    categories,
     platforms,
     logoUrl: parsed.logoUrl,
     media,
