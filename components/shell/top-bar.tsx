@@ -25,13 +25,7 @@ import { clerkEnabled } from "@/lib/clerk-enabled";
 import type { Viewer } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function TopBar({
-  currentWeekHref,
-  viewer,
-}: {
-  currentWeekHref: string;
-  viewer: Viewer | null;
-}) {
+export function TopBar({ viewer }: { viewer: Viewer | null }) {
   const { setOpen } = useSearch();
   const pathname = usePathname();
   const openAuth = useAuthDialog();
@@ -59,10 +53,12 @@ export function TopBar({
   const nav = [
     { href: "/", label: "Discover", icon: CompassIcon, active: pathname === "/" },
     {
-      href: currentWeekHref,
-      label: "Games",
+      href: "/collections",
+      label: "Collections",
       icon: LayoutGridIcon,
-      active: pathname.startsWith("/week") || (pathname.startsWith("/games/") && pathname !== "/games/new"),
+      active:
+        pathname.startsWith("/collections") ||
+        (pathname.startsWith("/games/") && pathname !== "/games/new"),
     },
     {
       href: "/games/new",

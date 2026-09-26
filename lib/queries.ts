@@ -1,12 +1,21 @@
-import { and, asc, count, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { cache } from "react";
 
-import { bookmarks, gameLinks, gameMedia, gamePlatforms, gameReviews, games, likes, platforms, votes, weekListings } from "@/db/schema";
+import { bookmarks, categories, gameCategories, gameLinks, gameMedia, gamePlatforms, gameReviews, games, likes, platforms, votes, weekListings } from "@/db/schema";
 import { canManageGame, isAdminUserId } from "@/lib/auth-admin";
-import { REVIEW_PAGE_SIZE } from "@/lib/constants";
+import {
+  COLLECTION_PAGE_SIZE,
+  GAME_STATUSES,
+  REVIEW_PAGE_SIZE,
+  type CollectionSort,
+  type GameStatus,
+  type SortDirection,
+} from "@/lib/constants";
 import { getDb, hasDatabase } from "@/lib/db";
 import { isIsoWeekLive } from "@/lib/iso-week";
+import { isUuid } from "@/lib/sanitize";
 import type {
+  GameCategoryItem,
   GameLaunchItem,
   GamePageData,
   GamePlatformItem,
@@ -44,6 +53,7 @@ function rankedGame(
   game: typeof games.$inferSelect,
   extras: { featured: boolean; voteCount: number; voted: boolean; rank: number },
   platformItems: GamePlatformItem[] = [],
+  categoryItems: GameCategoryItem[] = [],
 ): RankedGame {
   return {
     id: game.id,
@@ -57,7 +67,7 @@ function rankedGame(
     developerName: game.developerName,
     primaryUrl: game.primaryUrl,
     status: game.status,
-    tags: game.tags ?? [],
+    categories: categoryItems,
     platforms: platformItems,
     outboundClicks: game.outboundClicks,
     featured: extras.featured,
@@ -107,11 +117,53 @@ async function platformsByGameIds(gameIds: string[]): Promise<Map<string, GamePl
   return map;
 }
 
-async function withPlatforms(games: RankedGame[]): Promise<RankedGame[]> {
-  const byGame = await platformsByGameIds(games.map((game) => game.id));
-  return games.map((game) => ({
+function toCategoryItem(row: {
+  id: string;
+  slug: string;
+  name: string;
+}): GameCategoryItem {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+  };
+}
+
+async function categoriesByGameIds(gameIds: string[]): Promise<Map<string, GameCategoryItem[]>> {
+  const map = new Map<string, GameCategoryItem[]>();
+  if (gameIds.length === 0 || !hasDatabase()) return map;
+
+  const db = getDb();
+  const rows = await db
+    .select({
+      gameId: gameCategories.gameId,
+      id: categories.id,
+      slug: categories.slug,
+      name: categories.name,
+    })
+    .from(gameCategories)
+    .innerJoin(categories, eq(gameCategories.categoryId, categories.id))
+    .where(inArray(gameCategories.gameId, gameIds))
+    .orderBy(asc(categories.sortOrder), asc(categories.name));
+
+  for (const row of rows) {
+    const list = map.get(row.gameId) ?? [];
+    list.push(toCategoryItem(row));
+    map.set(row.gameId, list);
+  }
+  return map;
+}
+
+async function withCatalog(items: RankedGame[]): Promise<RankedGame[]> {
+  const ids = items.map((game) => game.id);
+  const [platformMap, categoryMap] = await Promise.all([
+    platformsByGameIds(ids),
+    categoriesByGameIds(ids),
+  ]);
+  return items.map((game) => ({
     ...game,
-    platforms: byGame.get(game.id) ?? [],
+    platforms: platformMap.get(game.id) ?? [],
+    categories: categoryMap.get(game.id) ?? [],
   }));
 }
 
@@ -205,6 +257,238 @@ export async function listGamePlatforms(gameId: string): Promise<GamePlatformIte
   return map.get(gameId) ?? [];
 }
 
+export const listCategoryCatalog = cache(async function listCategoryCatalog() {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: categories.id,
+      slug: categories.slug,
+      name: categories.name,
+      sortOrder: categories.sortOrder,
+      archivedAt: categories.archivedAt,
+      gameCount: count(gameCategories.id),
+    })
+    .from(categories)
+    .leftJoin(gameCategories, eq(gameCategories.categoryId, categories.id))
+    .groupBy(categories.id, categories.slug, categories.name, categories.sortOrder, categories.archivedAt)
+    .orderBy(asc(categories.sortOrder), asc(categories.name));
+  return rows.map((row) => ({
+    ...row,
+    gameCount: Number(row.gameCount),
+  }));
+});
+
+export const listActiveCategories = cache(async function listActiveCategories(): Promise<
+  GameCategoryItem[]
+> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: categories.id,
+      slug: categories.slug,
+      name: categories.name,
+    })
+    .from(categories)
+    .where(isNull(categories.archivedAt))
+    .orderBy(asc(categories.sortOrder), asc(categories.name));
+  return rows.map(toCategoryItem);
+});
+
+export const listEditorCategories = cache(async function listEditorCategories(
+  selectedIds: string[],
+): Promise<GameCategoryItem[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: categories.id,
+      slug: categories.slug,
+      name: categories.name,
+      archivedAt: categories.archivedAt,
+    })
+    .from(categories)
+    .orderBy(asc(categories.sortOrder), asc(categories.name));
+  const selected = new Set(selectedIds);
+  return rows
+    .filter((row) => !row.archivedAt || selected.has(row.id))
+    .map(toCategoryItem);
+});
+
+export async function getCategoryById(id: string) {
+  if (!hasDatabase()) return null;
+  const db = getDb();
+  const [row] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+  return row ?? null;
+}
+
+const CATALOG_SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function cleanCatalogSlugs(values: string[]) {
+  return [
+    ...new Set(
+      values
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => value.length <= 80 && CATALOG_SLUG_RE.test(value)),
+    ),
+  ].slice(0, 20);
+}
+
+const CATALOG_CURSOR_TIME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+
+type CatalogCursor = {
+  sort: Exclude<CollectionSort, "votes">;
+  dir: SortDirection;
+  value: string;
+  id: string;
+};
+
+function encodeCatalogCursor(cursor: CatalogCursor) {
+  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+}
+
+function decodeCatalogCursor(
+  cursor: string | null | undefined,
+  sort: Exclude<CollectionSort, "votes">,
+  dir: SortDirection,
+): CatalogCursor | null {
+  if (!cursor) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as CatalogCursor;
+    if (parsed.sort !== sort || parsed.dir !== dir || !isUuid(parsed.id)) return null;
+    if (typeof parsed.value !== "string" || parsed.value.length > 200) return null;
+    if (sort === "newest" && !CATALOG_CURSOR_TIME.test(parsed.value)) return null;
+    if (sort === "status" && !GAME_STATUSES.includes(parsed.value as GameStatus)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export type CollectionPage = {
+  games: RankedGame[];
+  nextCursor: string | null;
+};
+
+export const listCollectionGamesPage = cache(async function listCollectionGamesPage(opts: {
+  categories?: string[];
+  platforms?: string[];
+  statuses?: GameStatus[];
+  sort?: Exclude<CollectionSort, "votes">;
+  dir?: SortDirection;
+  cursor?: string | null;
+  limit?: number;
+}): Promise<CollectionPage> {
+  if (!hasDatabase()) return { games: [], nextCursor: null };
+
+  const categorySlugs = cleanCatalogSlugs(opts.categories ?? []);
+  const platformSlugs = cleanCatalogSlugs(opts.platforms ?? []);
+  const statuses = (opts.statuses ?? []).filter((status) => GAME_STATUSES.includes(status));
+  const sort = opts.sort === "name" || opts.sort === "status" ? opts.sort : "newest";
+  const dir = opts.dir === "asc" ? "asc" : sort === "newest" ? "desc" : opts.dir === "desc" ? "desc" : "asc";
+  const cursor = decodeCatalogCursor(opts.cursor, sort, dir);
+  const limit = opts.limit ?? COLLECTION_PAGE_SIZE;
+  const db = getDb();
+
+  const categoryMatch =
+    categorySlugs.length === 0
+      ? undefined
+      : exists(
+          db
+            .select({ id: gameCategories.id })
+            .from(gameCategories)
+            .innerJoin(categories, eq(gameCategories.categoryId, categories.id))
+            .where(
+              and(eq(gameCategories.gameId, games.id), inArray(categories.slug, categorySlugs)),
+            ),
+        );
+  const platformMatch =
+    platformSlugs.length === 0
+      ? undefined
+      : exists(
+          db
+            .select({ id: gamePlatforms.id })
+            .from(gamePlatforms)
+            .innerJoin(platforms, eq(gamePlatforms.platformId, platforms.id))
+            .where(and(eq(gamePlatforms.gameId, games.id), inArray(platforms.slug, platformSlugs))),
+        );
+  const sortColumn = sort === "name" ? games.name : sort === "status" ? games.status : games.createdAt;
+  const valueBefore = cursor
+    ? sort === "newest"
+      ? sql`${games.createdAt} < ${cursor.value}::timestamptz`
+      : lt(sortColumn, cursor.value)
+    : undefined;
+  const valueAfter = cursor
+    ? sort === "newest"
+      ? sql`${games.createdAt} > ${cursor.value}::timestamptz`
+      : gt(sortColumn, cursor.value)
+    : undefined;
+  const valueEqual = cursor
+    ? sort === "newest"
+      ? sql`${games.createdAt} = ${cursor.value}::timestamptz`
+      : eq(sortColumn, cursor.value)
+    : undefined;
+  const cursorMatch = cursor
+    ? or(
+        dir === "desc" ? valueBefore : valueAfter,
+        and(valueEqual, dir === "desc" ? lt(games.id, cursor.id) : gt(games.id, cursor.id)),
+      )
+    : undefined;
+
+  const rows = await db
+    .select({
+      game: games,
+      createdAtCursor: sql<string>`to_char(${games.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+    })
+    .from(games)
+    .where(
+      and(
+        isNull(games.archivedAt),
+        statuses.length > 0 ? inArray(games.status, statuses) : undefined,
+        categoryMatch,
+        platformMatch,
+        cursorMatch,
+      ),
+    )
+    .orderBy(
+      ...(dir === "desc" ? [desc(sortColumn), desc(games.id)] : [asc(sortColumn), asc(games.id)]),
+    )
+    .limit(limit + 1);
+
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page[page.length - 1];
+
+  return {
+    games: await withCatalog(
+      page.map((row, index) =>
+        rankedGame(row.game, {
+          featured: false,
+          voteCount: 0,
+          voted: false,
+          rank: index + 1,
+        }),
+      ),
+    ),
+    nextCursor:
+      hasMore && last
+        ? encodeCatalogCursor({
+            sort,
+            dir,
+            value:
+              sort === "name"
+                ? last.game.name
+                : sort === "status"
+                  ? last.game.status
+                  : last.createdAtCursor,
+            id: last.game.id,
+          })
+        : null,
+  };
+});
+
 export const getWeekBoard = cache(async function getWeekBoard(
   year: number,
   week: number,
@@ -247,7 +531,7 @@ export const getWeekBoard = cache(async function getWeekBoard(
     year,
     week,
     live: isIsoWeekLive(year, week),
-    games: await withPlatforms(toRanked(rows)),
+    games: await withCatalog(toRanked(rows)),
   };
 });
 
@@ -462,7 +746,6 @@ const savedGameColumns = {
   tagline: games.tagline,
   logoUrl: games.logoUrl,
   status: games.status,
-  tags: games.tags,
 };
 
 async function toSavedGames(
@@ -473,10 +756,13 @@ async function toSavedGames(
     tagline: string;
     logoUrl: string;
     status: SavedGame["status"];
-    tags: string[] | null;
   }>,
 ): Promise<SavedGame[]> {
-  const platformMap = await platformsByGameIds(rows.map((row) => row.id));
+  const ids = rows.map((row) => row.id);
+  const [platformMap, categoryMap] = await Promise.all([
+    platformsByGameIds(ids),
+    categoriesByGameIds(ids),
+  ]);
   return rows.map((row) => ({
     id: row.id,
     slug: row.slug,
@@ -484,7 +770,7 @@ async function toSavedGames(
     tagline: row.tagline,
     logoUrl: row.logoUrl,
     status: row.status,
-    tags: row.tags ?? [],
+    categories: categoryMap.get(row.id) ?? [],
     platforms: platformMap.get(row.id) ?? [],
   }));
 }
@@ -630,7 +916,7 @@ export async function getGamePageData(
   if (!hasDatabase()) return null;
   const db = getDb();
 
-  const [mediaRows, linkRows, listingRows, reviewAgg, viewerRows, firstReviews, platformMap, bookmarkRows, likeRows] =
+  const [mediaRows, linkRows, listingRows, reviewAgg, viewerRows, firstReviews, platformMap, categoryMap, bookmarkRows, likeRows] =
     await Promise.all([
       db
         .select()
@@ -663,6 +949,7 @@ export async function getGamePageData(
         : Promise.resolve([]),
       listGameReviews({ gameId: gameRow.id }),
       platformsByGameIds([gameRow.id]),
+      categoriesByGameIds([gameRow.id]),
       userId
         ? db
             .select({ id: bookmarks.id })
@@ -739,7 +1026,12 @@ export async function getGamePageData(
   }
 
   return {
-    game: rankedGame(gameRow, extras, platformMap.get(gameRow.id) ?? []),
+    game: rankedGame(
+      gameRow,
+      extras,
+      platformMap.get(gameRow.id) ?? [],
+      categoryMap.get(gameRow.id) ?? [],
+    ),
     media: withVideosFirst(
       mediaRows.map((row) => ({
         id: row.id,
@@ -767,9 +1059,11 @@ export async function getGamePageData(
 export async function getGameEditorData(id: string) {
   const game = await getGameById(id);
   if (!game) return null;
-  if (!hasDatabase()) return { game, media: [], links: [], platformIds: [] as string[] };
+  if (!hasDatabase()) {
+    return { game, media: [], links: [], platformIds: [] as string[], categoryIds: [] as string[] };
+  }
   const db = getDb();
-  const [media, links, selected] = await Promise.all([
+  const [media, links, selected, selectedCategories] = await Promise.all([
     db.select().from(gameMedia).where(eq(gameMedia.gameId, id)).orderBy(gameMedia.sortOrder),
     db.select().from(gameLinks).where(eq(gameLinks.gameId, id)),
     db
@@ -778,11 +1072,18 @@ export async function getGameEditorData(id: string) {
       .innerJoin(platforms, eq(gamePlatforms.platformId, platforms.id))
       .where(eq(gamePlatforms.gameId, id))
       .orderBy(asc(platforms.sortOrder), asc(platforms.name)),
+    db
+      .select({ categoryId: gameCategories.categoryId })
+      .from(gameCategories)
+      .innerJoin(categories, eq(gameCategories.categoryId, categories.id))
+      .where(eq(gameCategories.gameId, id))
+      .orderBy(asc(categories.sortOrder), asc(categories.name)),
   ]);
   return {
     game,
     media: withVideosFirst(media),
     links,
     platformIds: selected.map((row) => row.platformId),
+    categoryIds: selectedCategories.map((row) => row.categoryId),
   };
 }

@@ -34,7 +34,7 @@ export function HomeBoard({
   const slides = carouselGames.slice(0, 5);
   const [heroIndex, setHeroIndex] = useState(0);
   const [selectedWeek, setSelectedWeek] = useState<IsoWeek>(currentWeek);
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [windowStart, setWindowStart] = useState(() => {
     const currentIndex = weeks.findIndex(
       (week) => week.year === currentWeek.year && week.week === currentWeek.week,
@@ -62,16 +62,23 @@ export function HomeBoard({
       games: [],
     };
 
-  const tags = useMemo(() => {
-    const unique = new Set<string>();
+  const categories = useMemo(() => {
+    const unique = new Map<string, string>();
     for (const game of board.games) {
-      for (const tag of game.tags) unique.add(tag);
+      for (const category of game.categories) unique.set(category.slug, category.name);
     }
-    return [...unique].sort((a, b) => a.localeCompare(b));
+    return [...unique.entries()]
+      .map(([slug, name]) => ({ slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [board.games]);
-  const activeTag = selectedTag && tags.includes(selectedTag) ? selectedTag : null;
-  const launches = activeTag
-    ? board.games.filter((game) => game.tags.includes(activeTag))
+  const activeCategory =
+    selectedCategory && categories.some((category) => category.slug === selectedCategory)
+      ? selectedCategory
+      : null;
+  const launches = activeCategory
+    ? board.games.filter((game) =>
+        game.categories.some((category) => category.slug === activeCategory),
+      )
     : board.games;
 
   useEffect(() => {
@@ -132,35 +139,35 @@ export function HomeBoard({
               onSelect={selectWeek}
               onWindowStartChange={setWindowStart}
             />
-            {tags.length > 0 ? (
+            {categories.length > 0 ? (
               <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <button
                   type="button"
-                  aria-pressed={activeTag === null}
-                  onClick={() => setSelectedTag(null)}
+                  aria-pressed={activeCategory === null}
+                  onClick={() => setSelectedCategory(null)}
                   className={cn(
                     "h-8 shrink-0 rounded-full border border-iron px-3 text-sm",
-                    activeTag === null
+                    activeCategory === null
                       ? "bg-graphite text-paper-white"
                       : "text-fog hover:bg-slate/50 hover:text-paper-white",
                   )}
                 >
                   All
                 </button>
-                {tags.map((tag) => (
+                {categories.map((category) => (
                   <button
-                    key={tag}
+                    key={category.slug}
                     type="button"
-                    aria-pressed={activeTag === tag}
-                    onClick={() => setSelectedTag(tag)}
+                    aria-pressed={activeCategory === category.slug}
+                    onClick={() => setSelectedCategory(category.slug)}
                     className={cn(
                       "h-8 shrink-0 rounded-full border border-iron px-3 text-sm",
-                      activeTag === tag
+                      activeCategory === category.slug
                         ? "bg-graphite text-paper-white"
                         : "text-fog hover:bg-slate/50 hover:text-paper-white",
                     )}
                   >
-                    {tag}
+                    {category.name}
                   </button>
                 ))}
               </div>

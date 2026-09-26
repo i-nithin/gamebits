@@ -43,9 +43,9 @@ export function GameCardGrid({
             <p className="truncate text-xs text-fog">{game.tagline}</p>
             <div className="hidden flex-wrap items-center gap-1.5 sm:flex">
               <Badge variant="secondary">{GAME_STATUS_LABELS[game.status]}</Badge>
-              {game.tags.map((tag) => (
-                <Badge key={tag} variant="secondary">
-                  {tag}
+              {game.categories.map((category) => (
+                <Badge key={category.id} variant="secondary">
+                  {category.name}
                 </Badge>
               ))}
               <span className="inline-flex items-center gap-1 text-xs text-fog">

@@ -1,0 +1,1 @@
+CREATE INDEX "games_catalog_idx" ON "games" USING btree ("created_at","id");

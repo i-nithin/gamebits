@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   Gamepad2Icon,
   GlobeIcon,
@@ -34,6 +34,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { gameLinks, gameMedia, games } from "@/db/schema";
 import {
+  CATEGORY_CAP,
   GAME_LINK_FIELDS,
   GAME_STATUS_LABELS,
   GAME_STATUSES,
@@ -48,7 +49,7 @@ import {
   type GameDraft,
 } from "@/lib/game-draft";
 import { withVideosFirst } from "@/lib/urls";
-import type { GamePlatformItem } from "@/lib/types";
+import type { GameCategoryItem, GamePlatformItem } from "@/lib/types";
 
 const LINK_ICONS: Record<GameLinkKind, typeof GlobeIcon> = {
   web: GlobeIcon,
@@ -79,16 +80,27 @@ export function GameEditor({
   media = [],
   links = [],
   catalog,
+  categories,
   selectedPlatformIds = [],
+  selectedCategoryIds = [],
 }: {
   game?: GameRow;
   media?: MediaRow[];
   links?: LinkRow[];
   catalog: GamePlatformItem[];
+  categories: GameCategoryItem[];
   selectedPlatformIds?: string[];
+  selectedCategoryIds?: string[];
 }) {
   const isEdit = Boolean(game);
-  const catalogById = new Map(catalog.map((platform) => [platform.id, platform]));
+  const catalogById = useMemo(
+    () => new Map(catalog.map((platform) => [platform.id, platform])),
+    [catalog],
+  );
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  );
   const platformItems = catalog.map((platform) => ({
     label: platform.name,
     value: platform.id,
@@ -99,7 +111,7 @@ export function GameEditor({
   const [tagline, setTagline] = useState(game?.tagline ?? "");
   const [description, setDescription] = useState(game?.description ?? "");
   const [status, setStatus] = useState<GameStatus>(game?.status ?? "upcoming");
-  const [tags, setTags] = useState(game?.tags?.join(", ") ?? "");
+  const [categoryIds, setCategoryIds] = useState<string[]>(() => selectedCategoryIds);
   const [platforms, setPlatforms] = useState<string[]>(() => selectedPlatformIds);
   const [linkValues, setLinkValues] = useState<Record<GameLinkKind, string>>(() =>
     linksFromRows(links),
@@ -125,7 +137,7 @@ export function GameEditor({
     tagline,
     description,
     status,
-    tags,
+    categories: categoryIds,
     platforms,
     logoUrl,
     media: draftMedia,
@@ -142,14 +154,16 @@ export function GameEditor({
       setTagline(draft.tagline);
       setDescription(draft.description);
       setStatus(draft.status);
-      setTags(draft.tags);
+      setCategoryIds(
+        draft.categories.filter((id) => categoryById.has(id)).slice(0, CATEGORY_CAP),
+      );
       setPlatforms(draft.platforms.filter((id) => catalogById.has(id)));
       setLogoUrl(draft.logoUrl);
       setDraftMedia(draft.media);
       setLinkValues(draft.links);
     }
     setDraftReady(true);
-  }, [isEdit]);
+  }, [isEdit, catalogById, categoryById]);
 
   useEffect(() => {
     if (isEdit || !draftReady) return;
@@ -163,7 +177,7 @@ export function GameEditor({
     tagline,
     description,
     status,
-    tags,
+    categoryIds,
     platforms,
     logoUrl,
     draftMedia,
@@ -326,20 +340,68 @@ export function GameEditor({
                 </NativeSelect>
               </Field>
               <Field>
-                <LabelWithInfo
-                  htmlFor="tags"
-                  info="Up to 3 labels, comma-separated. Example: action, indie."
-                >
-                  Tags
+                <LabelWithInfo info={`Up to ${CATEGORY_CAP} categories from the shared catalog.`}>
+                  Categories
                 </LabelWithInfo>
-                <Input
-                  id="tags"
-                  name="tags"
-                  value={tags}
-                  onChange={(event) => setTags(event.target.value)}
-                  placeholder="action, indie"
-                  className="h-9 rounded-lg border-iron bg-graphite"
-                />
+                {categories.length === 0 ? (
+                  <p className="text-sm text-fog">No categories are available yet.</p>
+                ) : (
+                  <Select
+                    items={categories.map((category) => ({
+                      label: category.name,
+                      value: category.id,
+                    }))}
+                    multiple
+                    value={categoryIds}
+                    onValueChange={(value) => setCategoryIds(value.slice(0, CATEGORY_CAP))}
+                  >
+                    <SelectTrigger
+                      type="button"
+                      className="h-auto min-h-9 w-full flex-wrap items-center whitespace-normal rounded-lg border-iron bg-graphite py-1.5 *:data-[slot=select-value]:line-clamp-none"
+                      aria-label="Categories"
+                    >
+                      <SelectValue>
+                        {(value: string[]) => {
+                          if (value.length === 0) {
+                            return <span className="text-fog">Select categories</span>;
+                          }
+                          return (
+                            <span className="flex min-w-0 flex-1 flex-wrap gap-1">
+                              {value.map((id) => {
+                                const category = categoryById.get(id);
+                                return category ? (
+                                  <span
+                                    key={id}
+                                    className="rounded-full bg-slate px-2 py-0.5 text-xs text-paper-white"
+                                  >
+                                    {category.name}
+                                  </span>
+                                ) : null;
+                              })}
+                            </span>
+                          );
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent
+                      align="start"
+                      alignItemWithTrigger={false}
+                      side="bottom"
+                      className="border-iron bg-obsidian p-1 shadow-lg"
+                    >
+                      <SelectGroup>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+                {categoryIds.map((categoryId) => (
+                  <input key={categoryId} type="hidden" name="categories" value={categoryId} />
+                ))}
               </Field>
             </div>
             <Field>

@@ -114,9 +114,9 @@ export function GameDetail({
             <Badge variant="secondary">{GAME_STATUS_LABELS[game.status]}</Badge>
             {data.archived ? <Badge variant="outline">Archived</Badge> : null}
             {game.featured ? <Badge variant="outline">Featured</Badge> : null}
-            {game.tags.map((tag) => (
-              <Badge key={tag} variant="outline">
-                {tag}
+            {game.categories.map((category) => (
+              <Badge key={category.id} variant="outline">
+                {category.name}
               </Badge>
             ))}
             <PlatformChipList platforms={game.platforms} />

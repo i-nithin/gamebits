@@ -15,6 +15,12 @@ export type GamePlatformItem = {
   logoUrl: string;
 };
 
+export type GameCategoryItem = {
+  id: string;
+  slug: string;
+  name: string;
+};
+
 export type RankedGame = {
   id: string;
   slug: string;
@@ -27,7 +33,7 @@ export type RankedGame = {
   developerName: string;
   primaryUrl: string;
   status: GameStatus;
-  tags: string[];
+  categories: GameCategoryItem[];
   platforms: GamePlatformItem[];
   outboundClicks: number;
   featured: boolean;
@@ -115,7 +121,7 @@ export type SavedGame = {
   tagline: string;
   logoUrl: string;
   status: GameStatus;
-  tags: string[];
+  categories: GameCategoryItem[];
   platforms: GamePlatformItem[];
 };
 

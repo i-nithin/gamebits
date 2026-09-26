@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { GameEditor } from "@/components/game/game-editor";
 import { canManageGame, getCurrentUserId } from "@/lib/auth-admin";
-import { getGameBySlug, getGameEditorData, listEditorPlatforms } from "@/lib/queries";
+import { getGameBySlug, getGameEditorData, listEditorCategories, listEditorPlatforms } from "@/lib/queries";
 
 export default async function EditGamePage({
   params,
@@ -20,7 +20,10 @@ export default async function EditGamePage({
 
   const editor = await getGameEditorData(game.id);
   if (!editor) notFound();
-  const catalog = await listEditorPlatforms(editor.platformIds);
+  const [catalog, categories] = await Promise.all([
+    listEditorPlatforms(editor.platformIds),
+    listEditorCategories(editor.categoryIds),
+  ]);
 
   return (
     <GameEditor
@@ -28,7 +31,9 @@ export default async function EditGamePage({
       media={editor.media}
       links={editor.links}
       catalog={catalog}
+      categories={categories}
       selectedPlatformIds={editor.platformIds}
+      selectedCategoryIds={editor.categoryIds}
     />
   );
 }

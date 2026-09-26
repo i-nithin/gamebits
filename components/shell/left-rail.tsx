@@ -10,23 +10,19 @@ import { clerkEnabled } from "@/lib/clerk-enabled";
 import type { Viewer } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function LeftRail({
-  currentWeekHref,
-  viewer,
-}: {
-  currentWeekHref: string;
-  viewer: Viewer | null;
-}) {
+export function LeftRail({ viewer }: { viewer: Viewer | null }) {
   const pathname = usePathname();
   const openAuth = useAuthDialog();
 
   const nav = [
     { href: "/", label: "Discover", icon: CompassIcon, active: pathname === "/" },
     {
-      href: currentWeekHref,
-      label: "Games",
+      href: "/collections",
+      label: "Collections",
       icon: LayoutGridIcon,
-      active: pathname.startsWith("/week") || (pathname.startsWith("/games/") && pathname !== "/games/new"),
+      active:
+        pathname.startsWith("/collections") ||
+        (pathname.startsWith("/games/") && pathname !== "/games/new"),
     },
     {
       href: "/games/new",
