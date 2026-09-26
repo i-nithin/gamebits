@@ -2,26 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import {
-  BookmarkIcon,
-  CompassIcon,
-  LayoutGridIcon,
-  LifeBuoyIcon,
-  PlusIcon,
-  SettingsIcon,
-  UserIcon,
-} from "lucide-react";
+import { CompassIcon, LayoutGridIcon, LifeBuoyIcon, PlusIcon, SettingsIcon } from "lucide-react";
 
+import { useAuthDialog } from "@/components/shell/auth-dialog";
+import { ViewerMark } from "@/components/shell/viewer-mark";
+import { clerkEnabled } from "@/lib/clerk-enabled";
+import type { Viewer } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function LeftRail({ currentWeekHref }: { currentWeekHref: string }) {
+export function LeftRail({
+  currentWeekHref,
+  viewer,
+}: {
+  currentWeekHref: string;
+  viewer: Viewer | null;
+}) {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const openAuth = useAuthDialog();
 
   const nav = [
     { href: "/", label: "Discover", icon: CompassIcon, active: pathname === "/" },
@@ -30,12 +27,6 @@ export function LeftRail({ currentWeekHref }: { currentWeekHref: string }) {
       label: "Games",
       icon: LayoutGridIcon,
       active: pathname.startsWith("/week") || (pathname.startsWith("/games/") && pathname !== "/games/new"),
-    },
-    {
-      href: "/bookmarks",
-      label: "Saved",
-      icon: BookmarkIcon,
-      active: pathname === "/bookmarks",
     },
     {
       href: "/games/new",
@@ -48,6 +39,12 @@ export function LeftRail({ currentWeekHref }: { currentWeekHref: string }) {
       label: "Settings",
       icon: SettingsIcon,
       active: pathname.startsWith("/admin"),
+    },
+    {
+      href: "/profile",
+      label: "Profile",
+      icon: null,
+      active: pathname === "/profile" || pathname.startsWith("/u/"),
     },
   ];
 
@@ -62,34 +59,45 @@ export function LeftRail({ currentWeekHref }: { currentWeekHref: string }) {
       <nav className="flex flex-1 flex-col gap-2 px-2 py-2">
         {nav.map((item) => {
           const Icon = item.icon;
-          const active = mounted && item.active;
+          const active = item.active;
+          const className = cn(
+            "flex h-10 items-center gap-3 rounded-full px-2.5 text-paper-white",
+            active ? "bg-graphite" : "hover:bg-slate",
+          );
+          const label = (
+            <span className="truncate text-sm font-medium opacity-0 transition-opacity duration-150 group-hover/rail:opacity-100">
+              {item.label}
+            </span>
+          );
+          if (item.label === "Profile") {
+            const mark = (
+              <>
+                <ViewerMark viewer={viewer} />
+                {label}
+              </>
+            );
+            if (!viewer && clerkEnabled) {
+              return (
+                <button key={item.label} type="button" onClick={openAuth} className={className}>
+                  {mark}
+                </button>
+              );
+            }
+            return (
+              <Link key={item.label} href={item.href} className={className}>
+                {mark}
+              </Link>
+            );
+          }
           return (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={cn(
-                "flex h-10 items-center gap-3 rounded-full px-2.5 text-paper-white",
-                active ? "bg-graphite" : "hover:bg-slate",
-              )}
-            >
-              <Icon className="size-5 shrink-0" />
-              <span className="truncate text-sm font-medium opacity-0 transition-opacity duration-150 group-hover/rail:opacity-100">
-                {item.label}
-              </span>
+            <Link key={item.label} href={item.href} className={className}>
+              {Icon ? <Icon className="size-5 shrink-0" /> : null}
+              {label}
             </Link>
           );
         })}
       </nav>
       <div className="flex flex-col gap-2 px-2 py-3">
-        <Link
-          href="/admin"
-          className="flex h-10 items-center gap-3 rounded-full px-2.5 text-paper-white hover:bg-slate"
-        >
-          <UserIcon className="size-5 shrink-0" />
-          <span className="truncate text-sm font-medium opacity-0 transition-opacity duration-150 group-hover/rail:opacity-100">
-            Profile
-          </span>
-        </Link>
         <a
           href="mailto:hello@gamebits.app"
           className="flex h-10 items-center gap-3 rounded-full px-2.5 text-paper-white hover:bg-slate"

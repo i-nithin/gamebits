@@ -1,0 +1,21 @@
+CREATE TABLE "profiles" (
+	"clerk_user_id" text PRIMARY KEY NOT NULL,
+	"handle" text NOT NULL,
+	"name" text NOT NULL,
+	"email" text,
+	"image_url" text,
+	"cover_url" text,
+	"city" text,
+	"country" text,
+	"headline" text,
+	"bio" text,
+	"website_url" text,
+	"x_url" text,
+	"github_url" text,
+	"linkedin_url" text,
+	"reddit_url" text,
+	"joined_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "profiles_handle_unique" UNIQUE("handle")
+);

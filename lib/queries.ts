@@ -11,6 +11,7 @@ import type {
   GamePageData,
   GamePlatformItem,
   GameReviewItem,
+  ProfileReview,
   RankedGame,
   SavedGame,
   SearchGame,
@@ -454,24 +455,27 @@ export async function toggleLike(opts: { userId: string; gameId: string }) {
   };
 }
 
-export async function listBookmarks(userId: string): Promise<SavedGame[]> {
-  if (!hasDatabase()) return [];
-  const db = getDb();
-  const rows = await db
-    .select({
-      id: games.id,
-      slug: games.slug,
-      name: games.name,
-      tagline: games.tagline,
-      logoUrl: games.logoUrl,
-      status: games.status,
-      tags: games.tags,
-    })
-    .from(bookmarks)
-    .innerJoin(games, eq(bookmarks.gameId, games.id))
-    .where(and(eq(bookmarks.clerkUserId, userId), isNull(games.archivedAt)))
-    .orderBy(desc(bookmarks.createdAt));
+const savedGameColumns = {
+  id: games.id,
+  slug: games.slug,
+  name: games.name,
+  tagline: games.tagline,
+  logoUrl: games.logoUrl,
+  status: games.status,
+  tags: games.tags,
+};
 
+async function toSavedGames(
+  rows: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    tagline: string;
+    logoUrl: string;
+    status: SavedGame["status"];
+    tags: string[] | null;
+  }>,
+): Promise<SavedGame[]> {
   const platformMap = await platformsByGameIds(rows.map((row) => row.id));
   return rows.map((row) => ({
     id: row.id,
@@ -482,6 +486,70 @@ export async function listBookmarks(userId: string): Promise<SavedGame[]> {
     status: row.status,
     tags: row.tags ?? [],
     platforms: platformMap.get(row.id) ?? [],
+  }));
+}
+
+export async function listBookmarks(userId: string): Promise<SavedGame[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select(savedGameColumns)
+    .from(bookmarks)
+    .innerJoin(games, eq(bookmarks.gameId, games.id))
+    .where(and(eq(bookmarks.clerkUserId, userId), isNull(games.archivedAt)))
+    .orderBy(desc(bookmarks.createdAt));
+  return toSavedGames(rows);
+}
+
+export async function listLikes(userId: string): Promise<SavedGame[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select(savedGameColumns)
+    .from(likes)
+    .innerJoin(games, eq(likes.gameId, games.id))
+    .where(and(eq(likes.clerkUserId, userId), isNull(games.archivedAt)))
+    .orderBy(desc(likes.createdAt));
+  return toSavedGames(rows);
+}
+
+export async function listPublishedGames(userId: string): Promise<SavedGame[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select(savedGameColumns)
+    .from(games)
+    .where(and(eq(games.ownerClerkUserId, userId), isNull(games.archivedAt)))
+    .orderBy(desc(games.createdAt));
+  return toSavedGames(rows);
+}
+
+export async function listProfileReviews(userId: string): Promise<ProfileReview[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: gameReviews.id,
+      rating: gameReviews.rating,
+      body: gameReviews.body,
+      createdAt: gameReviews.createdAt,
+      gameSlug: games.slug,
+      gameName: games.name,
+      gameLogoUrl: games.logoUrl,
+    })
+    .from(gameReviews)
+    .innerJoin(games, eq(gameReviews.gameId, games.id))
+    .where(and(eq(gameReviews.clerkUserId, userId), isNull(games.archivedAt)))
+    .orderBy(desc(gameReviews.createdAt));
+
+  return rows.map((row) => ({
+    id: row.id,
+    rating: row.rating,
+    body: row.body,
+    createdAt: row.createdAt.toISOString(),
+    gameSlug: row.gameSlug,
+    gameName: row.gameName,
+    gameLogoUrl: row.gameLogoUrl,
   }));
 }
 
@@ -550,6 +618,7 @@ export async function listGameReviews(opts: {
 export async function getGamePageData(
   slug: string,
   userId?: string | null,
+  reviewId?: string | null,
 ): Promise<GamePageData | null> {
   const gameRow = await getGameBySlug(slug);
   if (!gameRow) return null;
@@ -645,6 +714,29 @@ export async function getGamePageData(
       };
 
   const agg = reviewAgg[0];
+  const reviewIdOk = Boolean(reviewId && /^[0-9a-f-]{36}$/i.test(reviewId));
+  let reviews = firstReviews.items;
+  if (reviewIdOk && reviewId && !reviews.some((item) => item.id === reviewId)) {
+    const [row] = await db
+      .select()
+      .from(gameReviews)
+      .where(and(eq(gameReviews.id, reviewId), eq(gameReviews.gameId, gameRow.id)))
+      .limit(1);
+    if (row) {
+      reviews = [
+        ...reviews,
+        {
+          id: row.id,
+          rating: row.rating,
+          body: row.body,
+          displayName: row.displayName,
+          imageUrl: row.imageUrl,
+          createdAt: row.createdAt.toISOString(),
+          clerkUserId: row.clerkUserId,
+        },
+      ];
+    }
+  }
 
   return {
     game: rankedGame(gameRow, extras, platformMap.get(gameRow.id) ?? []),
@@ -663,7 +755,7 @@ export async function getGamePageData(
     archived: Boolean(gameRow.archivedAt),
     reviewAverage: agg?.average != null ? Number(agg.average) : null,
     reviewCount: agg?.count ?? 0,
-    reviews: firstReviews.items,
+    reviews: reviews,
     reviewsNextCursor: firstReviews.nextCursor,
     viewerReview: viewerRows[0] ?? null,
     bookmarked: Boolean(bookmarkRows[0]),

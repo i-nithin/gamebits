@@ -20,6 +20,7 @@ import {
 } from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { isPlatformId } from "@/lib/platform-catalog";
+import { ensureCurrentProfile, getProfileHandle } from "@/lib/profile";
 import { getGameById } from "@/lib/queries";
 import { sanitizeMultiline, sanitizePlainText, slugify } from "@/lib/sanitize";
 import { isAllowedImageUrl, parseVideoEmbed, sanitizeGameLink, withVideosFirst } from "@/lib/urls";
@@ -84,6 +85,18 @@ function derivePrimaryUrl(links: Array<{ kind: GameLinkKind; url: string }>) {
     if (match) return match.url;
   }
   return links[0].url;
+}
+
+async function revalidateOwnerProfile(
+  ownerId: string | null | undefined,
+  actorId: string,
+) {
+  if (!ownerId) return;
+  const handle =
+    ownerId === actorId
+      ? (await ensureCurrentProfile())?.handle
+      : await getProfileHandle(ownerId);
+  if (handle) revalidatePath(`/u/${handle}`);
 }
 
 async function uniqueSlug(base: string, excludeId?: string) {
@@ -225,6 +238,7 @@ export async function upsertOwnedGameAction(
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath(`/games/${slug}`);
+  await revalidateOwnerProfile(existing?.ownerClerkUserId ?? userId, userId);
   redirect(`/games/${slug}`);
 }
 
@@ -248,4 +262,5 @@ export async function setGameArchivedAction(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath(`/games/${game.slug}`);
   revalidatePath(`/games/${game.slug}/edit`);
+  await revalidateOwnerProfile(game.ownerClerkUserId ?? userId, userId);
 }

@@ -47,6 +47,7 @@ export function GameDetail({
   signedIn,
   displayName,
   imageUrl,
+  highlightReviewId = null,
 }: {
   data: GamePageData;
   year: number;
@@ -55,6 +56,7 @@ export function GameDetail({
   signedIn: boolean;
   displayName: string;
   imageUrl: string | null;
+  highlightReviewId?: string | null;
 }) {
   const { game } = data;
   const canManage = data.isOwner || data.isAdmin;
@@ -157,7 +159,7 @@ export function GameDetail({
         </div>
       </div>
 
-      <Tabs defaultValue="details" className="gap-0">
+      <Tabs defaultValue={highlightReviewId ? "reviews" : "details"} className="gap-0">
         <TabsList
           variant="line"
           className="h-11 w-full justify-start gap-6 rounded-none border-b border-iron bg-transparent p-0"
@@ -294,6 +296,7 @@ export function GameDetail({
             average={data.reviewAverage}
             count={data.reviewCount}
             viewerReview={data.viewerReview}
+            highlightReviewId={highlightReviewId}
           />
         </TabsContent>
       </Tabs>

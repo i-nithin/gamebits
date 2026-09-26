@@ -8,7 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { GAME_STATUS_LABELS } from "@/lib/constants";
 import type { SavedGame } from "@/lib/types";
 
-export function BookmarkList({ games }: { games: SavedGame[] }) {
+export function BookmarkList({
+  games,
+  showBookmark = true,
+}: {
+  games: SavedGame[];
+  showBookmark?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-0.5">
       {games.map((game) => (
@@ -44,7 +50,7 @@ export function BookmarkList({ games }: { games: SavedGame[] }) {
               </span>
             </div>
           </div>
-          <BookmarkButton gameId={game.id} bookmarked compact />
+          {showBookmark ? <BookmarkButton gameId={game.id} bookmarked compact /> : null}
         </article>
       ))}
     </div>

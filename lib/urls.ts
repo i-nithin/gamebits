@@ -90,6 +90,25 @@ function hostAllowed(host: string, allowed: string[]) {
   return allowed.some((entry) => host === entry || host.endsWith(`.${entry}`));
 }
 
+const PROFILE_LINK_HOSTS = {
+  x: ["x.com", "twitter.com"],
+  github: ["github.com"],
+  linkedin: ["linkedin.com"],
+  reddit: ["reddit.com"],
+} as const;
+
+export type ProfileLinkKind = "website" | keyof typeof PROFILE_LINK_HOSTS;
+
+export function sanitizeProfileLink(kind: ProfileLinkKind, raw: string) {
+  const parsed = parseHttpsUrl(raw);
+  if (!parsed) return null;
+  if (kind !== "website" && !hostAllowed(parsed.hostname.toLowerCase(), [...PROFILE_LINK_HOSTS[kind]])) {
+    return null;
+  }
+  parsed.hash = "";
+  return parsed.toString();
+}
+
 export function sanitizeHttpsUrl(raw: string) {
   const parsed = parseHttpsUrl(raw);
   if (!parsed) return null;
@@ -148,6 +167,12 @@ export function parseVideoEmbed(raw: string): VideoEmbed | null {
   }
 
   return null;
+}
+
+export function isProfileImageUrl(raw: string) {
+  if (isAllowedImageUrl(raw)) return true;
+  const parsed = parseHttpsUrl(raw);
+  return parsed?.hostname.toLowerCase() === "img.clerk.com";
 }
 
 export function isAllowedImageUrl(raw: string) {
