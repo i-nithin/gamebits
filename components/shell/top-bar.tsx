@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Show, SignInButton, UserButton } from "@clerk/nextjs";
 import {
   BellIcon,
-  BookmarkIcon,
   CompassIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
@@ -13,30 +11,36 @@ import {
   PlusIcon,
   SearchIcon,
   SettingsIcon,
-  UserIcon,
   XIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useSearch } from "@/components/search/search-provider";
+import { useAuthDialog } from "@/components/shell/auth-dialog";
+import { ProfileMenu } from "@/components/shell/profile-menu";
+import { ViewerMark } from "@/components/shell/viewer-mark";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { clerkEnabled } from "@/lib/clerk-enabled";
+import type { Viewer } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function TopBar({ currentWeekHref }: { currentWeekHref: string }) {
+export function TopBar({
+  currentWeekHref,
+  viewer,
+}: {
+  currentWeekHref: string;
+  viewer: Viewer | null;
+}) {
   const { setOpen } = useSearch();
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
+  const openAuth = useAuthDialog();
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (pathname !== menuPath) {
+    setMenuPath(pathname);
     setMenuOpen(false);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -61,12 +65,6 @@ export function TopBar({ currentWeekHref }: { currentWeekHref: string }) {
       active: pathname.startsWith("/week") || (pathname.startsWith("/games/") && pathname !== "/games/new"),
     },
     {
-      href: "/bookmarks",
-      label: "Saved",
-      icon: BookmarkIcon,
-      active: pathname === "/bookmarks",
-    },
-    {
       href: "/games/new",
       label: "Add game",
       icon: PlusIcon,
@@ -77,6 +75,12 @@ export function TopBar({ currentWeekHref }: { currentWeekHref: string }) {
       label: "Settings",
       icon: SettingsIcon,
       active: pathname.startsWith("/admin"),
+    },
+    {
+      href: "/profile",
+      label: "Profile",
+      icon: null,
+      active: pathname === "/profile" || pathname.startsWith("/u/"),
     },
   ];
 
@@ -101,7 +105,7 @@ export function TopBar({ currentWeekHref }: { currentWeekHref: string }) {
         >
           <SearchIcon className="size-4 shrink-0 text-paper-white" />
           <span className="min-w-0 flex-1 truncate">Search GameBits</span>
-          {mounted ? <Kbd className="hidden sm:inline-flex">/</Kbd> : null}
+          <Kbd className="hidden sm:inline-flex">/</Kbd>
         </button>
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <Button variant="ghost" size="icon" aria-label="Notifications" className="rounded-full hover:bg-slate">
@@ -114,19 +118,17 @@ export function TopBar({ currentWeekHref }: { currentWeekHref: string }) {
               </Button>
             </Link>
           ) : null}
-          {clerkEnabled && mounted ? (
-            <>
-              <Show when="signed-out">
-                <SignInButton mode="modal">
-                  <Button variant="outline" className="h-8 rounded-full px-2.5 text-xs sm:text-sm">
-                    Sign in
-                  </Button>
-                </SignInButton>
-              </Show>
-              <Show when="signed-in">
-                <UserButton />
-              </Show>
-            </>
+          {viewer ? (
+            <ProfileMenu viewer={viewer} />
+          ) : clerkEnabled ? (
+            <button
+              type="button"
+              aria-label="Sign in"
+              onClick={openAuth}
+              className="rounded-full text-paper-white hover:bg-slate"
+            >
+              <ViewerMark viewer={null} className="size-8 text-sm" />
+            </button>
           ) : null}
         </div>
       </header>
@@ -150,30 +152,40 @@ export function TopBar({ currentWeekHref }: { currentWeekHref: string }) {
           <nav className="flex flex-1 flex-col gap-2 px-4 py-2">
             {nav.map((item) => {
               const Icon = item.icon;
-              const active = mounted && item.active;
+              const active = item.active;
+              const className = cn(
+                "flex h-12 items-center gap-3 rounded-full px-3 text-paper-white",
+                active ? "bg-graphite" : "hover:bg-slate",
+              );
+              if (item.label === "Profile") {
+                const mark = (
+                  <>
+                    <ViewerMark viewer={viewer} />
+                    <span className="text-sm font-medium">{item.label}</span>
+                  </>
+                );
+                if (!viewer && clerkEnabled) {
+                  return (
+                    <button key={item.label} type="button" onClick={openAuth} className={className}>
+                      {mark}
+                    </button>
+                  );
+                }
+                return (
+                  <Link key={item.label} href={item.href} className={className}>
+                    {mark}
+                  </Link>
+                );
+              }
               return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={cn(
-                    "flex h-12 items-center gap-3 rounded-full px-3 text-paper-white",
-                    active ? "bg-graphite" : "hover:bg-slate",
-                  )}
-                >
-                  <Icon className="size-5 shrink-0" />
+                <Link key={item.label} href={item.href} className={className}>
+                  {Icon ? <Icon className="size-5 shrink-0" /> : null}
                   <span className="text-sm font-medium">{item.label}</span>
                 </Link>
               );
             })}
           </nav>
           <div className="flex flex-col gap-2 px-4 py-4">
-            <Link
-              href="/admin"
-              className="flex h-12 items-center gap-3 rounded-full px-3 text-paper-white hover:bg-slate"
-            >
-              <UserIcon className="size-5 shrink-0" />
-              <span className="text-sm font-medium">Profile</span>
-            </Link>
             <a
               href="mailto:hello@gamebits.app"
               className="flex h-12 items-center gap-3 rounded-full px-3 text-paper-white hover:bg-slate"

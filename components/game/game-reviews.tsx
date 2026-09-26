@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { REVIEW_BODY_MAX } from "@/lib/constants";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import type { GameReviewItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 function Stars({
   value,
@@ -65,6 +66,7 @@ export function GameReviews({
   average,
   count,
   viewerReview,
+  highlightReviewId = null,
 }: {
   slug: string;
   gameId: string;
@@ -76,6 +78,7 @@ export function GameReviews({
   average: number | null;
   count: number;
   viewerReview: { rating: number; body: string } | null;
+  highlightReviewId?: string | null;
 }) {
   const [reviews, setReviews] = useState(initialReviews);
   const [cursor, setCursor] = useState(nextCursor);
@@ -87,6 +90,7 @@ export function GameReviews({
   const sentinel = useRef<HTMLDivElement>(null);
   const cursorRef = useRef(nextCursor);
   const loadingRef = useRef(false);
+  const scrolledRef = useRef(false);
   cursorRef.current = cursor;
 
   useEffect(() => {
@@ -112,6 +116,14 @@ export function GameReviews({
     observer.observe(node);
     return () => observer.disconnect();
   }, [slug]);
+
+  useEffect(() => {
+    if (!highlightReviewId || scrolledRef.current) return;
+    const node = document.getElementById(`review-${highlightReviewId}`);
+    if (!node) return;
+    scrolledRef.current = true;
+    node.scrollIntoView({ block: "center" });
+  }, [highlightReviewId, reviews]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -169,7 +181,14 @@ export function GameReviews({
       ) : null}
       <ul className="flex flex-col gap-4">
         {reviews.map((review) => (
-          <li key={review.id} className="flex gap-3">
+          <li
+            key={review.id}
+            id={`review-${review.id}`}
+            className={cn(
+              "flex scroll-mt-24 gap-3",
+              highlightReviewId === review.id && "rounded-xl bg-graphite px-3 py-3",
+            )}
+          >
             <Avatar size="sm">
               {review.imageUrl ? <AvatarImage src={review.imageUrl} alt="" /> : null}
               <AvatarFallback>{review.displayName.slice(0, 1)}</AvatarFallback>

@@ -7,7 +7,7 @@ import { cacheUploadUrl, fileFingerprint, getCachedUploadUrl } from "@/lib/game-
 
 const inflight = new Map<string, Promise<string>>();
 
-type UploadPurpose = "logo" | "media" | "platform";
+type UploadPurpose = "logo" | "media" | "platform" | "avatar" | "cover";
 
 function contentTypeFor(file: File, purpose: UploadPurpose) {
   const type = file.type.toLowerCase().split(";")[0]?.trim() ?? "";

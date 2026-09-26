@@ -62,7 +62,7 @@ function getR2Client() {
 
 export async function createPresignedUpload(opts: {
   userId: string;
-  purpose: "logo" | "media" | "platform";
+  purpose: "logo" | "media" | "platform" | "avatar" | "cover";
   contentType: (typeof PLATFORM_LOGO_TYPES)[number];
 }) {
   const bucket = process.env.R2_BUCKET_NAME;
@@ -72,7 +72,12 @@ export async function createPresignedUpload(opts: {
   }
 
   const ext = EXT_BY_TYPE[opts.contentType];
-  const folder = opts.purpose === "platform" ? "platforms" : `games/${opts.purpose}`;
+  const folder =
+    opts.purpose === "platform"
+      ? "platforms"
+      : opts.purpose === "avatar" || opts.purpose === "cover"
+        ? `profiles/${opts.purpose}`
+        : `games/${opts.purpose}`;
   const key = `${folder}/${opts.userId}/${randomUUID()}.${ext}`;
   const client = getR2Client();
   const command = new PutObjectCommand({

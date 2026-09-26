@@ -74,6 +74,40 @@ export type GameReviewItem = {
   clerkUserId: string;
 };
 
+export type Viewer = {
+  name: string;
+  handle: string;
+  imageUrl: string | null;
+};
+
+export type PublicProfile = {
+  clerkUserId: string;
+  handle: string;
+  name: string;
+  imageUrl: string | null;
+  coverUrl: string | null;
+  city: string | null;
+  country: string | null;
+  headline: string | null;
+  bio: string | null;
+  websiteUrl: string | null;
+  xUrl: string | null;
+  githubUrl: string | null;
+  linkedinUrl: string | null;
+  redditUrl: string | null;
+  joinedAt: string;
+};
+
+export type ProfileReview = {
+  id: string;
+  rating: number;
+  body: string;
+  createdAt: string;
+  gameSlug: string;
+  gameName: string;
+  gameLogoUrl: string;
+};
+
 export type SavedGame = {
   id: string;
   slug: string;

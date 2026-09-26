@@ -5,6 +5,7 @@ import { Geist_Mono, Inter } from "next/font/google";
 import { AppShell } from "@/components/shell/app-shell";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getIsoWeekUtc, weekHref } from "@/lib/iso-week";
+import { getViewer } from "@/lib/profile";
 import { listSearchableGames } from "@/lib/queries";
 
 import "./globals.css";
@@ -26,12 +27,16 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const current = getIsoWeekUtc();
-  const searchGames = await listSearchableGames().catch(() => []);
+  const [searchGames, viewer] = await Promise.all([
+    listSearchableGames().catch(() => []),
+    getViewer().catch(() => null),
+  ]);
 
   const shell = (
     <AppShell
       currentWeekHref={weekHref(current.year, current.week)}
       searchGames={searchGames}
+      viewer={viewer}
     >
       {children}
     </AppShell>

@@ -7,7 +7,7 @@ import { createPresignedUpload, r2Configured } from "@/lib/cloudflare-r2";
 
 const bodySchema = z.discriminatedUnion("purpose", [
   z.object({
-    purpose: z.enum(["logo", "media"]),
+    purpose: z.enum(["logo", "media", "avatar", "cover"]),
     contentType: z.enum(ACCEPTED_IMAGE_TYPES),
   }),
   z.object({

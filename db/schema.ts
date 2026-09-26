@@ -214,3 +214,27 @@ export const likes = pgTable(
     index("likes_game_idx").on(table.gameId),
   ],
 );
+
+export const profiles = pgTable(
+  "profiles",
+  {
+    clerkUserId: text("clerk_user_id").primaryKey(),
+    handle: text("handle").notNull().unique(),
+    name: text("name").notNull(),
+    email: text("email"),
+    imageUrl: text("image_url"),
+    coverUrl: text("cover_url"),
+    city: text("city"),
+    country: text("country"),
+    headline: text("headline"),
+    bio: text("bio"),
+    websiteUrl: text("website_url"),
+    xUrl: text("x_url"),
+    githubUrl: text("github_url"),
+    linkedinUrl: text("linkedin_url"),
+    redditUrl: text("reddit_url"),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+);

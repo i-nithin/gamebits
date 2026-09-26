@@ -8,6 +8,7 @@ import { gameReviews, games } from "@/db/schema";
 import { requireSignedIn } from "@/lib/auth-admin";
 import { REVIEW_BODY_MAX } from "@/lib/constants";
 import { getDb } from "@/lib/db";
+import { getProfileHandle } from "@/lib/profile";
 import { sanitizeMultiline } from "@/lib/sanitize";
 
 const reviewSchema = z.object({
@@ -96,6 +97,8 @@ export async function upsertReviewAction(formData: FormData) {
   }
 
   revalidatePath(`/games/${game.slug}`);
+  const handle = await getProfileHandle(userId);
+  if (handle) revalidatePath(`/u/${handle}`);
   return {
     review: {
       id: reviewId!,
