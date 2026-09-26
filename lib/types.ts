@@ -74,6 +74,17 @@ export type GameReviewItem = {
   clerkUserId: string;
 };
 
+export type SavedGame = {
+  id: string;
+  slug: string;
+  name: string;
+  tagline: string;
+  logoUrl: string;
+  status: GameStatus;
+  tags: string[];
+  platforms: GamePlatformItem[];
+};
+
 export type GamePageData = {
   game: RankedGame;
   media: GameMediaItem[];
@@ -87,4 +98,7 @@ export type GamePageData = {
   reviews: GameReviewItem[];
   reviewsNextCursor: string | null;
   viewerReview: { rating: number; body: string } | null;
+  bookmarked: boolean;
+  liked: boolean;
+  likeCount: number;
 };

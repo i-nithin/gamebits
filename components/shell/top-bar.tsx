@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Show, SignInButton, UserButton } from "@clerk/nextjs";
 import {
   BellIcon,
+  BookmarkIcon,
   CompassIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
@@ -58,6 +59,12 @@ export function TopBar({ currentWeekHref }: { currentWeekHref: string }) {
       label: "Games",
       icon: LayoutGridIcon,
       active: pathname.startsWith("/week") || (pathname.startsWith("/games/") && pathname !== "/games/new"),
+    },
+    {
+      href: "/bookmarks",
+      label: "Saved",
+      icon: BookmarkIcon,
+      active: pathname === "/bookmarks",
     },
     {
       href: "/games/new",

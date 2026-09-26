@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireSignedIn } from "@/lib/auth-admin";
-import { ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
+import { isAdminUserId, requireSignedIn } from "@/lib/auth-admin";
+import { ACCEPTED_IMAGE_TYPES, PLATFORM_LOGO_TYPES } from "@/lib/constants";
 import { createPresignedUpload, r2Configured } from "@/lib/cloudflare-r2";
 
-const bodySchema = z.object({
-  purpose: z.enum(["logo", "media"]),
-  contentType: z.enum(ACCEPTED_IMAGE_TYPES),
-});
+const bodySchema = z.discriminatedUnion("purpose", [
+  z.object({
+    purpose: z.enum(["logo", "media"]),
+    contentType: z.enum(ACCEPTED_IMAGE_TYPES),
+  }),
+  z.object({
+    purpose: z.literal("platform"),
+    contentType: z.enum(PLATFORM_LOGO_TYPES),
+  }),
+]);
 
 export async function POST(request: Request) {
   try {
@@ -23,6 +29,10 @@ export async function POST(request: Request) {
     const parsed = bodySchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+
+    if (parsed.data.purpose === "platform" && !isAdminUserId(userId)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const upload = await createPresignedUpload({

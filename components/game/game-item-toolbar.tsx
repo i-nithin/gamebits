@@ -10,7 +10,6 @@ import {
   RocketIcon,
 } from "lucide-react";
 
-import { VoteButton } from "@/components/game/vote-button";
 import type { GameLinkItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -33,19 +32,10 @@ export function GameItemToolbar({
   slug,
   links,
   canManage,
-  vote,
 }: {
   slug: string;
   links: GameLinkItem[];
   canManage: boolean;
-  vote: {
-    gameId: string;
-    year: number;
-    week: number;
-    voteCount: number;
-    voted: boolean;
-    live: boolean;
-  };
 }) {
   const [copied, setCopied] = useState(false);
   const web = links.find((link) => link.kind === "web")?.url;
@@ -101,15 +91,6 @@ export function GameItemToolbar({
       >
         <CopyIcon className={cn("size-4", copied && "text-ice-signal")} strokeWidth={1.5} />
       </IconBtn>
-      <VoteButton
-        gameId={vote.gameId}
-        year={vote.year}
-        week={vote.week}
-        voteCount={vote.voteCount}
-        voted={vote.voted}
-        live={vote.live}
-        compact
-      />
       {canManage ? (
         <>
           <Link

@@ -70,3 +70,8 @@ export const ACCEPTED_IMAGE_TYPES = [
   "image/webp",
   "image/gif",
 ] as const;
+
+export const PLATFORM_LOGO_TYPES = [
+  ...ACCEPTED_IMAGE_TYPES,
+  "image/svg+xml",
+] as const;

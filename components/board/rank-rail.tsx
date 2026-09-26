@@ -19,11 +19,11 @@ export function RankRail({ games }: { games: RankedGame[] }) {
             className="flex h-12 items-center gap-3 rounded-lg px-2 hover:bg-graphite"
           >
             <Image
-              src={game.coverUrl}
+              src={game.logoUrl}
               alt=""
               width={32}
               height={32}
-              className="size-8 rounded-full object-cover"
+              className="size-8 rounded-full bg-graphite object-contain p-0.5"
             />
             <span className="min-w-0 flex-1 truncate text-sm font-medium text-paper-white">
               {game.name}

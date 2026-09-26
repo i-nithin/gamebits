@@ -48,11 +48,11 @@ export function DiscoverTable({
             <TableCell>
               <Link href={`/games/${game.slug}`} className="flex items-center gap-3">
                 <Image
-                  src={game.coverUrl}
+                  src={game.logoUrl}
                   alt=""
                   width={28}
                   height={28}
-                  className="size-7 rounded-full object-cover"
+                  className="size-7 rounded-full bg-graphite object-contain p-0.5"
                 />
                 <span className="stat-mono w-6 text-fog">{game.rank}</span>
                 <span className="font-medium">{game.name}</span>

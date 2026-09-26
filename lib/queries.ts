@@ -1,7 +1,7 @@
-import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { cache } from "react";
 
-import { gameLinks, gameMedia, gamePlatforms, gameReviews, games, platforms, votes, weekListings } from "@/db/schema";
+import { bookmarks, gameLinks, gameMedia, gamePlatforms, gameReviews, games, likes, platforms, votes, weekListings } from "@/db/schema";
 import { canManageGame, isAdminUserId } from "@/lib/auth-admin";
 import { REVIEW_PAGE_SIZE } from "@/lib/constants";
 import { getDb, hasDatabase } from "@/lib/db";
@@ -12,6 +12,7 @@ import type {
   GamePlatformItem,
   GameReviewItem,
   RankedGame,
+  SavedGame,
   SearchGame,
   WeekBoard,
 } from "@/lib/types";
@@ -120,6 +121,36 @@ export const listAllPlatforms = cache(async function listAllPlatforms() {
     .select()
     .from(platforms)
     .orderBy(asc(platforms.sortOrder), asc(platforms.name));
+});
+
+export const listPlatformCatalog = cache(async function listPlatformCatalog() {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: platforms.id,
+      slug: platforms.slug,
+      name: platforms.name,
+      logoUrl: platforms.logoUrl,
+      sortOrder: platforms.sortOrder,
+      archivedAt: platforms.archivedAt,
+      gameCount: count(gamePlatforms.id),
+    })
+    .from(platforms)
+    .leftJoin(gamePlatforms, eq(gamePlatforms.platformId, platforms.id))
+    .groupBy(
+      platforms.id,
+      platforms.slug,
+      platforms.name,
+      platforms.logoUrl,
+      platforms.sortOrder,
+      platforms.archivedAt,
+    )
+    .orderBy(asc(platforms.sortOrder), asc(platforms.name));
+  return rows.map((row) => ({
+    ...row,
+    gameCount: Number(row.gameCount),
+  }));
 });
 
 export const listActivePlatforms = cache(async function listActivePlatforms(): Promise<
@@ -360,6 +391,100 @@ export async function toggleWeekVote(opts: {
   return { voted: true };
 }
 
+export async function toggleBookmark(opts: { userId: string; gameId: string }) {
+  const db = getDb();
+  const [game] = await db
+    .select({ id: games.id, slug: games.slug })
+    .from(games)
+    .where(and(eq(games.id, opts.gameId), isNull(games.archivedAt)))
+    .limit(1);
+  if (!game) return null;
+
+  const existing = await db
+    .select({ id: bookmarks.id })
+    .from(bookmarks)
+    .where(and(eq(bookmarks.clerkUserId, opts.userId), eq(bookmarks.gameId, opts.gameId)))
+    .limit(1);
+
+  if (existing[0]) {
+    await db.delete(bookmarks).where(eq(bookmarks.id, existing[0].id));
+    return { bookmarked: false, slug: game.slug };
+  }
+
+  await db.insert(bookmarks).values({
+    clerkUserId: opts.userId,
+    gameId: opts.gameId,
+  });
+  return { bookmarked: true, slug: game.slug };
+}
+
+export async function toggleLike(opts: { userId: string; gameId: string }) {
+  const db = getDb();
+  const [game] = await db
+    .select({ id: games.id, slug: games.slug })
+    .from(games)
+    .where(and(eq(games.id, opts.gameId), isNull(games.archivedAt)))
+    .limit(1);
+  if (!game) return null;
+
+  const existing = await db
+    .select({ id: likes.id })
+    .from(likes)
+    .where(and(eq(likes.clerkUserId, opts.userId), eq(likes.gameId, opts.gameId)))
+    .limit(1);
+
+  if (existing[0]) {
+    await db.delete(likes).where(eq(likes.id, existing[0].id));
+  } else {
+    await db.insert(likes).values({
+      clerkUserId: opts.userId,
+      gameId: opts.gameId,
+    });
+  }
+
+  const [countRow] = await db
+    .select({ likeCount: sql<number>`count(*)::int` })
+    .from(likes)
+    .where(eq(likes.gameId, opts.gameId));
+
+  return {
+    liked: !existing[0],
+    likeCount: countRow?.likeCount ?? 0,
+    slug: game.slug,
+  };
+}
+
+export async function listBookmarks(userId: string): Promise<SavedGame[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: games.id,
+      slug: games.slug,
+      name: games.name,
+      tagline: games.tagline,
+      logoUrl: games.logoUrl,
+      status: games.status,
+      tags: games.tags,
+    })
+    .from(bookmarks)
+    .innerJoin(games, eq(bookmarks.gameId, games.id))
+    .where(and(eq(bookmarks.clerkUserId, userId), isNull(games.archivedAt)))
+    .orderBy(desc(bookmarks.createdAt));
+
+  const platformMap = await platformsByGameIds(rows.map((row) => row.id));
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    tagline: row.tagline,
+    logoUrl: row.logoUrl,
+    status: row.status,
+    tags: row.tags ?? [],
+    platforms: platformMap.get(row.id) ?? [],
+  }));
+}
+
 function encodeReviewCursor(createdAt: Date, id: string) {
   return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString("base64url");
 }
@@ -436,7 +561,7 @@ export async function getGamePageData(
   if (!hasDatabase()) return null;
   const db = getDb();
 
-  const [mediaRows, linkRows, listingRows, reviewAgg, viewerRows, firstReviews, platformMap] =
+  const [mediaRows, linkRows, listingRows, reviewAgg, viewerRows, firstReviews, platformMap, bookmarkRows, likeRows] =
     await Promise.all([
       db
         .select()
@@ -469,6 +594,22 @@ export async function getGamePageData(
         : Promise.resolve([]),
       listGameReviews({ gameId: gameRow.id }),
       platformsByGameIds([gameRow.id]),
+      userId
+        ? db
+            .select({ id: bookmarks.id })
+            .from(bookmarks)
+            .where(and(eq(bookmarks.gameId, gameRow.id), eq(bookmarks.clerkUserId, userId)))
+            .limit(1)
+        : Promise.resolve([]),
+      db
+        .select({
+          likeCount: sql<number>`count(*)::int`,
+          liked: userId
+            ? sql<boolean>`coalesce(bool_or(${likes.clerkUserId} = ${userId}), false)`
+            : sql<boolean>`false`,
+        })
+        .from(likes)
+        .where(eq(likes.gameId, gameRow.id)),
     ]);
 
   const boards = await Promise.all(
@@ -525,6 +666,9 @@ export async function getGamePageData(
     reviews: firstReviews.items,
     reviewsNextCursor: firstReviews.nextCursor,
     viewerReview: viewerRows[0] ?? null,
+    bookmarked: Boolean(bookmarkRows[0]),
+    liked: Boolean(likeRows[0]?.liked),
+    likeCount: likeRows[0]?.likeCount ?? 0,
   };
 }
 

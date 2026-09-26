@@ -3,13 +3,14 @@ import { randomUUID } from "node:crypto";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-import { ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
+import { PLATFORM_LOGO_TYPES } from "@/lib/constants";
 
-const EXT_BY_TYPE: Record<(typeof ACCEPTED_IMAGE_TYPES)[number], string> = {
+const EXT_BY_TYPE: Record<(typeof PLATFORM_LOGO_TYPES)[number], string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
   "image/gif": "gif",
+  "image/svg+xml": "svg",
 };
 
 function trimPublicUrl(raw: string) {
@@ -61,8 +62,8 @@ function getR2Client() {
 
 export async function createPresignedUpload(opts: {
   userId: string;
-  purpose: "logo" | "media";
-  contentType: (typeof ACCEPTED_IMAGE_TYPES)[number];
+  purpose: "logo" | "media" | "platform";
+  contentType: (typeof PLATFORM_LOGO_TYPES)[number];
 }) {
   const bucket = process.env.R2_BUCKET_NAME;
   const publicBase = r2PublicBaseUrl();
@@ -71,7 +72,8 @@ export async function createPresignedUpload(opts: {
   }
 
   const ext = EXT_BY_TYPE[opts.contentType];
-  const key = `games/${opts.purpose}/${opts.userId}/${randomUUID()}.${ext}`;
+  const folder = opts.purpose === "platform" ? "platforms" : `games/${opts.purpose}`;
+  const key = `${folder}/${opts.userId}/${randomUUID()}.${ext}`;
   const client = getR2Client();
   const command = new PutObjectCommand({
     Bucket: bucket,

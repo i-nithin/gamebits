@@ -1,26 +1,14 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
 import { BadgeCheckIcon, Gamepad2Icon } from "lucide-react";
 
-import { VoteButton } from "@/components/game/vote-button";
+import { BookmarkButton } from "@/components/game/bookmark-button";
 import { PlatformChipList } from "@/components/game/platform-chip";
 import { Badge } from "@/components/ui/badge";
 import { GAME_STATUS_LABELS } from "@/lib/constants";
-import type { RankedGame } from "@/lib/types";
+import type { SavedGame } from "@/lib/types";
 
-export function GameCardGrid({
-  games,
-  year,
-  week,
-  live,
-}: {
-  games: RankedGame[];
-  year: number;
-  week: number;
-  live: boolean;
-}) {
+export function BookmarkList({ games }: { games: SavedGame[] }) {
   return (
     <div className="flex flex-col gap-0.5">
       {games.map((game) => (
@@ -28,7 +16,6 @@ export function GameCardGrid({
           key={game.id}
           className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-graphite"
         >
-          <span className="stat-mono w-5 shrink-0 text-xs text-fog">{game.rank}</span>
           <Link
             href={`/games/${game.slug}`}
             className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-graphite sm:size-14"
@@ -57,15 +44,7 @@ export function GameCardGrid({
               </span>
             </div>
           </div>
-          <VoteButton
-            gameId={game.id}
-            year={year}
-            week={week}
-            voteCount={game.voteCount}
-            voted={game.voted}
-            live={live}
-            compact
-          />
+          <BookmarkButton gameId={game.id} bookmarked compact />
         </article>
       ))}
     </div>

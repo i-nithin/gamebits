@@ -151,13 +151,13 @@ export function HeroCarousel({
                         type="button"
                         aria-label={`Show ${slide.name}`}
                         onClick={() => goTo(slideIndex)}
-                        className="relative size-[72px] overflow-hidden rounded-xl border border-white/15 transition-opacity hover:opacity-90"
+                        className="relative size-[72px] overflow-hidden rounded-xl border border-white/15 bg-graphite transition-opacity hover:opacity-90"
                       >
                         <Image
-                          src={slide.coverUrl}
+                          src={slide.logoUrl}
                           alt=""
                           fill
-                          className="object-cover"
+                          className="object-contain p-2"
                           sizes="72px"
                         />
                       </button>

@@ -39,7 +39,7 @@ export function GameGallery({
 
   return (
     <div className="flex flex-col gap-3 lg:sticky lg:top-20">
-      <div className="relative aspect-square overflow-hidden rounded-2xl bg-graphite card-ring">
+      <div className="relative aspect-video overflow-hidden rounded-2xl bg-graphite card-ring">
         {active?.kind === "image" ? (
           <Image
             src={active.url}

@@ -182,3 +182,35 @@ export const votes = pgTable(
     index("votes_week_game_idx").on(table.isoYear, table.isoWeek, table.gameId),
   ],
 );
+
+export const bookmarks = pgTable(
+  "bookmarks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clerkUserId: text("clerk_user_id").notNull(),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("bookmarks_user_game_idx").on(table.clerkUserId, table.gameId),
+    index("bookmarks_user_created_idx").on(table.clerkUserId, table.createdAt),
+  ],
+);
+
+export const likes = pgTable(
+  "likes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clerkUserId: text("clerk_user_id").notNull(),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("likes_user_game_idx").on(table.clerkUserId, table.gameId),
+    index("likes_game_idx").on(table.gameId),
+  ],
+);

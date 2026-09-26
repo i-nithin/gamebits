@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  BookmarkIcon,
   CompassIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
@@ -29,6 +30,12 @@ export function LeftRail({ currentWeekHref }: { currentWeekHref: string }) {
       label: "Games",
       icon: LayoutGridIcon,
       active: pathname.startsWith("/week") || (pathname.startsWith("/games/") && pathname !== "/games/new"),
+    },
+    {
+      href: "/bookmarks",
+      label: "Saved",
+      icon: BookmarkIcon,
+      active: pathname === "/bookmarks",
     },
     {
       href: "/games/new",
