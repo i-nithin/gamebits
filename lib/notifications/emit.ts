@@ -1,14 +1,19 @@
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { after } from "next/server";
 
 import {
   follows,
   notificationJobs,
+  notificationPreferences,
   notifications,
   notificationState,
   type NotificationPayload,
 } from "@/db/schema";
 import { getDb, hasDatabase } from "@/lib/db";
+import {
+  isNotificationEnabled,
+  notificationPreferenceColumn,
+} from "@/lib/notifications/preferences";
 import type { NotificationType } from "@/lib/notifications/types";
 
 const FANOUT_BATCH = 250;
@@ -60,6 +65,7 @@ export async function emitDirectNotification(opts: {
 }) {
   if (!hasDatabase()) return;
   if (opts.recipientId === opts.actorId) return;
+  if (!(await isNotificationEnabled(opts.recipientId, opts.type))) return;
 
   const db = getDb();
   const now = new Date();
@@ -192,21 +198,23 @@ export async function processNotificationJob(jobId: string) {
       .limit(1);
     if (!job) return;
 
-    const followerQuery = db
+    const preference = notificationPreferenceColumn(job.type);
+    const followers = await db
       .select({ followerId: follows.followerClerkUserId })
       .from(follows)
+      .leftJoin(
+        notificationPreferences,
+        eq(notificationPreferences.clerkUserId, follows.followerClerkUserId),
+      )
       .where(
-        job.cursor
-          ? and(
-              eq(follows.followingClerkUserId, job.actorClerkUserId),
-              gt(follows.followerClerkUserId, job.cursor),
-            )
-          : eq(follows.followingClerkUserId, job.actorClerkUserId),
+        and(
+          eq(follows.followingClerkUserId, job.actorClerkUserId),
+          job.cursor ? gt(follows.followerClerkUserId, job.cursor) : undefined,
+          or(isNull(notificationPreferences.clerkUserId), eq(preference, true)),
+        ),
       )
       .orderBy(follows.followerClerkUserId)
       .limit(FANOUT_BATCH);
-
-    const followers = await followerQuery;
     if (followers.length === 0) {
       await db
         .update(notificationJobs)
