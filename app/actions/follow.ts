@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { getCurrentUserId } from "@/lib/auth-admin";
 import { ensureCurrentProfile } from "@/lib/profile";
+import {
+  emitDirectNotification,
+  ensureActorPayload,
+} from "@/lib/notifications";
 import { toggleFollow } from "@/lib/queries";
 
 export async function toggleFollowAction(formData: FormData) {
@@ -23,6 +27,20 @@ export async function toggleFollowAction(formData: FormData) {
   ]);
   if (!result) {
     return { ok: false as const, reason: "invalid" as const };
+  }
+
+  if (result.following) {
+    const actor = await ensureActorPayload(userId);
+    void emitDirectNotification({
+      recipientId: profileUserId,
+      actorId: userId,
+      type: "follow",
+      entityType: "profile",
+      entityId: userId,
+      groupKey: `follow:${userId}`,
+      payload: actor,
+      aggregate: false,
+    }).catch((error) => console.error("[notifications] follow emit failed", error));
   }
 
   revalidatePath(`/u/${result.targetHandle}`);

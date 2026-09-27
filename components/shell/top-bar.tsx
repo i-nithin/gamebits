@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import { useNotificationsOptional } from "@/components/notifications/notification-provider";
 import { useSearch } from "@/components/search/search-provider";
 import { useAuthDialog } from "@/components/shell/auth-dialog";
 import { ProfileMenu } from "@/components/shell/profile-menu";
@@ -24,6 +26,27 @@ import { Kbd } from "@/components/ui/kbd";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import type { Viewer } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+function NotificationsControl({ signedIn }: { signedIn: boolean }) {
+  const notifications = useNotificationsOptional();
+  const openAuth = useAuthDialog();
+
+  if (signedIn && notifications) {
+    return <NotificationBell />;
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label="Notifications"
+      className="rounded-full hover:bg-slate"
+      onClick={clerkEnabled ? openAuth : undefined}
+    >
+      <BellIcon />
+    </Button>
+  );
+}
 
 export function TopBar({ viewer }: { viewer: Viewer | null }) {
   const { setOpen } = useSearch();
@@ -104,9 +127,7 @@ export function TopBar({ viewer }: { viewer: Viewer | null }) {
           <Kbd className="hidden sm:inline-flex">/</Kbd>
         </button>
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <Button variant="ghost" size="icon" aria-label="Notifications" className="rounded-full hover:bg-slate">
-            <BellIcon />
-          </Button>
+          <NotificationsControl signedIn={Boolean(viewer)} />
           {clerkEnabled ? (
             <Link href="/games/new" aria-label="Add game">
               <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate">
