@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -291,4 +292,91 @@ export const profiles = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
+);
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "follow",
+  "game_like",
+  "game_upvote",
+  "followee_publish",
+  "followee_launch",
+]);
+
+export const notificationJobTypeEnum = pgEnum("notification_job_type", [
+  "followee_publish",
+  "followee_launch",
+]);
+
+export const notificationJobStatusEnum = pgEnum("notification_job_status", [
+  "pending",
+  "done",
+  "failed",
+]);
+
+export type NotificationPayload = {
+  actorName: string;
+  actorHandle: string;
+  actorImageUrl: string | null;
+  gameId?: string;
+  gameName?: string;
+  gameSlug?: string;
+  gameCoverUrl?: string | null;
+  isoYear?: number;
+  isoWeek?: number;
+};
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    recipientClerkUserId: text("recipient_clerk_user_id").notNull(),
+    type: notificationTypeEnum("type").notNull(),
+    actorClerkUserId: text("actor_clerk_user_id").notNull(),
+    actorCount: integer("actor_count").notNull().default(1),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id").notNull(),
+    groupKey: text("group_key").notNull(),
+    payload: jsonb("payload").$type<NotificationPayload>().notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("notifications_recipient_created_idx").on(
+      table.recipientClerkUserId,
+      table.createdAt.desc(),
+    ),
+    index("notifications_recipient_read_created_idx").on(
+      table.recipientClerkUserId,
+      table.readAt,
+      table.createdAt.desc(),
+    ),
+    uniqueIndex("notifications_unread_group_idx")
+      .on(table.recipientClerkUserId, table.groupKey)
+      .where(sql`${table.readAt} is null`),
+  ],
+);
+
+export const notificationState = pgTable("notification_state", {
+  clerkUserId: text("clerk_user_id").primaryKey(),
+  unreadCount: integer("unread_count").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const notificationJobs = pgTable(
+  "notification_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    type: notificationJobTypeEnum("type").notNull(),
+    actorClerkUserId: text("actor_clerk_user_id").notNull(),
+    entityId: text("entity_id").notNull(),
+    payload: jsonb("payload").$type<NotificationPayload>().notNull(),
+    cursor: text("cursor"),
+    status: notificationJobStatusEnum("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("notification_jobs_status_created_idx").on(table.status, table.createdAt),
+  ],
 );

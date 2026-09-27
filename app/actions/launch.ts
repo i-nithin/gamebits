@@ -62,6 +62,26 @@ export async function launchGameAction(
       isoWeek: week,
       featured,
     });
+
+    const { ensureActorPayload, enqueueFollowerFanout } = await import(
+      "@/lib/notifications"
+    );
+    const actor = await ensureActorPayload(userId);
+    void enqueueFollowerFanout({
+      type: "followee_launch",
+      actorId: userId,
+      entityId: gameId,
+      groupKey: `followee_launch:${gameId}:${year}:${week}`,
+      payload: {
+        ...actor,
+        gameId,
+        gameName: game.name,
+        gameSlug: game.slug,
+        gameCoverUrl: game.coverUrl,
+        isoYear: year,
+        isoWeek: week,
+      },
+    }).catch((error) => console.error("[notifications] launch fan-out failed", error));
   } else {
     await db
       .update(weekListings)

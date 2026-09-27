@@ -211,6 +211,7 @@ export async function upsertOwnedGameAction(
   };
 
   let gameId = existing?.id;
+  let createdNew = false;
   if (gameId) {
     await db.update(games).set(values).where(eq(games.id, gameId));
     await db.delete(gameMedia).where(eq(gameMedia.gameId, gameId));
@@ -226,6 +227,7 @@ export async function upsertOwnedGameAction(
       })
       .returning({ id: games.id, slug: games.slug });
     gameId = created.id;
+    createdNew = true;
   }
 
   if (media.length > 0) {
@@ -258,6 +260,26 @@ export async function upsertOwnedGameAction(
         categoryId,
       })),
     );
+  }
+
+  if (createdNew && gameId) {
+    const { ensureActorPayload, enqueueFollowerFanout } = await import(
+      "@/lib/notifications"
+    );
+    const actor = await ensureActorPayload(userId);
+    void enqueueFollowerFanout({
+      type: "followee_publish",
+      actorId: userId,
+      entityId: gameId,
+      groupKey: `followee_publish:${gameId}`,
+      payload: {
+        ...actor,
+        gameId,
+        gameName: name,
+        gameSlug: slug,
+        gameCoverUrl: coverUrl,
+      },
+    }).catch((error) => console.error("[notifications] publish fan-out failed", error));
   }
 
   revalidatePath("/");
