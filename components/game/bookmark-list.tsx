@@ -31,6 +31,7 @@ export function BookmarkList({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <Link href={`/games/${game.slug}`} className="flex items-center gap-1.5">
               <span className="truncate text-sm font-medium text-paper-white">{game.name}</span>
+              {game.archived ? <Badge variant="outline">Archived</Badge> : null}
               <BadgeCheckIcon className="size-3.5 shrink-0 text-ice-strong" />
             </Link>
             <p className="truncate text-xs text-fog">{game.tagline}</p>

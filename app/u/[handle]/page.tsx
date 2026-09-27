@@ -5,6 +5,7 @@ import { BookmarkList } from "@/components/game/bookmark-list";
 import { ProfileComments } from "@/components/profile/profile-comments";
 import { ProfileGames } from "@/components/profile/profile-games";
 import { ProfileHeader } from "@/components/profile/profile-header";
+import { ProfilePeople } from "@/components/profile/profile-people";
 import {
   Empty,
   EmptyDescription,
@@ -14,8 +15,17 @@ import {
 import { getCurrentUserId } from "@/lib/auth-admin";
 import { ensureCurrentProfile, getProfileByHandle } from "@/lib/profile";
 import { profileTab } from "@/lib/profile-tab";
-import { listBookmarks, listLikes, listProfileReviews, listPublishedGames } from "@/lib/queries";
-import type { ProfileReview, SavedGame } from "@/lib/types";
+import {
+  getFollowState,
+  listArchivedGames,
+  listBookmarks,
+  listFollowers,
+  listFollowing,
+  listLikes,
+  listProfileReviews,
+  listPublishedGames,
+} from "@/lib/queries";
+import type { FollowProfile, ProfileReview, SavedGame } from "@/lib/types";
 
 export async function generateMetadata({
   params,
@@ -51,6 +61,28 @@ function GamePanel({
     );
   }
   return <BookmarkList games={games} showBookmark={false} />;
+}
+
+function PeoplePanel({
+  people,
+  title,
+  description,
+}: {
+  people: FollowProfile[];
+  title: string;
+  description: string;
+}) {
+  if (people.length === 0) {
+    return (
+      <Empty className="border border-dashed border-iron">
+        <EmptyHeader>
+          <EmptyTitle>{title}</EmptyTitle>
+          <EmptyDescription>{description}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+  return <ProfilePeople people={people} />;
 }
 
 function CommentPanel({
@@ -89,42 +121,70 @@ export default async function UserProfilePage({
     searchParams,
     getCurrentUserId(),
   ]);
-  const tab = profileTab(query.tab);
   const profile = await getProfileByHandle(handle);
   if (!profile) notFound();
-  if (handle !== profile.handle) {
-    const suffix = tab === "published" ? "" : `?tab=${tab}`;
+  const isOwner = userId === profile.clerkUserId;
+  const tab = profileTab(query.tab, isOwner);
+  const privateTab =
+    query.tab === "archived" ||
+    query.tab === "saved" ||
+    query.tab === "liked" ||
+    query.tab === "comments";
+  if (handle !== profile.handle || (privateTab && !isOwner)) {
+    const suffix = tab === "games" ? "" : `?tab=${tab}`;
     redirect(`/u/${profile.handle}${suffix}`);
   }
 
-  const isOwner = userId === profile.clerkUserId;
-  const [games, own] = await Promise.all([
-    Promise.all([
+  const [published, saved, liked, comments, followers, following, follow, archived, own] =
+    await Promise.all([
       listPublishedGames(profile.clerkUserId),
-      listBookmarks(profile.clerkUserId),
-      listLikes(profile.clerkUserId),
-      listProfileReviews(profile.clerkUserId),
-    ]),
-    isOwner ? ensureCurrentProfile() : Promise.resolve(null),
-  ]);
-  const [published, saved, liked, comments] = games;
+      isOwner ? listBookmarks(profile.clerkUserId) : Promise.resolve([]),
+      isOwner ? listLikes(profile.clerkUserId) : Promise.resolve([]),
+      isOwner ? listProfileReviews(profile.clerkUserId) : Promise.resolve([]),
+      listFollowers(profile.clerkUserId),
+      listFollowing(profile.clerkUserId),
+      getFollowState(userId, profile.clerkUserId),
+      isOwner ? listArchivedGames(profile.clerkUserId) : Promise.resolve([]),
+      isOwner ? ensureCurrentProfile() : Promise.resolve(null),
+    ]);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
-      <ProfileHeader profile={profile} isOwner={isOwner} email={own?.email ?? null} />
+      <ProfileHeader
+        profile={profile}
+        isOwner={isOwner}
+        email={own?.email ?? null}
+        follow={follow}
+      />
       <ProfileGames
         handle={profile.handle}
         tab={tab}
+        isOwner={isOwner}
         panels={{
-          published: (
+          games: isOwner ? (
+            <div className="flex flex-col gap-8">
+              <section className="flex flex-col gap-3">
+                <h2 className="text-sm font-medium text-paper-white">Published</h2>
+                <GamePanel
+                  games={published}
+                  title="No published games"
+                  description="Games you add will show up here."
+                />
+              </section>
+              <section className="flex flex-col gap-3">
+                <h2 className="text-sm font-medium text-paper-white">Archived</h2>
+                <GamePanel
+                  games={archived}
+                  title="No archived games"
+                  description="Games you archive will show up here."
+                />
+              </section>
+            </div>
+          ) : (
             <GamePanel
               games={published}
-              title="No published games"
-              description={
-                isOwner
-                  ? "Games you add will show up here."
-                  : "Games this person publishes will show up here."
-              }
+              title="No games"
+              description="Games this person publishes will show up here."
             />
           ),
           saved: (
@@ -142,6 +202,26 @@ export default async function UserProfilePage({
             />
           ),
           comments: <CommentPanel reviews={comments} isOwner={isOwner} />,
+          followers: (
+            <PeoplePanel
+              people={followers}
+              title="No followers"
+              description={
+                isOwner ? "People who follow you will show up here." : "Followers will show up here."
+              }
+            />
+          ),
+          following: (
+            <PeoplePanel
+              people={following}
+              title="Not following anyone"
+              description={
+                isOwner
+                  ? "People you follow will show up here."
+                  : "People this person follows will show up here."
+              }
+            />
+          ),
         }}
       />
     </div>

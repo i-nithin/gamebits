@@ -1,13 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
-import { SignOutButton } from "@clerk/nextjs";
 import { MapPinIcon } from "lucide-react";
 
+import { FollowButton } from "@/components/profile/follow-button";
 import { Button } from "@/components/ui/button";
-import { clerkEnabled } from "@/lib/clerk-enabled";
 import { countryFlag, countryName, isCountryCode } from "@/lib/countries";
 import { formatMemberSince } from "@/lib/profile";
-import type { PublicProfile } from "@/lib/types";
+import type { FollowState, PublicProfile } from "@/lib/types";
 
 const SOCIALS = [
   { key: "websiteUrl", label: "Site" },
@@ -21,10 +20,12 @@ export function ProfileHeader({
   profile,
   isOwner,
   email,
+  follow,
 }: {
   profile: PublicProfile;
   isOwner: boolean;
   email: string | null;
+  follow: FollowState;
 }) {
   const countryLabel = profile.country
     ? isCountryCode(profile.country)
@@ -70,27 +71,29 @@ export function ProfileHeader({
             )}
           </div>
           {isOwner ? (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="rounded-full"
-                render={<Link href={`/u/${profile.handle}/edit`} />}
-              >
-                Edit profile
-              </Button>
-              {clerkEnabled ? (
-                <SignOutButton redirectUrl="/">
-                  <Button variant="outline" className="rounded-full">
-                    Sign out
-                  </Button>
-                </SignOutButton>
-              ) : null}
-            </div>
-          ) : null}
+            <Button
+              variant="outline"
+              className="rounded-full"
+              render={<Link href={`/u/${profile.handle}/edit`} />}
+            >
+              Edit profile
+            </Button>
+          ) : (
+            <FollowButton profileUserId={profile.clerkUserId} following={follow.following} />
+          )}
         </div>
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-medium text-paper-white sm:text-[32px]">{profile.name}</h1>
           <p className="text-sm text-fog">@{profile.handle}</p>
+          <p className="flex gap-3 text-sm text-fog">
+            <Link href={`/u/${profile.handle}?tab=followers`} className="hover:text-paper-white">
+              <span className="font-medium text-paper-white">{follow.followerCount}</span>{" "}
+              {follow.followerCount === 1 ? "follower" : "followers"}
+            </Link>
+            <Link href={`/u/${profile.handle}?tab=following`} className="hover:text-paper-white">
+              <span className="font-medium text-paper-white">{follow.followingCount}</span> following
+            </Link>
+          </p>
           {profile.headline ? (
             <p className="mt-1 text-base text-paper-white">{profile.headline}</p>
           ) : null}

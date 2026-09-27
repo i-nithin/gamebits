@@ -123,6 +123,20 @@ export type SavedGame = {
   status: GameStatus;
   categories: GameCategoryItem[];
   platforms: GamePlatformItem[];
+  archived?: boolean;
+};
+
+export type FollowProfile = {
+  clerkUserId: string;
+  handle: string;
+  name: string;
+  imageUrl: string | null;
+};
+
+export type FollowState = {
+  followerCount: number;
+  followingCount: number;
+  following: boolean;
 };
 
 export type GamePageData = {
