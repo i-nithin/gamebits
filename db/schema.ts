@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   pgEnum,
@@ -246,6 +248,24 @@ export const likes = pgTable(
   (table) => [
     uniqueIndex("likes_user_game_idx").on(table.clerkUserId, table.gameId),
     index("likes_game_idx").on(table.gameId),
+  ],
+);
+
+export const follows = pgTable(
+  "follows",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    followerClerkUserId: text("follower_clerk_user_id").notNull(),
+    followingClerkUserId: text("following_clerk_user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("follows_pair_idx").on(table.followerClerkUserId, table.followingClerkUserId),
+    index("follows_following_idx").on(table.followingClerkUserId),
+    check(
+      "follows_no_self",
+      sql`${table.followerClerkUserId} <> ${table.followingClerkUserId}`,
+    ),
   ],
 );
 

@@ -508,7 +508,7 @@ export function GameEditor({
                 />
                 <LabelWithInfo
                   htmlFor="archived"
-                  info="Hidden from the board and search. You can still open it from your listing."
+                  info="Hidden from the board and search. You can open it from My games on your profile."
                 >
                   Archive this game
                 </LabelWithInfo>

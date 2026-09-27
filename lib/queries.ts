@@ -1,7 +1,7 @@
-import { and, asc, count, desc, eq, exists, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gt, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { cache } from "react";
 
-import { bookmarks, categories, gameCategories, gameLinks, gameMedia, gamePlatforms, gameReviews, games, likes, platforms, votes, weekListings } from "@/db/schema";
+import { bookmarks, categories, follows, gameCategories, gameLinks, gameMedia, gamePlatforms, gameReviews, games, likes, platforms, profiles, votes, weekListings } from "@/db/schema";
 import { canManageGame, isAdminUserId } from "@/lib/auth-admin";
 import {
   COLLECTION_PAGE_SIZE,
@@ -15,6 +15,8 @@ import { getDb, hasDatabase } from "@/lib/db";
 import { isIsoWeekLive } from "@/lib/iso-week";
 import { isUuid } from "@/lib/sanitize";
 import type {
+  FollowProfile,
+  FollowState,
   GameCategoryItem,
   GameLaunchItem,
   GamePageData,
@@ -808,6 +810,117 @@ export async function listPublishedGames(userId: string): Promise<SavedGame[]> {
     .where(and(eq(games.ownerClerkUserId, userId), isNull(games.archivedAt)))
     .orderBy(desc(games.createdAt));
   return toSavedGames(rows);
+}
+
+export async function listArchivedGames(userId: string): Promise<SavedGame[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  const rows = await db
+    .select(savedGameColumns)
+    .from(games)
+    .where(and(eq(games.ownerClerkUserId, userId), isNotNull(games.archivedAt)))
+    .orderBy(desc(games.archivedAt));
+  const saved = await toSavedGames(rows);
+  return saved.map((game) => ({ ...game, archived: true }));
+}
+
+const followProfileColumns = {
+  clerkUserId: profiles.clerkUserId,
+  handle: profiles.handle,
+  name: profiles.name,
+  imageUrl: profiles.imageUrl,
+};
+
+export async function getFollowState(
+  viewerId: string | null,
+  profileUserId: string,
+): Promise<FollowState> {
+  if (!hasDatabase()) {
+    return { followerCount: 0, followingCount: 0, following: false };
+  }
+  const db = getDb();
+  const [followers, following, existing] = await Promise.all([
+    db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(follows)
+      .where(eq(follows.followingClerkUserId, profileUserId)),
+    db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(follows)
+      .where(eq(follows.followerClerkUserId, profileUserId)),
+    viewerId
+      ? db
+          .select({ id: follows.id })
+          .from(follows)
+          .where(
+            and(
+              eq(follows.followerClerkUserId, viewerId),
+              eq(follows.followingClerkUserId, profileUserId),
+            ),
+          )
+          .limit(1)
+      : Promise.resolve([]),
+  ]);
+  return {
+    followerCount: followers[0]?.value ?? 0,
+    followingCount: following[0]?.value ?? 0,
+    following: Boolean(existing[0]),
+  };
+}
+
+export async function listFollowers(userId: string): Promise<FollowProfile[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  return db
+    .select(followProfileColumns)
+    .from(follows)
+    .innerJoin(profiles, eq(profiles.clerkUserId, follows.followerClerkUserId))
+    .where(eq(follows.followingClerkUserId, userId))
+    .orderBy(desc(follows.createdAt));
+}
+
+export async function listFollowing(userId: string): Promise<FollowProfile[]> {
+  if (!hasDatabase()) return [];
+  const db = getDb();
+  return db
+    .select(followProfileColumns)
+    .from(follows)
+    .innerJoin(profiles, eq(profiles.clerkUserId, follows.followingClerkUserId))
+    .where(eq(follows.followerClerkUserId, userId))
+    .orderBy(desc(follows.createdAt));
+}
+
+export async function toggleFollow(opts: { followerId: string; followingId: string }) {
+  if (opts.followerId === opts.followingId || !hasDatabase()) return null;
+  const db = getDb();
+  const [target] = await db
+    .select({ handle: profiles.handle })
+    .from(profiles)
+    .where(eq(profiles.clerkUserId, opts.followingId))
+    .limit(1);
+  if (!target) return null;
+
+  const existing = await db
+    .select({ id: follows.id })
+    .from(follows)
+    .where(
+      and(
+        eq(follows.followerClerkUserId, opts.followerId),
+        eq(follows.followingClerkUserId, opts.followingId),
+      ),
+    )
+    .limit(1);
+
+  if (existing[0]) {
+    await db.delete(follows).where(eq(follows.id, existing[0].id));
+    return { following: false, targetHandle: target.handle };
+  }
+
+  await db.insert(follows).values({
+    followerClerkUserId: opts.followerId,
+    followingClerkUserId: opts.followingId,
+  });
+  return { following: true, targetHandle: target.handle };
 }
 
 export async function listProfileReviews(userId: string): Promise<ProfileReview[]> {
