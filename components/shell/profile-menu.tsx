@@ -35,7 +35,7 @@ export function ProfileMenu({ viewer }: { viewer: Viewer }) {
     };
   }, [open]);
 
-  const settingsHref = viewer.handle ? `/u/${viewer.handle}/edit` : "/profile";
+  const settingsHref = "/settings";
   const label = viewer.name.trim() || (viewer.handle ? `@${viewer.handle}` : "Profile");
 
   return (

@@ -408,6 +408,16 @@ export const notificationState = pgTable("notification_state", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const notificationPreferences = pgTable("notification_preferences", {
+  clerkUserId: text("clerk_user_id").primaryKey(),
+  follow: boolean("follow").notNull().default(true),
+  gameLike: boolean("game_like").notNull().default(true),
+  gameUpvote: boolean("game_upvote").notNull().default(true),
+  followeePublish: boolean("followee_publish").notNull().default(true),
+  followeeLaunch: boolean("followee_launch").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const notificationJobs = pgTable(
   "notification_jobs",
   {
