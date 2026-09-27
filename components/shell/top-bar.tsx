@@ -22,7 +22,6 @@ import { useAuthDialog } from "@/components/shell/auth-dialog";
 import { ProfileMenu } from "@/components/shell/profile-menu";
 import { ViewerMark } from "@/components/shell/viewer-mark";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import type { Viewer } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -40,7 +39,7 @@ function NotificationsControl({ signedIn }: { signedIn: boolean }) {
       variant="ghost"
       size="icon"
       aria-label="Notifications"
-      className="rounded-full hover:bg-slate"
+      className="rounded-full text-white/80 hover:bg-white/10 hover:text-white"
       onClick={clerkEnabled ? openAuth : undefined}
     >
       <BellIcon />
@@ -105,32 +104,33 @@ export function TopBar({ viewer }: { viewer: Viewer | null }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 bg-obsidian px-3 sm:gap-3 sm:px-4">
-        <div className="flex shrink-0 items-center gap-1 md:hidden">
+      <header className="fixed top-0 right-0 left-0 z-30 h-14 border-b border-white/10 bg-obsidian md:left-14">
+        <div className="flex h-full items-center gap-2 px-3 sm:gap-3 sm:px-4">
+          <div className="flex shrink-0 items-center gap-1 md:hidden">
+            <button
+              type="button"
+              aria-label="Open menu"
+              onClick={() => setMenuOpen(true)}
+              className="flex size-10 items-center justify-center rounded-xl text-white/80 hover:bg-white/10 hover:text-white"
+            >
+              <MenuIcon className="size-5" strokeWidth={1.5} />
+            </button>
+            <div className="size-8 rounded-full bg-[#0d85ed]" />
+          </div>
           <button
             type="button"
-            aria-label="Open menu"
-            onClick={() => setMenuOpen(true)}
-            className="flex size-10 items-center justify-center rounded-full text-paper-white hover:bg-slate"
+            onClick={() => setOpen(true)}
+            className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/12 bg-[#1a1a1a] px-3 text-left text-sm text-white/45 hover:border-white/20 md:w-72 md:flex-none"
           >
-            <MenuIcon className="size-5" strokeWidth={1.5} />
+            <SearchIcon className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">Search GameBits</span>
+            <span className="hidden text-xs text-white/35 sm:inline">/</span>
           </button>
-          <div className="size-8 rounded-full bg-ice-strong" />
-        </div>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-iron bg-graphite px-3 text-left text-sm text-fog sm:px-4 sm:text-base"
-        >
-          <SearchIcon className="size-4 shrink-0 text-paper-white" />
-          <span className="min-w-0 flex-1 truncate">Search GameBits</span>
-          <Kbd className="hidden sm:inline-flex">/</Kbd>
-        </button>
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <NotificationsControl signedIn={Boolean(viewer)} />
           {clerkEnabled ? (
             <Link href="/games/new" aria-label="Add game">
-              <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate">
+              <Button variant="ghost" size="icon" className="rounded-full text-white/80 hover:bg-white/10 hover:text-white">
                 <PlusIcon />
               </Button>
             </Link>
@@ -142,26 +142,27 @@ export function TopBar({ viewer }: { viewer: Viewer | null }) {
               type="button"
               aria-label="Sign in"
               onClick={openAuth}
-              className="rounded-full text-paper-white hover:bg-slate"
+              className="rounded-full text-white/80 hover:bg-white/10"
             >
               <ViewerMark viewer={null} className="size-8 text-sm" />
             </button>
           ) : null}
+          </div>
         </div>
       </header>
 
       {menuOpen ? (
-        <div className="fixed inset-0 z-50 flex flex-col bg-void md:hidden">
-          <div className="flex h-14 items-center justify-between px-4">
+        <div className="fixed inset-0 z-50 flex flex-col bg-obsidian md:hidden">
+          <div className="flex h-14 items-center justify-between border-b border-white/10 px-4">
             <div className="flex items-center gap-3">
-              <div className="size-8 shrink-0 rounded-full bg-ice-strong" />
+              <div className="size-8 shrink-0 rounded-full bg-[#0d85ed]" />
               <span className="text-sm font-medium text-paper-white">GameBits</span>
             </div>
             <button
               type="button"
               aria-label="Close menu"
               onClick={() => setMenuOpen(false)}
-              className="flex size-10 items-center justify-center rounded-full text-paper-white hover:bg-slate"
+              className="flex size-10 items-center justify-center rounded-xl text-white/80 hover:bg-white/10 hover:text-white"
             >
               <XIcon className="size-5" strokeWidth={1.5} />
             </button>
@@ -171,8 +172,8 @@ export function TopBar({ viewer }: { viewer: Viewer | null }) {
               const Icon = item.icon;
               const active = item.active;
               const className = cn(
-                "flex h-12 items-center gap-3 rounded-full px-3 text-paper-white",
-                active ? "bg-graphite" : "hover:bg-slate",
+                "flex h-12 items-center gap-3 rounded-xl px-3 text-white/80",
+                active ? "bg-white/10 text-white" : "hover:bg-white/8 hover:text-white",
               );
               if (item.label === "Profile") {
                 const mark = (
@@ -205,7 +206,7 @@ export function TopBar({ viewer }: { viewer: Viewer | null }) {
           <div className="flex flex-col gap-2 px-4 py-4">
             <a
               href="mailto:hello@gamebits.app"
-              className="flex h-12 items-center gap-3 rounded-full px-3 text-paper-white hover:bg-slate"
+              className="flex h-12 items-center gap-3 rounded-xl px-3 text-white/80 hover:bg-white/8 hover:text-white"
             >
               <LifeBuoyIcon className="size-5 shrink-0" />
               <span className="text-sm font-medium">Support</span>

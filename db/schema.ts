@@ -1,7 +1,8 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import {
   boolean,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -12,6 +13,16 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return "tsvector";
+  },
+});
+
+function searchVector(expression: string): SQL {
+  return sql.raw(expression);
+}
 
 export const gameStatusEnum = pgEnum("game_status", [
   "released",
@@ -55,8 +66,27 @@ export const games = pgTable(
     outboundClicks: integer("outbound_clicks").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    searchTsv: tsvector("search_tsv").generatedAlwaysAs(
+      searchVector(
+        `setweight(to_tsvector('simple', coalesce("name", '')), 'A') || setweight(to_tsvector('simple', coalesce("developer_name", '')), 'A') || setweight(to_tsvector('simple', coalesce("tagline", '')), 'B')`,
+      ),
+    ),
   },
-  (table) => [index("games_catalog_idx").on(table.createdAt, table.id)],
+  (table) => [
+    index("games_catalog_idx").on(table.createdAt, table.id),
+    index("games_name_lower_idx")
+      .using("btree", sql`lower(${table.name}) text_pattern_ops`)
+      .where(sql`${table.archivedAt} is null`),
+    index("games_name_trgm_idx")
+      .using("gin", sql`lower(${table.name}) gin_trgm_ops`)
+      .where(sql`${table.archivedAt} is null`),
+    index("games_developer_trgm_idx")
+      .using("gin", sql`lower(${table.developerName}) gin_trgm_ops`)
+      .where(sql`${table.archivedAt} is null`),
+    index("games_search_tsv_idx")
+      .using("gin", table.searchTsv)
+      .where(sql`${table.archivedAt} is null`),
+  ],
 );
 
 export const gameMedia = pgTable(
@@ -291,7 +321,22 @@ export const profiles = pgTable(
     joinedAt: timestamp("joined_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    searchTsv: tsvector("search_tsv").generatedAlwaysAs(
+      searchVector(
+        `setweight(to_tsvector('simple', coalesce("name", '')), 'A') || setweight(to_tsvector('simple', coalesce("handle", '')), 'A') || setweight(to_tsvector('simple', coalesce("headline", '')), 'B')`,
+      ),
+    ),
   },
+  (table) => [
+    index("profiles_name_lower_idx").using("btree", sql`lower(${table.name}) text_pattern_ops`),
+    index("profiles_handle_lower_idx").using(
+      "btree",
+      sql`lower(${table.handle}) text_pattern_ops`,
+    ),
+    index("profiles_name_trgm_idx").using("gin", sql`lower(${table.name}) gin_trgm_ops`),
+    index("profiles_handle_trgm_idx").using("gin", sql`lower(${table.handle}) gin_trgm_ops`),
+    index("profiles_search_tsv_idx").using("gin", table.searchTsv),
+  ],
 );
 
 export const notificationTypeEnum = pgEnum("notification_type", [

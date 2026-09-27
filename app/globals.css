@@ -140,12 +140,13 @@
   }
 
   html {
-    @apply font-sans;
+    @apply bg-obsidian font-sans;
     color-scheme: dark;
+    overscroll-behavior-y: none;
   }
 
   body {
-    @apply bg-charcoal text-paper-white antialiased;
+    @apply bg-obsidian text-paper-white antialiased;
   }
 
   a,

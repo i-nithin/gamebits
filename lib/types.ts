@@ -1,11 +1,19 @@
 import type { GameLinkKind, GameStatus } from "@/lib/constants";
 
-export type SearchGame = {
+export type SearchScope = "all" | "games" | "people";
+
+export type SearchGameHit = {
   slug: string;
   name: string;
   tagline: string;
-  coverUrl: string;
-  voteCount: number;
+  logoUrl: string;
+};
+
+export type SearchPersonHit = {
+  handle: string;
+  name: string;
+  imageUrl: string | null;
+  headline: string | null;
 };
 
 export type GamePlatformItem = {
