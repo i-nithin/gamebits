@@ -45,23 +45,23 @@ export function LeftRail({ viewer }: { viewer: Viewer | null }) {
   ];
 
   return (
-    <aside className="group/rail fixed top-0 left-0 z-40 hidden h-full w-14 flex-col overflow-hidden bg-void transition-[width] duration-150 ease-out hover:w-60 md:flex">
-      <div className="flex h-14 items-center gap-3 px-3">
-        <div className="size-8 shrink-0 rounded-full bg-ice-strong" />
-        <span className="truncate text-sm font-medium text-paper-white opacity-0 transition-opacity duration-150 group-hover/rail:opacity-100">
+    <aside className="group/rail fixed inset-y-0 left-0 z-40 hidden w-14 flex-col overflow-hidden border-r border-white/10 bg-obsidian transition-[width] duration-150 ease-out hover:w-60 md:flex">
+      <div className="flex h-14 items-center gap-3 border-b border-white/10 px-3">
+        <div className="size-8 shrink-0 rounded-full bg-[#0d85ed]" />
+        <span className="hidden truncate text-sm font-medium text-white group-hover/rail:inline">
           GameBits
         </span>
       </div>
-      <nav className="flex flex-1 flex-col gap-2 px-2 py-2">
+      <nav className="flex flex-1 flex-col items-center gap-1 px-2 py-3 group-hover/rail:items-stretch">
         {nav.map((item) => {
           const Icon = item.icon;
           const active = item.active;
           const className = cn(
-            "flex h-10 items-center gap-3 rounded-full px-2.5 text-paper-white",
-            active ? "bg-graphite" : "hover:bg-slate",
+            "flex size-10 shrink-0 items-center justify-center gap-3 rounded-xl text-white/80 group-hover/rail:w-full group-hover/rail:justify-start group-hover/rail:px-2.5",
+            active ? "bg-white/10 text-white" : "hover:bg-white/8 hover:text-white",
           );
           const label = (
-            <span className="truncate text-sm font-medium opacity-0 transition-opacity duration-150 group-hover/rail:opacity-100">
+            <span className="hidden truncate text-sm font-medium group-hover/rail:inline">
               {item.label}
             </span>
           );
@@ -93,13 +93,13 @@ export function LeftRail({ viewer }: { viewer: Viewer | null }) {
           );
         })}
       </nav>
-      <div className="flex flex-col gap-2 px-2 py-3">
+      <div className="flex flex-col items-center px-2 py-3 group-hover/rail:items-stretch">
         <a
           href="mailto:hello@gamebits.app"
-          className="flex h-10 items-center gap-3 rounded-full px-2.5 text-paper-white hover:bg-slate"
+          className="flex size-10 items-center justify-center gap-3 rounded-xl text-white/80 hover:bg-white/8 hover:text-white group-hover/rail:w-full group-hover/rail:justify-start group-hover/rail:px-2.5"
         >
           <LifeBuoyIcon className="size-5 shrink-0" />
-          <span className="truncate text-sm font-medium opacity-0 transition-opacity duration-150 group-hover/rail:opacity-100">
+          <span className="hidden truncate text-sm font-medium group-hover/rail:inline">
             Support
           </span>
         </a>

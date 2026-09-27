@@ -25,7 +25,6 @@ import type {
   ProfileReview,
   RankedGame,
   SavedGame,
-  SearchGame,
   WeekBoard,
 } from "@/lib/types";
 import { withVideosFirst } from "@/lib/urls";
@@ -571,29 +570,6 @@ export async function getGameBoardContext(
 
   return { game, listings: boards };
 }
-
-export const listSearchableGames = cache(async function listSearchableGames(): Promise<
-  SearchGame[]
-> {
-  if (!hasDatabase()) return [];
-  const db = getDb();
-  const rows = await db
-    .select({
-      slug: games.slug,
-      name: games.name,
-      tagline: games.tagline,
-      coverUrl: games.coverUrl,
-      voteCount: sql<number>`coalesce(count(${votes.id}), 0)::int`,
-    })
-    .from(games)
-    .leftJoin(votes, eq(votes.gameId, games.id))
-    .where(isNull(games.archivedAt))
-    .groupBy(games.id)
-    .orderBy(games.name)
-    .limit(100);
-
-  return rows;
-});
 
 export async function listAllGames() {
   if (!hasDatabase()) return [];

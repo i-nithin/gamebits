@@ -5,7 +5,7 @@ import { Geist_Mono, Inter } from "next/font/google";
 import { AppShell } from "@/components/shell/app-shell";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getViewer } from "@/lib/profile";
-import { listSearchableGames } from "@/lib/queries";
+import { listActivePlatforms } from "@/lib/queries";
 
 import "./globals.css";
 
@@ -25,13 +25,13 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [searchGames, viewer] = await Promise.all([
-    listSearchableGames().catch(() => []),
+  const [platforms, viewer] = await Promise.all([
+    listActivePlatforms().catch(() => []),
     getViewer().catch(() => null),
   ]);
 
   const shell = (
-    <AppShell searchGames={searchGames} viewer={viewer}>
+    <AppShell platforms={platforms} viewer={viewer}>
       {children}
     </AppShell>
   );
