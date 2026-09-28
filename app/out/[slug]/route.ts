@@ -1,10 +1,11 @@
 import { after } from "next/server";
 import { NextResponse } from "next/server";
 
+import { countryFromHeaders } from "@/lib/analytics/geo";
 import { recordLinkClick } from "@/lib/analytics/record";
 import { resolveOutboundDestination } from "@/lib/analytics/outbound";
-import { getCurrentUserId } from "@/lib/auth-admin";
-import { getGameBySlug, incrementOutboundClicks } from "@/lib/queries";
+import { getCurrentUserId, isAdminUserId } from "@/lib/auth-admin";
+import { getGameBySlug } from "@/lib/queries";
 
 export async function GET(
   request: Request,
@@ -27,14 +28,22 @@ export async function GET(
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  const gameId = game.id;
-  const linkKind = destination.linkKind;
-  after(async () => {
-    await Promise.all([
-      incrementOutboundClicks(gameId),
-      recordLinkClick(gameId, linkKind, userId),
-    ]).catch((error) => console.error("[analytics] link click failed", error));
-  });
+  const shouldTrack =
+    !isAdminUserId(userId) &&
+    !(userId && game.ownerClerkUserId && game.ownerClerkUserId === userId);
+
+  if (shouldTrack) {
+    const gameId = game.id;
+    const linkKind = destination.linkKind;
+    const country = countryFromHeaders(request.headers);
+    after(async () => {
+      try {
+        await recordLinkClick(gameId, linkKind, userId, country);
+      } catch (error) {
+        console.error("[analytics] link click failed", error);
+      }
+    });
+  }
 
   return NextResponse.redirect(destination.url, 302);
 }
