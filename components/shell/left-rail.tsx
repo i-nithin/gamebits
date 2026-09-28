@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CompassIcon, LayoutGridIcon, LifeBuoyIcon, PlusIcon, SettingsIcon } from "lucide-react";
+import { ChartColumnIcon, CompassIcon, LayoutGridIcon, LifeBuoyIcon, PlusIcon, SettingsIcon } from "lucide-react";
 
 import { useAuthDialog } from "@/components/shell/auth-dialog";
 import { ViewerMark } from "@/components/shell/viewer-mark";
@@ -29,6 +29,12 @@ export function LeftRail({ viewer }: { viewer: Viewer | null }) {
       label: "Add game",
       icon: PlusIcon,
       active: pathname === "/games/new",
+    },
+    {
+      href: "/analytics",
+      label: "Analytics",
+      icon: ChartColumnIcon,
+      active: pathname === "/analytics" || pathname.startsWith("/analytics/"),
     },
     {
       href: "/admin",

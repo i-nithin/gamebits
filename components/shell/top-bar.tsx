@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BellIcon,
   CompassIcon,
+  ChartColumnIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
   MenuIcon,
@@ -89,6 +90,12 @@ export function TopBar({ viewer }: { viewer: Viewer | null }) {
       active: pathname === "/games/new",
     },
     {
+      href: "/analytics",
+      label: "Analytics",
+      icon: ChartColumnIcon,
+      active: pathname === "/analytics" || pathname.startsWith("/analytics/"),
+    },
+    {
       href: "/admin",
       label: "Settings",
       icon: SettingsIcon,
@@ -128,13 +135,6 @@ export function TopBar({ viewer }: { viewer: Viewer | null }) {
           </button>
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <NotificationsControl signedIn={Boolean(viewer)} />
-          {clerkEnabled ? (
-            <Link href="/games/new" aria-label="Add game">
-              <Button variant="ghost" size="icon" className="rounded-full text-white/80 hover:bg-white/10 hover:text-white">
-                <PlusIcon />
-              </Button>
-            </Link>
-          ) : null}
           {viewer ? (
             <ProfileMenu viewer={viewer} />
           ) : clerkEnabled ? (

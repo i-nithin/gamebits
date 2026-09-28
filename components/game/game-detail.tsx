@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { trackedOutboundHref } from "@/lib/analytics/links";
 import { GAME_LINK_FIELDS, GAME_STATUS_LABELS, type GameLinkKind } from "@/lib/constants";
 import { formatIsoWeekLabel, weekHref } from "@/lib/iso-week";
 import type { GamePageData } from "@/lib/types";
@@ -137,7 +138,7 @@ export function GameDetail({
             </p>
             <div className="flex items-center gap-2">
               <a
-                href={`/out/${game.slug}`}
+                href={trackedOutboundHref(game.slug, "primary")}
                 className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-ice-strong text-sm font-medium text-paper-white hover:bg-ice-strong/90"
               >
                 Play
@@ -220,7 +221,7 @@ export function GameDetail({
                     return (
                       <a
                         key={link.kind}
-                        href={link.url}
+                        href={trackedOutboundHref(game.slug, link.kind)}
                         target="_blank"
                         rel="noreferrer"
                         className="flex items-center gap-3 rounded-xl bg-obsidian px-3 py-3 card-ring hover:bg-graphite"
