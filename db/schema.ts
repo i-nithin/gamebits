@@ -418,6 +418,36 @@ export const notificationPreferences = pgTable("notification_preferences", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const analyticsEventKindEnum = pgEnum("analytics_event_kind", [
+  "page_view",
+  "link_click",
+]);
+
+export const gameAnalyticsEvents = pgTable(
+  "game_analytics_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    kind: analyticsEventKindEnum("kind").notNull(),
+    linkKind: text("link_kind"),
+    clerkUserId: text("clerk_user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("game_analytics_events_game_kind_created_idx").on(
+      table.gameId,
+      table.kind,
+      table.createdAt,
+    ),
+    check(
+      "game_analytics_events_kind_link",
+      sql`(${table.kind} = 'page_view' and ${table.linkKind} is null) or (${table.kind} = 'link_click' and ${table.linkKind} is not null)`,
+    ),
+  ],
+);
+
 export const notificationJobs = pgTable(
   "notification_jobs",
   {

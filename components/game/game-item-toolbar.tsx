@@ -10,6 +10,7 @@ import {
   RocketIcon,
 } from "lucide-react";
 
+import { trackedOutboundHref } from "@/lib/analytics/links";
 import type { GameLinkItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +47,7 @@ export function GameItemToolbar({
     <div className="flex shrink-0 items-center gap-0.5">
       {web ? (
         <a
-          href={web}
+          href={trackedOutboundHref(slug, "web")}
           target="_blank"
           rel="noreferrer"
           aria-label="Website"
@@ -57,7 +58,7 @@ export function GameItemToolbar({
       ) : null}
       {discord ? (
         <a
-          href={discord}
+          href={trackedOutboundHref(slug, "discord")}
           target="_blank"
           rel="noreferrer"
           aria-label="Discord"
@@ -68,7 +69,7 @@ export function GameItemToolbar({
       ) : null}
       {x ? (
         <a
-          href={x}
+          href={trackedOutboundHref(slug, "x")}
           target="_blank"
           rel="noreferrer"
           aria-label="X"
