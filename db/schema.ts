@@ -3,11 +3,13 @@ import {
   boolean,
   check,
   customType,
+  date,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -63,6 +65,7 @@ export const games = pgTable(
     status: gameStatusEnum("status").notNull(),
     ownerClerkUserId: text("owner_clerk_user_id"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    pageViews: integer("page_views").notNull().default(0),
     outboundClicks: integer("outbound_clicks").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -433,6 +436,7 @@ export const gameAnalyticsEvents = pgTable(
     kind: analyticsEventKindEnum("kind").notNull(),
     linkKind: text("link_kind"),
     clerkUserId: text("clerk_user_id"),
+    country: text("country"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -445,6 +449,35 @@ export const gameAnalyticsEvents = pgTable(
       "game_analytics_events_kind_link",
       sql`(${table.kind} = 'page_view' and ${table.linkKind} is null) or (${table.kind} = 'link_click' and ${table.linkKind} is not null)`,
     ),
+  ],
+);
+
+export type AnalyticsCountryBucket = {
+  pageViews: number;
+  linkClicks: number;
+};
+
+export const gameAnalyticsDaily = pgTable(
+  "game_analytics_daily",
+  {
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    pageViews: integer("page_views").notNull().default(0),
+    linkClicks: integer("link_clicks").notNull().default(0),
+    clicks: jsonb("clicks")
+      .$type<Record<string, number>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    countries: jsonb("countries")
+      .$type<Record<string, AnalyticsCountryBucket>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+  },
+  (table) => [
+    primaryKey({ columns: [table.gameId, table.day], name: "game_analytics_daily_pk" }),
+    index("game_analytics_daily_day_idx").on(table.day),
   ],
 );
 
