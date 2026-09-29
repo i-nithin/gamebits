@@ -62,12 +62,16 @@ Not in MVP: price, system requirements, markdown essays, maker credits, related 
 
 ## Admin
 
+The operator console is a separate Next.js app at `admin.gamebits.com` (local `http://localhost:3001`). The public site does not host `/admin`.
+
 - Signed-in users add games they own. Owners can edit and archive/unarchive.
 - Archived games are hidden from the board and search.
-- You (admin) still assign games to an ISO week (cap ~20 per week for scannability).
-- Admin also curates the platforms catalog (name + logo). Game submitters pick from that list; they cannot invent platforms.
-- Admin = your Clerk user id (`ADMIN_USER_ID`).
-- Click counts are for admin insight; public ranking is votes only.
+- Staff assign games to an ISO week (cap ~20 per week for scannability).
+- Staff curate the platforms and categories catalogs. Game submitters pick from those lists.
+- Staff roles live in the `staff` table: `editor` (catalog and week board), `admin` (plus users and site analytics), `owner` (plus staff management). The last owner cannot be removed.
+- `ADMIN_USER_ID` only bootstraps the first owner when `staff` is empty.
+- Suspended profiles cannot vote, review, follow, or create games.
+- Click counts are for operator insight; public ranking is votes only.
 
 ## Stack (MVP)
 

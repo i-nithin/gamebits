@@ -1,0 +1,20 @@
+{
+  "name": "@gamebits/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./clerk": "./src/clerk.ts",
+    "./roles": "./src/roles.ts"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^7.9.4",
+    "@gamebits/db": "*",
+    "drizzle-orm": "^0.45.2"
+  },
+  "peerDependencies": {
+    "next": ">=16",
+    "react": ">=19"
+  }
+}

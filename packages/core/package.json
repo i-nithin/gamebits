@@ -1,0 +1,22 @@
+{
+  "name": "@gamebits/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./analytics/*": "./src/analytics/*.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1136.0",
+    "@aws-sdk/s3-request-presigner": "^3.1136.0",
+    "@gamebits/auth": "*",
+    "@gamebits/db": "*",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "react": ">=19"
+  }
+}

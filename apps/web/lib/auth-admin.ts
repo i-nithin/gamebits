@@ -1,0 +1,21 @@
+export {
+  addStaffMember,
+  canManageGame,
+  clerkEnabled,
+  ensureBootstrapOwner,
+  getCurrentUserId,
+  getStaffRole,
+  hasMinRole,
+  isAdminUserId,
+  isStaffRole,
+  isStaffUser,
+  listStaff,
+  removeStaffMember,
+  requireAdmin,
+  requireSignedIn,
+  requireStaff,
+  roleAtLeast,
+  STAFF_ROLES,
+  updateStaffRole,
+} from "@gamebits/auth";
+export type { StaffRole } from "@gamebits/auth";
