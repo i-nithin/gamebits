@@ -29,7 +29,8 @@ cp .env.example .env.local
 | `DATABASE_URL_UNPOOLED` | Yes | Neon **direct** connection string (migrations + seed) |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes* | Clerk publishable key |
 | `CLERK_SECRET_KEY` | Yes* | Clerk secret key |
-| `ADMIN_USER_ID` | Yes | Your Clerk user id (`user_…`) for `/admin` |
+| `ADMIN_USER_ID` | Bootstrap | Clerk user id (`user_…`) inserted as the first owner when the staff table is empty |
+| `NEXT_PUBLIC_WEB_URL` | Admin app | Public site origin, used for “View on site” links (`http://localhost:3000` locally) |
 | `CLOUDFLARE_ACCOUNT_ID` | For uploads | Cloudflare account id (R2 S3 endpoint) |
 | `R2_ACCESS_KEY_ID` | For uploads | R2 API token access key id |
 | `R2_SECRET_ACCESS_KEY` | For uploads | R2 API token secret access key |
@@ -50,7 +51,8 @@ cp .env.example .env.local
 
 1. Create an application with **Google** and **Email** sign-in.
 2. Add keys from the Clerk dashboard to `.env.local`.
-3. After signing in once locally, copy your user id from the Clerk dashboard (Users) into `ADMIN_USER_ID`.
+3. After signing in once locally, copy your user id from the Clerk dashboard (Users) into `ADMIN_USER_ID`. That id becomes the owner the first time the admin app starts and the staff table is empty. Later staff are managed in the console.
+4. Add `http://localhost:3001` and `https://admin.gamebits.com` to the Clerk application’s allowed origins and redirect URLs.
 
 ### Cloudflare R2
 
@@ -101,7 +103,7 @@ Useful scripts:
 
 | Script | What it does |
 |---|---|
-| `npm run db:generate` | Generate a new Drizzle migration from `db/schema.ts` |
+| `npm run db:generate` | Generate a new Drizzle migration from `packages/db/src/schema.ts` |
 | `npm run db:migrate` | Apply migrations (uses `DATABASE_URL_UNPOOLED`) |
 | `npm run db:push` | Push schema without a migration file (dev only) |
 | `npm run db:seed` | Insert demo games + current-week listings |
@@ -112,7 +114,8 @@ Useful scripts:
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+- Public site: [http://localhost:3000](http://localhost:3000)
+- Admin console: [http://localhost:3001](http://localhost:3001) (`admin.gamebits.com` in production)
 
 ### Smoke checklist
 
@@ -120,15 +123,25 @@ Open [http://localhost:3000](http://localhost:3000).
 - Sign in via Clerk
 - **Add game** (`/games/new`) — logo upload hits R2, then create
 - Owner **Launch** (`/games/[slug]/launch`) assigns an ISO week (cap 20)
-- `/admin` works only for `ADMIN_USER_ID`
+- Admin console on port 3001 signs in with Clerk and only loads for staff
 
 ## Deploy (Vercel)
 
-1. Push the repo and import it in Vercel.
-2. Set the same env vars (including R2) in the Vercel project settings.
-3. Use Neon’s pooled URL for `DATABASE_URL` and the direct URL for `DATABASE_URL_UNPOOLED`.
-4. Add your production origin to the R2 bucket CORS `AllowedOrigins`.
-5. Run migrations against production (`npm run db:migrate` with production `DATABASE_URL_UNPOOLED`), or wire a migrate step into your deploy pipeline.
+This repo is an npm + Turborepo workspace. Create **two** Vercel projects from the same Git repository. On each project, enable “Include source files outside of the Root Directory” so `packages/*` is available at build time.
+
+| Project | Root directory | Domain |
+|---|---|---|
+| Public site | `apps/web` | `gamebits.com` |
+| Admin console | `apps/admin` | `admin.gamebits.com` |
+
+DNS: CNAME `admin` to the admin project’s Vercel domain.
+
+1. Set the shared env vars (`DATABASE_URL`, `DATABASE_URL_UNPOOLED`, Clerk, R2) on both projects.
+2. On the admin project, also set `NEXT_PUBLIC_WEB_URL` to `https://gamebits.com`.
+3. In Clerk, add `https://admin.gamebits.com` (and `http://localhost:3001` for local) to allowed origins and redirect URLs. Both apps use the same Clerk application.
+4. Add both production origins to the R2 bucket CORS `AllowedOrigins`, plus `http://localhost:3001`.
+5. Use Neon’s pooled URL for `DATABASE_URL` and the direct URL for `DATABASE_URL_UNPOOLED`.
+6. Run migrations once against production (`npm run db:migrate` with production `DATABASE_URL_UNPOOLED`). The `staff` table and profile suspension column ship in migration `0015_staff_and_suspend`.
 
 ## Docs
 
