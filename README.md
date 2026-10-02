@@ -29,7 +29,6 @@ cp .env.example .env.local
 | `DATABASE_URL_UNPOOLED` | Yes | Neon **direct** connection string (migrations + seed) |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes* | Clerk publishable key |
 | `CLERK_SECRET_KEY` | Yes* | Clerk secret key |
-| `ADMIN_USER_ID` | Yes | Your Clerk user id (`user_…`) for `/admin` |
 | `CLOUDFLARE_ACCOUNT_ID` | For uploads | Cloudflare account id (R2 S3 endpoint) |
 | `R2_ACCESS_KEY_ID` | For uploads | R2 API token access key id |
 | `R2_SECRET_ACCESS_KEY` | For uploads | R2 API token secret access key |
@@ -50,7 +49,6 @@ cp .env.example .env.local
 
 1. Create an application with **Google** and **Email** sign-in.
 2. Add keys from the Clerk dashboard to `.env.local`.
-3. After signing in once locally, copy your user id from the Clerk dashboard (Users) into `ADMIN_USER_ID`.
 
 ### Cloudflare R2
 
@@ -97,6 +95,20 @@ npm run db:migrate
 npm run db:seed
 ```
 
+### Admin
+
+Admin access is a database flag, not an environment variable. A signed-in user is an admin only when `profiles.super_admin` is true. The dashboard is [`/4dm1n`](http://localhost:3000/4dm1n). Everyone else, including signed-out visitors, gets the not-found page. The Admin item in the sidebar appears only for super admins.
+
+1. Sign in once locally so a `profiles` row exists for your Clerk user.
+2. Run `npm run db:migrate`. That adds `super_admin` and promotes the original operator if that profile is already in the database.
+3. On a fresh database, promote your own profile after you have signed in. Copy your user id from the Clerk dashboard (Users), then run this against the direct database URL:
+
+```sql
+UPDATE profiles SET super_admin = true WHERE clerk_user_id = 'user_…';
+```
+
+4. After that, super admins grant or revoke access from `/4dm1n` (Users). The last remaining admin cannot be revoked.
+
 Useful scripts:
 
 | Script | What it does |
@@ -120,15 +132,17 @@ Open [http://localhost:3000](http://localhost:3000).
 - Sign in via Clerk
 - **Add game** (`/games/new`) — logo upload hits R2, then create
 - Owner **Launch** (`/games/[slug]/launch`) assigns an ISO week (cap 20)
-- `/admin` works only for `ADMIN_USER_ID`
+- `/4dm1n` opens the admin directory when your profile is a super admin
+- Anyone else who opens `/4dm1n` sees Not found
+- **Settings** stays at `/settings`
 
 ## Deploy (Vercel)
 
 1. Push the repo and import it in Vercel.
-2. Set the same env vars (including R2) in the Vercel project settings.
+2. Set the same env vars (including R2) in the Vercel project settings. There is no admin env var.
 3. Use Neon’s pooled URL for `DATABASE_URL` and the direct URL for `DATABASE_URL_UNPOOLED`.
 4. Add your production origin to the R2 bucket CORS `AllowedOrigins`.
-5. Run migrations against production (`npm run db:migrate` with production `DATABASE_URL_UNPOOLED`), or wire a migrate step into your deploy pipeline.
+5. Run migrations against production (`npm run db:migrate` with production `DATABASE_URL_UNPOOLED`), or wire a migrate step into your deploy pipeline. The migration adds `profiles.super_admin`. On a new production database, sign in once, then promote your profile with the SQL in the Admin section above.
 
 ## Docs
 

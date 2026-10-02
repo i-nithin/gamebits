@@ -11,13 +11,13 @@ The Next.js 16 App Router app implements the weekly board plus signed-in game ow
 ## Architecture
 
 - Next.js App Router (`app/`) + `proxy.ts` (Clerk `clerkMiddleware` on Next 16)
-- Clerk: Google + email; `ADMIN_USER_ID` gates `/admin` in proxy **and** Server Actions
+- Clerk: Google + email; admin is `profiles.super_admin` only, checked in Server Actions and `/4dm1n` (404 otherwise). `proxy.ts` does not send that route to sign-in
 - Neon Postgres via Drizzle (`db/schema.ts`, pooled `DATABASE_URL`, direct `DATABASE_URL_UNPOOLED` for migrations)
 - ISO week clock in `lib/iso-week.ts` (Monday 00:00 UTC → Sunday 23:59 UTC)
 - Outbound: `app/out/[slug]/route.ts` 302 + `after()` click increment
 - Cloudflare R2 presigned PUT uploads (`app/api/uploads/r2/route.ts`); public objects via `R2_PUBLIC_URL`
 - Game ownership: `games.owner_clerk_user_id`; archive via `archived_at` (excluded from board/search)
-- Platforms catalog: `platforms` + `game_platforms`; admin CRUD at `/admin/platforms`; owners multi-select from active rows (name + logo)
+- Platforms catalog: `platforms` + `game_platforms`; admin CRUD at `/4dm1n/platforms`; owners multi-select from active rows (name + logo)
 - Reviews: `game_reviews` unique per user+game; cursor API `GET /api/games/[slug]/reviews`
 
 ## User Defined Namespaces
