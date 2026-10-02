@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { isAdminUserId, requireSignedIn } from "@/lib/auth-admin";
+import { getAdminAccess, requireSignedIn } from "@/lib/auth-admin";
 import { ACCEPTED_IMAGE_TYPES, PLATFORM_LOGO_TYPES } from "@/lib/constants";
 import { createPresignedUpload, r2Configured } from "@/lib/cloudflare-r2";
 
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    if (parsed.data.purpose === "platform" && !isAdminUserId(userId)) {
+    if (parsed.data.purpose === "platform" && !(await getAdminAccess(userId))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

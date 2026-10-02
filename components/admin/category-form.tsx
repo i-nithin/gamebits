@@ -35,12 +35,12 @@ export function CategoryForm({
   return (
     <GameFormShell
       breadcrumbs={[
-        { label: "Admin", href: "/admin" },
-        { label: "Categories", href: "/admin/categories" },
+        { label: "Admin", href: "/4dm1n" },
+        { label: "Categories", href: "/4dm1n/categories" },
         { label: isEdit ? category!.name : "New category" },
       ]}
-      backHref="/admin/categories"
-      cancelHref="/admin/categories"
+      backHref="/4dm1n/categories"
+      cancelHref="/4dm1n/categories"
       submitLabel={isEdit ? "Save category" : "Add category"}
       pending={pending}
       error={state?.error}

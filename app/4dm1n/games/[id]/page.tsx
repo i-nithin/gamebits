@@ -1,8 +1,8 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { AssignWeekForm } from "@/components/admin/game-form";
 import { GameEditor } from "@/components/game/game-editor";
-import { isAdminUserId, getCurrentUserId } from "@/lib/auth-admin";
+import { enforceAdminPage } from "@/lib/auth-admin";
 import { getGameEditorData, listEditorCategories, listEditorPlatforms } from "@/lib/queries";
 
 export default async function EditAdminGamePage({
@@ -10,9 +10,7 @@ export default async function EditAdminGamePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const userId = await getCurrentUserId();
-  if (!isAdminUserId(userId)) redirect("/");
-
+  await enforceAdminPage();
   const { id } = await params;
   const editor = await getGameEditorData(id);
   if (!editor) notFound();

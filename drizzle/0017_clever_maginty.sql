@@ -1,0 +1,2 @@
+CREATE INDEX "games_name_trgm_all_idx" ON "games" USING gin (lower("name") gin_trgm_ops);--> statement-breakpoint
+CREATE INDEX "games_developer_trgm_all_idx" ON "games" USING gin (lower("developer_name") gin_trgm_ops);

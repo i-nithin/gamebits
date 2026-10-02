@@ -1,7 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { CategoryForm } from "@/components/admin/category-form";
-import { isAdminUserId, getCurrentUserId } from "@/lib/auth-admin";
+import { enforceAdminPage } from "@/lib/auth-admin";
 import { getCategoryById, listCategoryCatalog } from "@/lib/queries";
 
 export default async function EditAdminCategoryPage({
@@ -9,9 +9,7 @@ export default async function EditAdminCategoryPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const userId = await getCurrentUserId();
-  if (!isAdminUserId(userId)) redirect("/");
-
+  await enforceAdminPage();
   const { id } = await params;
   const [category, catalog] = await Promise.all([getCategoryById(id), listCategoryCatalog()]);
   if (!category) notFound();

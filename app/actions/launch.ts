@@ -31,7 +31,7 @@ export async function launchGameAction(
 
   const game = await getGameById(gameId);
   if (!game) return { error: "Game not found" };
-  if (!canManageGame(userId, game.ownerClerkUserId)) {
+  if (!(await canManageGame(userId, game.ownerClerkUserId))) {
     return { error: "Unauthorized" };
   }
   if (game.archivedAt) {
@@ -92,6 +92,6 @@ export async function launchGameAction(
   revalidatePath("/");
   revalidatePath(`/week/${year}/${week}`);
   revalidatePath(`/games/${game.slug}`);
-  revalidatePath("/admin");
+  revalidatePath("/4dm1n");
   redirect(`/games/${game.slug}`);
 }

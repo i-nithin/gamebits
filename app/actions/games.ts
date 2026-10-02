@@ -119,7 +119,7 @@ export async function upsertOwnedGameAction(
   if (id) {
     existing = await getGameById(id);
     if (!existing) return { error: "Game not found" };
-    if (!canManageGame(userId, existing.ownerClerkUserId)) {
+    if (!(await canManageGame(userId, existing.ownerClerkUserId))) {
       return { error: "Unauthorized" };
     }
   }
@@ -284,7 +284,7 @@ export async function upsertOwnedGameAction(
 
   revalidatePath("/");
   revalidatePath("/collections");
-  revalidatePath("/admin");
+  revalidatePath("/4dm1n");
   revalidatePath(`/games/${slug}`);
   await revalidateOwnerProfile(existing?.ownerClerkUserId ?? userId, userId);
   redirect(`/games/${slug}`);
@@ -296,7 +296,7 @@ export async function setGameArchivedAction(formData: FormData) {
   const archived = formData.get("archived") === "true";
   const game = await getGameById(id);
   if (!game) throw new Error("Game not found");
-  if (!canManageGame(userId, game.ownerClerkUserId)) {
+  if (!(await canManageGame(userId, game.ownerClerkUserId))) {
     throw new Error("Unauthorized");
   }
 
@@ -308,7 +308,7 @@ export async function setGameArchivedAction(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/collections");
-  revalidatePath("/admin");
+  revalidatePath("/4dm1n");
   revalidatePath(`/games/${game.slug}`);
   revalidatePath(`/games/${game.slug}/edit`);
   await revalidateOwnerProfile(game.ownerClerkUserId ?? userId, userId);

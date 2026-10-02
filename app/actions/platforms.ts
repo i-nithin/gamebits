@@ -71,10 +71,10 @@ export async function upsertPlatformAction(
   }
 
   revalidatePath("/");
-  revalidatePath("/admin");
-  revalidatePath("/admin/platforms");
+  revalidatePath("/4dm1n");
+  revalidatePath("/4dm1n/platforms");
   revalidatePath("/games/new");
-  redirect("/admin/platforms");
+  redirect("/4dm1n/platforms");
 }
 
 export async function setPlatformArchivedAction(formData: FormData) {
@@ -94,7 +94,7 @@ export async function setPlatformArchivedAction(formData: FormData) {
     .where(eq(platforms.id, id));
 
   revalidatePath("/");
-  revalidatePath("/admin");
-  revalidatePath("/admin/platforms");
+  revalidatePath("/4dm1n");
+  revalidatePath("/4dm1n/platforms");
   revalidatePath("/games/new");
 }

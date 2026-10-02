@@ -6,14 +6,14 @@ import { headers } from "next/headers";
 import { games } from "@/db/schema";
 import { countryFromHeaders } from "@/lib/analytics/geo";
 import { recordPageView } from "@/lib/analytics/record";
-import { getCurrentUserId, isAdminUserId } from "@/lib/auth-admin";
+import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { getDb, hasDatabase } from "@/lib/db";
 import { isUuid } from "@/lib/sanitize";
 
 export async function recordPageViewAction(gameId: string) {
   if (!isUuid(gameId) || !hasDatabase()) return;
   const userId = await getCurrentUserId();
-  if (isAdminUserId(userId)) return;
+  if (await getAdminAccess(userId)) return;
 
   const db = getDb();
   const [game] = await db
