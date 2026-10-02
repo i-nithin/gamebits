@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 
 import { AppShell } from "@/components/shell/app-shell";
+import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getViewer } from "@/lib/profile";
 import { listActivePlatforms } from "@/lib/queries";
@@ -25,13 +26,16 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [platforms, viewer] = await Promise.all([
+  const [platforms, viewer, showAdminNav] = await Promise.all([
     listActivePlatforms().catch(() => []),
     getViewer().catch(() => null),
+    getCurrentUserId()
+      .then((userId) => getAdminAccess(userId))
+      .catch(() => false),
   ]);
 
   const shell = (
-    <AppShell platforms={platforms} viewer={viewer}>
+    <AppShell platforms={platforms} viewer={viewer} showAdminNav={showAdminNav}>
       {children}
     </AppShell>
   );

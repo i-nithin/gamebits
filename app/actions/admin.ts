@@ -1,10 +1,10 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { weekListings } from "@/db/schema";
+import { profiles, weekListings } from "@/db/schema";
 import { WEEK_LISTING_CAP } from "@/lib/constants";
 import { requireAdmin } from "@/lib/auth-admin";
 import { getDb } from "@/lib/db";
@@ -58,8 +58,48 @@ export async function assignWeekAction(formData: FormData) {
   revalidatePath("/");
   revalidatePath(`/week/${year}/${week}`);
   revalidatePath(`/games/${game.slug}`);
-  revalidatePath("/admin");
-  redirect("/admin");
+  revalidatePath("/4dm1n");
+  revalidatePath(`/4dm1n/games/${gameId}`);
+  redirect(`/4dm1n/games/${gameId}`);
+}
+
+const clerkUserIdPattern = /^user_[A-Za-z0-9]+$/;
+
+export async function setSuperAdminAction(formData: FormData) {
+  await requireAdmin();
+  const clerkUserId = String(formData.get("clerkUserId") ?? "");
+  const next = formData.get("superAdmin") === "true";
+  if (!clerkUserIdPattern.test(clerkUserId)) {
+    throw new Error("Invalid user");
+  }
+
+  const db = getDb();
+  await db.transaction(async (tx) => {
+    if (!next) {
+      const [row] = await tx
+        .select({ superAdmin: profiles.superAdmin })
+        .from(profiles)
+        .where(eq(profiles.clerkUserId, clerkUserId))
+        .limit(1);
+      if (row?.superAdmin) {
+        const [countRow] = await tx
+          .select({ value: sql<number>`count(*)::int` })
+          .from(profiles)
+          .where(eq(profiles.superAdmin, true));
+        if ((countRow?.value ?? 0) <= 1) {
+          throw new Error("Cannot remove the last admin");
+        }
+      }
+    }
+
+    await tx
+      .update(profiles)
+      .set({ superAdmin: next, updatedAt: new Date() })
+      .where(eq(profiles.clerkUserId, clerkUserId));
+  });
+
+  revalidatePath("/4dm1n");
+  revalidatePath("/", "layout");
 }
 
 export async function removeWeekListingAction(formData: FormData) {
@@ -69,5 +109,5 @@ export async function removeWeekListingAction(formData: FormData) {
   const db = getDb();
   await db.delete(weekListings).where(eq(weekListings.id, listingId));
   revalidatePath("/");
-  revalidatePath("/admin");
+  revalidatePath("/4dm1n");
 }

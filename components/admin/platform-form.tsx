@@ -32,12 +32,12 @@ export function PlatformForm({ platform }: { platform?: PlatformRow }) {
   return (
     <GameFormShell
       breadcrumbs={[
-        { label: "Admin", href: "/admin" },
-        { label: "Platforms", href: "/admin/platforms" },
+        { label: "Admin", href: "/4dm1n" },
+        { label: "Platforms", href: "/4dm1n/platforms" },
         { label: isEdit ? platform!.name : "New platform" },
       ]}
-      backHref="/admin/platforms"
-      cancelHref="/admin/platforms"
+      backHref="/4dm1n/platforms"
+      cancelHref="/4dm1n/platforms"
       submitLabel={isEdit ? "Save platform" : "Add platform"}
       submitDisabled={!logoUrl}
       pending={pending}

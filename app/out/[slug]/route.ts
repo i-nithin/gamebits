@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { countryFromHeaders } from "@/lib/analytics/geo";
 import { recordLinkClick } from "@/lib/analytics/record";
 import { resolveOutboundDestination } from "@/lib/analytics/outbound";
-import { getCurrentUserId, isAdminUserId } from "@/lib/auth-admin";
+import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { getGameBySlug } from "@/lib/queries";
 
 export async function GET(
@@ -29,7 +29,7 @@ export async function GET(
   }
 
   const shouldTrack =
-    !isAdminUserId(userId) &&
+    !(await getAdminAccess(userId)) &&
     !(userId && game.ownerClerkUserId && game.ownerClerkUserId === userId);
 
   if (shouldTrack) {

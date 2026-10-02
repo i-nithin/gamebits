@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumnIcon, CompassIcon, LayoutGridIcon, LifeBuoyIcon, PlusIcon, SettingsIcon } from "lucide-react";
+import { ChartColumnIcon, CompassIcon, LayoutGridIcon, LifeBuoyIcon, PlusIcon, SettingsIcon, ShieldIcon } from "lucide-react";
 
 import { useAuthDialog } from "@/components/shell/auth-dialog";
 import { ViewerMark } from "@/components/shell/viewer-mark";
@@ -10,7 +10,13 @@ import { clerkEnabled } from "@/lib/clerk-enabled";
 import type { Viewer } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function LeftRail({ viewer }: { viewer: Viewer | null }) {
+export function LeftRail({
+  viewer,
+  showAdminNav,
+}: {
+  viewer: Viewer | null;
+  showAdminNav: boolean;
+}) {
   const pathname = usePathname();
   const openAuth = useAuthDialog();
 
@@ -37,11 +43,21 @@ export function LeftRail({ viewer }: { viewer: Viewer | null }) {
       active: pathname === "/analytics" || pathname.startsWith("/analytics/"),
     },
     {
-      href: "/admin",
+      href: "/settings",
       label: "Settings",
       icon: SettingsIcon,
-      active: pathname.startsWith("/admin"),
+      active: pathname.startsWith("/settings"),
     },
+    ...(showAdminNav
+      ? [
+          {
+            href: "/4dm1n",
+            label: "Admin",
+            icon: ShieldIcon,
+            active: pathname.startsWith("/4dm1n"),
+          },
+        ]
+      : []),
     {
       href: "/profile",
       label: "Profile",

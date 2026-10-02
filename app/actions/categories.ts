@@ -43,8 +43,8 @@ async function gamesUsingCategory(id: string) {
 function revalidateCategorySurfaces() {
   revalidatePath("/");
   revalidatePath("/collections");
-  revalidatePath("/admin");
-  revalidatePath("/admin/categories");
+  revalidatePath("/4dm1n");
+  revalidatePath("/4dm1n/categories");
   revalidatePath("/games/new");
 }
 
@@ -88,7 +88,7 @@ export async function upsertCategoryAction(
   }
 
   revalidateCategorySurfaces();
-  redirect("/admin/categories");
+  redirect("/4dm1n/categories");
 }
 
 export async function setCategoryArchivedAction(formData: FormData) {

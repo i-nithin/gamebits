@@ -16,7 +16,7 @@ export default async function LaunchGamePage({
   const { slug } = await params;
   const game = await getGameBySlug(slug);
   if (!game) notFound();
-  if (!canManageGame(userId, game.ownerClerkUserId)) {
+  if (!(await canManageGame(userId, game.ownerClerkUserId))) {
     redirect(`/games/${slug}`);
   }
 

@@ -89,6 +89,9 @@ export const games = pgTable(
     index("games_search_tsv_idx")
       .using("gin", table.searchTsv)
       .where(sql`${table.archivedAt} is null`),
+    index("games_slug_trgm_idx").using("gin", sql`lower(${table.slug}) gin_trgm_ops`),
+    index("games_name_trgm_all_idx").using("gin", sql`lower(${table.name}) gin_trgm_ops`),
+    index("games_developer_trgm_all_idx").using("gin", sql`lower(${table.developerName}) gin_trgm_ops`),
   ],
 );
 
@@ -121,7 +124,11 @@ export const platforms = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("platforms_sort_idx").on(table.sortOrder, table.name)],
+  (table) => [
+    index("platforms_sort_idx").on(table.sortOrder, table.name),
+    index("platforms_name_trgm_idx").using("gin", sql`lower(${table.name}) gin_trgm_ops`),
+    index("platforms_slug_trgm_idx").using("gin", sql`lower(${table.slug}) gin_trgm_ops`),
+  ],
 );
 
 export const categories = pgTable(
@@ -135,7 +142,11 @@ export const categories = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("categories_sort_idx").on(table.sortOrder, table.name)],
+  (table) => [
+    index("categories_sort_idx").on(table.sortOrder, table.name),
+    index("categories_name_trgm_idx").using("gin", sql`lower(${table.name}) gin_trgm_ops`),
+    index("categories_slug_trgm_idx").using("gin", sql`lower(${table.slug}) gin_trgm_ops`),
+  ],
 );
 
 export const gameCategories = pgTable(
@@ -322,6 +333,7 @@ export const profiles = pgTable(
     linkedinUrl: text("linkedin_url"),
     redditUrl: text("reddit_url"),
     joinedAt: timestamp("joined_at", { withTimezone: true }).notNull(),
+    superAdmin: boolean("super_admin").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     searchTsv: tsvector("search_tsv").generatedAlwaysAs(
@@ -338,6 +350,14 @@ export const profiles = pgTable(
     ),
     index("profiles_name_trgm_idx").using("gin", sql`lower(${table.name}) gin_trgm_ops`),
     index("profiles_handle_trgm_idx").using("gin", sql`lower(${table.handle}) gin_trgm_ops`),
+    index("profiles_email_trgm_idx").using(
+      "gin",
+      sql`lower(coalesce(${table.email}, '')) gin_trgm_ops`,
+    ),
+    index("profiles_joined_idx").on(table.joinedAt, table.clerkUserId),
+    index("profiles_super_admin_idx")
+      .on(table.clerkUserId)
+      .where(sql`${table.superAdmin} = true`),
     index("profiles_search_tsv_idx").using("gin", table.searchTsv),
   ],
 );

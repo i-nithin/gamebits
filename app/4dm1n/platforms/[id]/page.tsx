@@ -1,7 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { PlatformForm } from "@/components/admin/platform-form";
-import { isAdminUserId, getCurrentUserId } from "@/lib/auth-admin";
+import { enforceAdminPage } from "@/lib/auth-admin";
 import { getPlatformById } from "@/lib/queries";
 
 export default async function EditAdminPlatformPage({
@@ -9,9 +9,7 @@ export default async function EditAdminPlatformPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const userId = await getCurrentUserId();
-  if (!isAdminUserId(userId)) redirect("/");
-
+  await enforceAdminPage();
   const { id } = await params;
   const platform = await getPlatformById(id);
   if (!platform) notFound();

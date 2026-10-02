@@ -2,7 +2,7 @@ import { and, asc, count, desc, eq, exists, gt, inArray, isNotNull, isNull, lt, 
 import { cache } from "react";
 
 import { bookmarks, categories, follows, gameCategories, gameLinks, gameMedia, gamePlatforms, gameReviews, games, likes, platforms, profiles, votes, weekListings } from "@/db/schema";
-import { canManageGame, isAdminUserId } from "@/lib/auth-admin";
+import { canManageGame, getAdminAccess } from "@/lib/auth-admin";
 import {
   COLLECTION_PAGE_SIZE,
   GAME_STATUSES,
@@ -998,8 +998,10 @@ export async function getGamePageData(
   const gameRow = await getGameBySlug(slug);
   if (!gameRow) return null;
 
-  const isAdmin = isAdminUserId(userId);
-  const isOwner = canManageGame(userId, gameRow.ownerClerkUserId);
+  const [isAdmin, isOwner] = await Promise.all([
+    getAdminAccess(userId),
+    canManageGame(userId, gameRow.ownerClerkUserId),
+  ]);
   if (gameRow.archivedAt && !isOwner) return null;
 
   if (!hasDatabase()) return null;

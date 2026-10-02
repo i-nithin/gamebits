@@ -12,6 +12,7 @@ import {
   PlusIcon,
   SearchIcon,
   SettingsIcon,
+  ShieldIcon,
   XIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -48,7 +49,13 @@ function NotificationsControl({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-export function TopBar({ viewer }: { viewer: Viewer | null }) {
+export function TopBar({
+  viewer,
+  showAdminNav,
+}: {
+  viewer: Viewer | null;
+  showAdminNav: boolean;
+}) {
   const { setOpen } = useSearch();
   const pathname = usePathname();
   const openAuth = useAuthDialog();
@@ -96,11 +103,21 @@ export function TopBar({ viewer }: { viewer: Viewer | null }) {
       active: pathname === "/analytics" || pathname.startsWith("/analytics/"),
     },
     {
-      href: "/admin",
+      href: "/settings",
       label: "Settings",
       icon: SettingsIcon,
-      active: pathname.startsWith("/admin"),
+      active: pathname.startsWith("/settings"),
     },
+    ...(showAdminNav
+      ? [
+          {
+            href: "/4dm1n",
+            label: "Admin",
+            icon: ShieldIcon,
+            active: pathname.startsWith("/4dm1n"),
+          },
+        ]
+      : []),
     {
       href: "/profile",
       label: "Profile",

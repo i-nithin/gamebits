@@ -10,18 +10,20 @@ import type { GamePlatformItem, Viewer } from "@/lib/types";
 export function AppShell({
   platforms,
   viewer,
+  showAdminNav,
   children,
 }: {
   platforms: GamePlatformItem[];
   viewer: Viewer | null;
+  showAdminNav: boolean;
   children: React.ReactNode;
 }) {
   const shell = (
     <>
       <div className="min-h-dvh bg-obsidian">
-        <LeftRail viewer={viewer} />
+        <LeftRail viewer={viewer} showAdminNav={showAdminNav} />
         <div className="flex min-h-dvh flex-col bg-charcoal pt-14 md:pl-14">
-          <TopBar viewer={viewer} />
+          <TopBar viewer={viewer} showAdminNav={showAdminNav} />
           <main className="flex-1 bg-charcoal">{children}</main>
           <Footer />
         </div>

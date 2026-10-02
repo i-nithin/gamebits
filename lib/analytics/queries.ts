@@ -35,7 +35,7 @@ import type {
   GameAnalytics,
 } from "@/lib/analytics/types";
 import type { AnalyticsCountryBucket } from "@/db/schema";
-import { isAdminUserId, getCurrentUserId } from "@/lib/auth-admin";
+import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { getDb, hasDatabase } from "@/lib/db";
 import { isIsoWeekLive } from "@/lib/iso-week";
 
@@ -370,6 +370,7 @@ export async function getAnalyticsPortfolio(
   });
   const db = getDb();
 
+  const admin = await getAdminAccess(userId);
   const gameRows = await db
     .select({
       id: games.id,
@@ -381,7 +382,7 @@ export async function getAnalyticsPortfolio(
       outboundClicks: games.outboundClicks,
     })
     .from(games)
-    .where(isAdminUserId(userId) ? sql`true` : eq(games.ownerClerkUserId, userId))
+    .where(admin ? sql`true` : eq(games.ownerClerkUserId, userId))
     .orderBy(desc(games.createdAt));
 
   if (gameRows.length === 0) {
@@ -517,7 +518,7 @@ export async function getGameAnalytics(
     .limit(1);
 
   if (!game) return null;
-  if (!isAdminUserId(userId) && game.ownerClerkUserId !== userId) return null;
+  if (!(await getAdminAccess(userId)) && game.ownerClerkUserId !== userId) return null;
 
   const listings = await db
     .select({

@@ -66,7 +66,7 @@ Not in MVP: price, system requirements, markdown essays, maker credits, related 
 - Archived games are hidden from the board and search.
 - You (admin) still assign games to an ISO week (cap ~20 per week for scannability).
 - Admin also curates the platforms catalog (name + logo). Game submitters pick from that list; they cannot invent platforms.
-- Admin = your Clerk user id (`ADMIN_USER_ID`).
+- Admin = `profiles.super_admin`. The dashboard is `/4dm1n`; anyone else gets a 404.
 - Click counts are for admin insight; public ranking is votes only.
 
 ## Stack (MVP)
