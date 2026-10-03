@@ -3,6 +3,7 @@ import { cache } from "react";
 
 import { bookmarks, categories, follows, gameCategories, gameLinks, gameMedia, gamePlatforms, gameReviews, games, likes, platforms, profiles, votes, weekListings } from "@/db/schema";
 import { canManageGame, getAdminAccess } from "@/lib/auth-admin";
+import { DELETED_PROFILE_NAME } from "@/lib/profile";
 import {
   COLLECTION_PAGE_SIZE,
   GAME_STATUSES,
@@ -819,11 +820,13 @@ export async function getFollowState(
     db
       .select({ value: sql<number>`count(*)::int` })
       .from(follows)
-      .where(eq(follows.followingClerkUserId, profileUserId)),
+      .innerJoin(profiles, eq(profiles.clerkUserId, follows.followerClerkUserId))
+      .where(and(eq(follows.followingClerkUserId, profileUserId), isNull(profiles.deletedAt))),
     db
       .select({ value: sql<number>`count(*)::int` })
       .from(follows)
-      .where(eq(follows.followerClerkUserId, profileUserId)),
+      .innerJoin(profiles, eq(profiles.clerkUserId, follows.followingClerkUserId))
+      .where(and(eq(follows.followerClerkUserId, profileUserId), isNull(profiles.deletedAt))),
     viewerId
       ? db
           .select({ id: follows.id })
@@ -851,7 +854,7 @@ export async function listFollowers(userId: string): Promise<FollowProfile[]> {
     .select(followProfileColumns)
     .from(follows)
     .innerJoin(profiles, eq(profiles.clerkUserId, follows.followerClerkUserId))
-    .where(eq(follows.followingClerkUserId, userId))
+    .where(and(eq(follows.followingClerkUserId, userId), isNull(profiles.deletedAt)))
     .orderBy(desc(follows.createdAt));
 }
 
@@ -862,7 +865,7 @@ export async function listFollowing(userId: string): Promise<FollowProfile[]> {
     .select(followProfileColumns)
     .from(follows)
     .innerJoin(profiles, eq(profiles.clerkUserId, follows.followingClerkUserId))
-    .where(eq(follows.followerClerkUserId, userId))
+    .where(and(eq(follows.followerClerkUserId, userId), isNull(profiles.deletedAt)))
     .orderBy(desc(follows.createdAt));
 }
 
@@ -870,11 +873,11 @@ export async function toggleFollow(opts: { followerId: string; followingId: stri
   if (opts.followerId === opts.followingId || !hasDatabase()) return null;
   const db = getDb();
   const [target] = await db
-    .select({ handle: profiles.handle })
+    .select({ handle: profiles.handle, deletedAt: profiles.deletedAt })
     .from(profiles)
     .where(eq(profiles.clerkUserId, opts.followingId))
     .limit(1);
-  if (!target) return null;
+  if (!target || target.deletedAt) return null;
 
   const existing = await db
     .select({ id: follows.id })
@@ -928,6 +931,28 @@ export async function listProfileReviews(userId: string): Promise<ProfileReview[
   }));
 }
 
+function toPublicReview(row: {
+  id: string;
+  rating: number;
+  body: string;
+  displayName: string;
+  imageUrl: string | null;
+  createdAt: Date;
+  clerkUserId: string;
+  authorDeletedAt: Date | null;
+}): GameReviewItem {
+  const deleted = row.authorDeletedAt != null;
+  return {
+    id: row.id,
+    rating: row.rating,
+    body: row.body,
+    displayName: deleted ? DELETED_PROFILE_NAME : row.displayName,
+    imageUrl: deleted ? null : row.imageUrl,
+    createdAt: row.createdAt.toISOString(),
+    clerkUserId: row.clerkUserId,
+  };
+}
+
 function encodeReviewCursor(createdAt: Date, id: string) {
   return Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString("base64url");
 }
@@ -957,8 +982,18 @@ export async function listGameReviews(opts: {
   const parsed = decodeReviewCursor(opts.cursor ?? null);
 
   const rows = await db
-    .select()
+    .select({
+      id: gameReviews.id,
+      rating: gameReviews.rating,
+      body: gameReviews.body,
+      displayName: gameReviews.displayName,
+      imageUrl: gameReviews.imageUrl,
+      createdAt: gameReviews.createdAt,
+      clerkUserId: gameReviews.clerkUserId,
+      authorDeletedAt: profiles.deletedAt,
+    })
     .from(gameReviews)
+    .leftJoin(profiles, eq(profiles.clerkUserId, gameReviews.clerkUserId))
     .where(
       parsed
         ? and(
@@ -977,15 +1012,7 @@ export async function listGameReviews(opts: {
   const page = hasMore ? rows.slice(0, limit) : rows;
   const last = page[page.length - 1];
   return {
-    items: page.map((row) => ({
-      id: row.id,
-      rating: row.rating,
-      body: row.body,
-      displayName: row.displayName,
-      imageUrl: row.imageUrl,
-      createdAt: row.createdAt.toISOString(),
-      clerkUserId: row.clerkUserId,
-    })),
+    items: page.map((row) => toPublicReview(row)),
     nextCursor: hasMore && last ? encodeReviewCursor(last.createdAt, last.id) : null,
   };
 }
@@ -1096,23 +1123,22 @@ export async function getGamePageData(
   let reviews = firstReviews.items;
   if (reviewIdOk && reviewId && !reviews.some((item) => item.id === reviewId)) {
     const [row] = await db
-      .select()
+      .select({
+        id: gameReviews.id,
+        rating: gameReviews.rating,
+        body: gameReviews.body,
+        displayName: gameReviews.displayName,
+        imageUrl: gameReviews.imageUrl,
+        createdAt: gameReviews.createdAt,
+        clerkUserId: gameReviews.clerkUserId,
+        authorDeletedAt: profiles.deletedAt,
+      })
       .from(gameReviews)
+      .leftJoin(profiles, eq(profiles.clerkUserId, gameReviews.clerkUserId))
       .where(and(eq(gameReviews.id, reviewId), eq(gameReviews.gameId, gameRow.id)))
       .limit(1);
     if (row) {
-      reviews = [
-        ...reviews,
-        {
-          id: row.id,
-          rating: row.rating,
-          body: row.body,
-          displayName: row.displayName,
-          imageUrl: row.imageUrl,
-          createdAt: row.createdAt.toISOString(),
-          clerkUserId: row.clerkUserId,
-        },
-      ];
+      reviews = [...reviews, toPublicReview(row)];
     }
   }
 

@@ -127,6 +127,20 @@
       "when": 1790941695400,
       "tag": "0017_clever_maginty",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790944371686,
+      "tag": "0018_profile_deleted_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790964010987,
+      "tag": "0019_profile_purged_at",
+      "breakpoints": true
     }
   ]
 }

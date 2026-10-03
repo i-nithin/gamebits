@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SignInButton } from "@clerk/nextjs";
 
 import { AccountSettings } from "@/components/settings/account-settings";
+import { SignOutExpired } from "@/components/settings/sign-out-expired";
 import { NotificationSettings } from "@/components/settings/notification-settings";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +11,8 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { deletionDeadline, deletionGraceEnded } from "@/lib/account-deletion";
+import { purgeAccount } from "@/lib/account-purge";
 import { getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getNotificationPreferences } from "@/lib/notifications/preferences";
@@ -45,6 +48,19 @@ export default async function SettingsPage() {
   }
 
   const profile = await ensureCurrentProfile();
+  if (profile?.deletedAt && (profile.purgedAt || deletionGraceEnded(profile.deletedAt))) {
+    if (!profile.purgedAt) await purgeAccount(userId);
+    return (
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="flex flex-col gap-1">
+          <p className="text-xs tracking-wide text-fog uppercase">Account</p>
+          <h1 className="text-2xl font-medium sm:text-[32px]">Settings</h1>
+        </div>
+        <p className="text-sm text-fog">This login has been removed.</p>
+        <SignOutExpired />
+      </div>
+    );
+  }
   if (!profile) {
     return (
       <div className="mx-auto flex max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8">
@@ -78,9 +94,13 @@ export default async function SettingsPage() {
         <p className="text-xs tracking-wide text-fog uppercase">Account</p>
         <h1 className="text-2xl font-medium sm:text-[32px]">Settings</h1>
       </div>
-      <NotificationSettings preferences={preferences} />
+      {profile.deletedAt ? null : <NotificationSettings preferences={preferences} />}
       <AccountSettings
         name={profile.name}
+        handle={profile.handle}
+        deletionDeadline={
+          profile.deletedAt ? deletionDeadline(profile.deletedAt).toISOString() : null
+        }
         account={accountResult.account}
         accountError={accountResult.error}
       />

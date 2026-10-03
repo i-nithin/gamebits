@@ -13,18 +13,34 @@ export async function getCurrentUserId() {
   return userId;
 }
 
-export const getAdminAccess = cache(async function getAdminAccess(
+export const getProfileAccess = cache(async function getProfileAccess(
   userId: string | null | undefined,
 ) {
-  if (!userId || !hasDatabase()) return false;
+  if (!userId || !hasDatabase()) {
+    return { superAdmin: false, deleted: false };
+  }
   const db = getDb();
   const [row] = await db
-    .select({ superAdmin: profiles.superAdmin })
+    .select({ superAdmin: profiles.superAdmin, deletedAt: profiles.deletedAt })
     .from(profiles)
     .where(eq(profiles.clerkUserId, userId))
     .limit(1);
-  return row?.superAdmin === true;
+  const deleted = Boolean(row?.deletedAt);
+  return {
+    superAdmin: row?.superAdmin === true && !deleted,
+    deleted,
+  };
 });
+
+export const getAdminAccess = cache(async function getAdminAccess(
+  userId: string | null | undefined,
+) {
+  return (await getProfileAccess(userId)).superAdmin;
+});
+
+export async function isAccountClosed(userId: string | null | undefined) {
+  return (await getProfileAccess(userId)).deleted;
+}
 
 export async function enforceAdminPage() {
   const userId = await getCurrentUserId();
@@ -52,6 +68,8 @@ export async function canManageGame(
   ownerClerkUserId: string | null | undefined,
 ) {
   if (!userId) return false;
-  if (await getAdminAccess(userId)) return true;
+  const access = await getProfileAccess(userId);
+  if (access.superAdmin) return true;
+  if (access.deleted) return false;
   return Boolean(ownerClerkUserId && ownerClerkUserId === userId);
 }

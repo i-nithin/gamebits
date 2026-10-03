@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { gameReviews, games } from "@/db/schema";
-import { requireSignedIn } from "@/lib/auth-admin";
+import { isAccountClosed, requireSignedIn } from "@/lib/auth-admin";
 import { REVIEW_BODY_MAX } from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { getProfileHandle } from "@/lib/profile";
@@ -19,6 +19,9 @@ const reviewSchema = z.object({
 
 export async function upsertReviewAction(formData: FormData) {
   const userId = await requireSignedIn();
+  if (await isAccountClosed(userId)) {
+    throw new Error("This account is closed");
+  }
   const parsed = reviewSchema.parse({
     gameId: String(formData.get("gameId") ?? ""),
     rating: String(formData.get("rating") ?? ""),

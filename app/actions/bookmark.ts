@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getCurrentUserId } from "@/lib/auth-admin";
+import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
 import { getProfileHandle } from "@/lib/profile";
 import { toggleBookmark } from "@/lib/queries";
 
 export async function toggleBookmarkAction(formData: FormData) {
   const userId = await getCurrentUserId();
-  if (!userId) {
+  if (!userId || (await isAccountClosed(userId))) {
     return { ok: false as const, reason: "unauthenticated" as const };
   }
 

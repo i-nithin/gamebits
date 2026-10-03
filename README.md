@@ -34,6 +34,7 @@ cp .env.example .env.local
 | `R2_SECRET_ACCESS_KEY` | For uploads | R2 API token secret access key |
 | `R2_BUCKET_NAME` | For uploads | R2 bucket name |
 | `R2_PUBLIC_URL` | For uploads | Public base URL for objects (no trailing slash) |
+| `CRON_SECRET` | Production | Bearer token for the daily account-purge job |
 
 \*Without Clerk keys the app still boots, but sign-in, add-game, and votes are unavailable.
 
@@ -49,6 +50,16 @@ cp .env.example .env.local
 
 1. Create an application with **Google** and **Email** sign-in.
 2. Add keys from the Clerk dashboard to `.env.local`.
+
+### Account deletion
+
+Settings includes **Delete account**. The profile is hidden immediately. The same Clerk login can sign back in and restore the account for 30 days. After that, a daily job deletes the Clerk user.
+
+The job is `GET /api/cron/purge-accounts`, scheduled in `vercel.json` at 04:00 UTC. It accepts only `Authorization: Bearer $CRON_SECRET`.
+
+1. Generate a long random secret, for example `openssl rand -base64 32`.
+2. Set `CRON_SECRET` in the Vercel project. Vercel sends that value as the bearer token on the cron request.
+3. Leave it unset locally. The route returns 401 without the header, and `npm run dev` does not run the schedule. If someone signs in after the 30 days and the job has not run, that visit still closes the login.
 
 ### Cloudflare R2
 
@@ -139,10 +150,11 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Deploy (Vercel)
 
 1. Push the repo and import it in Vercel.
-2. Set the same env vars (including R2) in the Vercel project settings. There is no admin env var.
+2. Set the same env vars (including R2 and `CRON_SECRET`) in the Vercel project settings. There is no admin env var. Admin access stays the `profiles.super_admin` flag.
 3. Use Neon’s pooled URL for `DATABASE_URL` and the direct URL for `DATABASE_URL_UNPOOLED`.
 4. Add your production origin to the R2 bucket CORS `AllowedOrigins`.
-5. Run migrations against production (`npm run db:migrate` with production `DATABASE_URL_UNPOOLED`), or wire a migrate step into your deploy pipeline. The migration adds `profiles.super_admin`. On a new production database, sign in once, then promote your profile with the SQL in the Admin section above.
+5. Run migrations against production (`npm run db:migrate` with production `DATABASE_URL_UNPOOLED`), or wire a migrate step into your deploy pipeline. On a new production database, sign in once, then promote your profile with the SQL in the Admin section above.
+6. Confirm the cron in the Vercel project. `vercel.json` calls `/api/cron/purge-accounts` once a day. Without `CRON_SECRET`, that request is rejected and logins past the 30-day window stay open until the person signs in again.
 
 ## Docs
 

@@ -92,6 +92,7 @@ export type Viewer = {
   name: string;
   handle: string;
   imageUrl: string | null;
+  deletionDeadline: string | null;
 };
 
 export type PublicProfile = {

@@ -334,6 +334,8 @@ export const profiles = pgTable(
     redditUrl: text("reddit_url"),
     joinedAt: timestamp("joined_at", { withTimezone: true }).notNull(),
     superAdmin: boolean("super_admin").notNull().default(false),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    purgedAt: timestamp("purged_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     searchTsv: tsvector("search_tsv").generatedAlwaysAs(
@@ -359,6 +361,9 @@ export const profiles = pgTable(
       .on(table.clerkUserId)
       .where(sql`${table.superAdmin} = true`),
     index("profiles_search_tsv_idx").using("gin", table.searchTsv),
+    index("profiles_deletion_purge_idx")
+      .on(table.deletedAt)
+      .where(sql`${table.deletedAt} is not null and ${table.purgedAt} is null`),
   ],
 );
 

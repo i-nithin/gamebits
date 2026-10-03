@@ -59,7 +59,7 @@ export async function updateProfileAction(
   if (!userId) return { error: "Sign in to continue" };
 
   const existing = await ensureCurrentProfile();
-  if (!existing || existing.clerkUserId !== userId) {
+  if (!existing || existing.clerkUserId !== userId || existing.deletedAt) {
     return { error: "Sign in to continue" };
   }
 

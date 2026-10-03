@@ -141,6 +141,7 @@ function personBranch(match: SQL, order: SQL, signal: Signal) {
            ${signal}::text as signal
     from ${profiles}
     where ${match}
+      and ${profiles.deletedAt} is null
     order by ${order}
     limit ${LIMIT}
   )`;
@@ -283,7 +284,8 @@ async function searchPeople(
                'fts'::text as signal
         from ${profiles}
         cross join q
-        where q.tsq <> ''::tsquery
+        where ${profiles.deletedAt} is null
+          and q.tsq <> ''::tsquery
           and ${profiles.searchTsv} @@ q.tsq
         order by ts_rank_cd(${profiles.searchTsv}, q.tsq) desc
         limit ${LIMIT}
