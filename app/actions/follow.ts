@@ -21,10 +21,12 @@ export async function toggleFollowAction(formData: FormData) {
     return { ok: false as const, reason: "invalid" as const };
   }
 
-  const [result, follower] = await Promise.all([
-    toggleFollow({ followerId: userId, followingId: profileUserId }),
-    ensureCurrentProfile(),
-  ]);
+  const follower = await ensureCurrentProfile();
+  if (!follower || follower.deletedAt || follower.clerkUserId !== userId) {
+    return { ok: false as const, reason: "unauthenticated" as const };
+  }
+
+  const result = await toggleFollow({ followerId: userId, followingId: profileUserId });
   if (!result) {
     return { ok: false as const, reason: "invalid" as const };
   }

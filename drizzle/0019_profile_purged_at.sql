@@ -1,0 +1,2 @@
+ALTER TABLE "profiles" ADD COLUMN "purged_at" timestamp with time zone;--> statement-breakpoint
+CREATE INDEX "profiles_deletion_purge_idx" ON "profiles" USING btree ("deleted_at") WHERE "profiles"."deleted_at" is not null and "profiles"."purged_at" is null;

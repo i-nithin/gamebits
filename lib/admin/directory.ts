@@ -82,6 +82,8 @@ export type AdminUserRow = {
   name: string;
   email: string | null;
   joinedAt: string;
+  deletedAt: string | null;
+  purgedAt: string | null;
   superAdmin: boolean;
 };
 
@@ -110,6 +112,8 @@ export async function listAdminUsers(input: {
         name: profiles.name,
         email: profiles.email,
         joinedAt: profiles.joinedAt,
+        deletedAt: profiles.deletedAt,
+        purgedAt: profiles.purgedAt,
         superAdmin: profiles.superAdmin,
       })
       .from(profiles);
@@ -119,7 +123,7 @@ export async function listAdminUsers(input: {
       .limit(input.pageSize)
       .offset(offset);
     }),
-    countFrom(profiles, eq(profiles.superAdmin, true)),
+    countFrom(profiles, and(eq(profiles.superAdmin, true), isNull(profiles.deletedAt))),
   ]);
 
   return {
@@ -127,6 +131,8 @@ export async function listAdminUsers(input: {
     items: result.items.map((row) => ({
       ...row,
       joinedAt: row.joinedAt.toISOString(),
+      deletedAt: row.deletedAt?.toISOString() ?? null,
+      purgedAt: row.purgedAt?.toISOString() ?? null,
     })) satisfies AdminUserRow[],
     superAdminCount,
   };

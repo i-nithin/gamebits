@@ -2,7 +2,9 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 
+import { SignOutExpired } from "@/components/settings/sign-out-expired";
 import { AppShell } from "@/components/shell/app-shell";
+import { expireAccountIfNeeded } from "@/lib/account-purge";
 import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getViewer } from "@/lib/profile";
@@ -26,6 +28,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const forceSignOut = await expireAccountIfNeeded().catch(() => false);
   const [platforms, viewer, showAdminNav] = await Promise.all([
     listActivePlatforms().catch(() => []),
     getViewer().catch(() => null),
@@ -56,6 +59,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             }}
           >
             {shell}
+            {forceSignOut ? <SignOutExpired /> : null}
           </ClerkProvider>
         ) : (
           shell

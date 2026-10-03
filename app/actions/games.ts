@@ -9,6 +9,7 @@ import { categories, gameCategories, gameLinks, gameMedia, gamePlatforms, games,
 import {
   canManageGame,
   getCurrentUserId,
+  isAccountClosed,
   requireSignedIn,
 } from "@/lib/auth-admin";
 import {
@@ -112,7 +113,7 @@ export async function upsertOwnedGameAction(
   formData: FormData,
 ): Promise<{ error: string } | null> {
   const userId = await getCurrentUserId();
-  if (!userId) return { error: "Sign in to continue" };
+  if (!userId || (await isAccountClosed(userId))) return { error: "Sign in to continue" };
   const id = formData.get("id") ? String(formData.get("id")) : undefined;
 
   let existing = null;

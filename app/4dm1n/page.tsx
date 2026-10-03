@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { deletionDeadline } from "@/lib/account-deletion";
 import { listAdminUsers, parseAdminListParams } from "@/lib/admin/directory";
 import { enforceAdminPage } from "@/lib/auth-admin";
 
@@ -77,9 +78,27 @@ export default async function AdminUsersPage({
               <TableBody>
                 {result.items.map((user) => {
                   const lastAdmin = user.superAdmin && result.superAdminCount <= 1;
+                  const scheduled = Boolean(user.deletedAt) && !user.purgedAt;
+                  const purged = Boolean(user.purgedAt);
                   return (
                     <TableRow key={user.clerkUserId}>
-                      <TableCell>{user.name}</TableCell>
+                      <TableCell>
+                        <span className="flex flex-wrap items-center gap-2">
+                          {user.name}
+                          {scheduled ? <Badge variant="outline">Scheduled</Badge> : null}
+                          {purged ? <Badge variant="outline">Deleted</Badge> : null}
+                        </span>
+                        {scheduled && user.deletedAt ? (
+                          <span className="mt-1 block text-xs text-fog">
+                            {joinedFormat.format(deletionDeadline(new Date(user.deletedAt)))}
+                          </span>
+                        ) : null}
+                        {purged && user.deletedAt ? (
+                          <span className="mt-1 block text-xs text-fog">
+                            {joinedFormat.format(new Date(user.deletedAt))}
+                          </span>
+                        ) : null}
+                      </TableCell>
                       <TableCell className="stat-mono">{user.handle}</TableCell>
                       <TableCell>{user.email ?? "—"}</TableCell>
                       <TableCell>{joinedFormat.format(new Date(user.joinedAt))}</TableCell>
@@ -87,7 +106,7 @@ export default async function AdminUsersPage({
                         {user.superAdmin ? <Badge variant="secondary">Admin</Badge> : "—"}
                       </TableCell>
                       <TableCell>
-                        {lastAdmin ? null : (
+                        {lastAdmin || user.deletedAt ? null : (
                           <form action={setSuperAdminAction}>
                             <input type="hidden" name="clerkUserId" value={user.clerkUserId} />
                             <input

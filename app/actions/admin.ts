@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -75,27 +75,28 @@ export async function setSuperAdminAction(formData: FormData) {
 
   const db = getDb();
   await db.transaction(async (tx) => {
-    if (!next) {
-      const [row] = await tx
-        .select({ superAdmin: profiles.superAdmin })
+    const [row] = await tx
+      .select({ superAdmin: profiles.superAdmin, deletedAt: profiles.deletedAt })
+      .from(profiles)
+      .where(eq(profiles.clerkUserId, clerkUserId))
+      .limit(1);
+    if (!row) throw new Error("Invalid user");
+    if (row.deletedAt) throw new Error("This account is closed");
+    if (!next && row.superAdmin) {
+      const admins = await tx
+        .select({ clerkUserId: profiles.clerkUserId })
         .from(profiles)
-        .where(eq(profiles.clerkUserId, clerkUserId))
-        .limit(1);
-      if (row?.superAdmin) {
-        const [countRow] = await tx
-          .select({ value: sql<number>`count(*)::int` })
-          .from(profiles)
-          .where(eq(profiles.superAdmin, true));
-        if ((countRow?.value ?? 0) <= 1) {
-          throw new Error("Cannot remove the last admin");
-        }
+        .where(and(eq(profiles.superAdmin, true), isNull(profiles.deletedAt)))
+        .for("update");
+      if (admins.length <= 1) {
+        throw new Error("Cannot remove the last admin");
       }
     }
 
     await tx
       .update(profiles)
       .set({ superAdmin: next, updatedAt: new Date() })
-      .where(eq(profiles.clerkUserId, clerkUserId));
+      .where(and(eq(profiles.clerkUserId, clerkUserId), isNull(profiles.deletedAt)));
   });
 
   revalidatePath("/4dm1n");

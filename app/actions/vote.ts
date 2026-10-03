@@ -4,7 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { games } from "@/db/schema";
-import { getCurrentUserId } from "@/lib/auth-admin";
+import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
 import { getDb } from "@/lib/db";
 import { isIsoWeekLive } from "@/lib/iso-week";
 import {
@@ -15,7 +15,7 @@ import { toggleWeekVote } from "@/lib/queries";
 
 export async function toggleVoteAction(formData: FormData) {
   const userId = await getCurrentUserId();
-  if (!userId) {
+  if (!userId || (await isAccountClosed(userId))) {
     return { ok: false as const, reason: "unauthenticated" as const };
   }
 

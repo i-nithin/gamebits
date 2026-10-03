@@ -2,9 +2,15 @@
 
 import { useClerk } from "@clerk/nextjs";
 import { MonitorIcon, SmartphoneIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { revokeSessionAction, updateDisplayNameAction } from "@/app/actions/settings";
+import {
+  deleteAccountAction,
+  restoreAccountAction,
+  revokeSessionAction,
+  updateDisplayNameAction,
+} from "@/app/actions/settings";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,6 +20,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { formatDeletionDate } from "@/lib/account-deletion";
+import { clearGameDraft } from "@/lib/game-draft";
 import { formatRelativeTime } from "@/lib/notifications/format";
 import type { AccountSession, ClerkAccount } from "@/lib/settings/account";
 
@@ -32,14 +40,19 @@ function sessionMeta(session: AccountSession) {
 
 export function AccountSettings({
   name,
+  handle,
+  deletionDeadline = null,
   account,
   accountError,
 }: {
   name: string;
+  handle: string;
+  deletionDeadline?: string | null;
   account: ClerkAccount | null;
   accountError: string | null;
 }) {
   const { signOut } = useClerk();
+  const router = useRouter();
   const [displayName, setDisplayName] = useState(name);
   const [savedName, setSavedName] = useState(name);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -48,6 +61,15 @@ export function AccountSettings({
   const [pending, setPending] = useState<AccountSession | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
   const [revokePending, setRevokePending] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restorePending, setRestorePending] = useState(false);
+
+  const confirmationMatches = confirmation.trim().toLowerCase() === handle.toLowerCase();
+  const scheduled = Boolean(deletionDeadline);
 
   const trimmed = displayName.trim();
   const nameDirty = trimmed !== savedName;
@@ -84,7 +106,45 @@ export function AccountSettings({
     setRevokePending(false);
   }
 
+  async function confirmDelete() {
+    if (!confirmationMatches || deletePending) return;
+    setDeletePending(true);
+    setDeleteError(null);
+    const result = await deleteAccountAction(confirmation);
+    if (!result.ok) {
+      if (result.expired) {
+        clearGameDraft();
+        await signOut({ redirectUrl: "/" });
+        return;
+      }
+      setDeletePending(false);
+      setDeleteError(result.error);
+      return;
+    }
+    clearGameDraft();
+    await signOut({ redirectUrl: "/" });
+  }
+
+  async function restoreAccount() {
+    if (restorePending) return;
+    setRestorePending(true);
+    setRestoreError(null);
+    const result = await restoreAccountAction();
+    if (!result.ok) {
+      if (result.expired) {
+        await signOut({ redirectUrl: "/" });
+        return;
+      }
+      setRestorePending(false);
+      setRestoreError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
   return (
+    <>
+    {scheduled ? null : (
     <section className="flex flex-col gap-6 rounded-2xl border border-iron bg-obsidian px-4 py-4 sm:px-5">
       <div>
         <h2 className="text-lg font-medium text-paper-white">Account</h2>
@@ -266,5 +326,120 @@ export function AccountSettings({
         </DialogContent>
       </Dialog>
     </section>
+    )}
+
+    {scheduled && deletionDeadline ? (
+      <section className="flex flex-col gap-3 rounded-2xl border border-error/40 bg-obsidian px-4 py-4 sm:px-5">
+        <div>
+          <h2 className="text-lg font-medium text-error">Account scheduled for deletion</h2>
+          <p className="mt-1 text-sm text-fog">
+            Your profile is hidden. You can restore this account until{" "}
+            {formatDeletionDate(deletionDeadline)}. After that, this login is removed. Reviews stay
+            as Deleted user. Votes and likes stay. Published games stay up.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            className="rounded-full"
+            disabled={restorePending}
+            onClick={() => {
+              void restoreAccount();
+            }}
+          >
+            {restorePending ? "Restoring" : "Restore account"}
+          </Button>
+          {restoreError ? <p className="text-sm text-error">{restoreError}</p> : null}
+        </div>
+      </section>
+    ) : (
+    <section className="flex flex-col gap-3 rounded-2xl border border-error/40 bg-obsidian px-4 py-4 sm:px-5">
+      <div>
+        <h2 className="text-lg font-medium text-error">Danger Zone</h2>
+        <p className="mt-1 text-sm text-fog">
+          Closing your account hides your profile and signs you out. Reviews you wrote stay on
+          games as Deleted user. Votes and likes stay. Games you published stay public, including
+          launch weeks, and you will not be able to edit them until you restore. You can sign back
+          in and restore this account for 30 days. After that, this login is removed.
+        </p>
+      </div>
+      <div>
+        <Button
+          type="button"
+          variant="destructive"
+          className="rounded-full"
+          onClick={() => {
+            setDeleteError(null);
+            setConfirmation("");
+            setDeleteOpen(true);
+          }}
+        >
+          Delete account
+        </Button>
+      </div>
+    </section>
+    )}
+
+    <Dialog
+      open={deleteOpen}
+      onOpenChange={(open) => {
+        if (!open && !deletePending) {
+          setDeleteOpen(false);
+          setDeleteError(null);
+          setConfirmation("");
+        }
+      }}
+    >
+      <DialogContent className="bg-obsidian text-paper-white ring-iron" showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle className="text-paper-white">Delete your account?</DialogTitle>
+          <DialogDescription>
+            Your profile disappears now. Reviews stay as Deleted user, votes stay, and published
+            games stay up. You can sign back in and restore this account for 30 days. After that,
+            this login is removed.
+          </DialogDescription>
+        </DialogHeader>
+        <label className="flex flex-col gap-1.5" htmlFor="delete-handle">
+          <span className="text-sm text-paper-white">Type @{handle} to confirm</span>
+          <Input
+            id="delete-handle"
+            value={confirmation}
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            className="h-9 rounded-lg border-iron bg-graphite"
+            onChange={(event) => setConfirmation(event.target.value)}
+          />
+        </label>
+        {deleteError ? <p className="text-sm text-error">{deleteError}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full border-iron"
+            disabled={deletePending}
+            onClick={() => {
+              setDeleteOpen(false);
+              setDeleteError(null);
+              setConfirmation("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            className="rounded-full"
+            disabled={!confirmationMatches || deletePending}
+            onClick={() => {
+              void confirmDelete();
+            }}
+          >
+            {deletePending ? "Deleting" : "Delete account"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

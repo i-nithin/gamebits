@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle
 
 import { notifications, notificationState, profiles } from "@/db/schema";
 import { getDb, hasDatabase } from "@/lib/db";
+import { DELETED_PROFILE_NAME } from "@/lib/profile";
 import {
   formatNotificationMessage,
   notificationHref,
@@ -44,6 +45,33 @@ function toItem(row: {
     href: notificationHref(row.type, row.payload, row.entityId),
     message: formatNotificationMessage(row.type, row.payload, row.actorCount),
   };
+}
+
+async function maskDeletedActors(items: NotificationItem[]): Promise<NotificationItem[]> {
+  if (!hasDatabase() || items.length === 0) return items;
+  const ids = [...new Set(items.map((item) => item.actorClerkUserId))];
+  const db = getDb();
+  const rows = await db
+    .select({ clerkUserId: profiles.clerkUserId })
+    .from(profiles)
+    .where(and(inArray(profiles.clerkUserId, ids), isNotNull(profiles.deletedAt)));
+  if (rows.length === 0) return items;
+  const deleted = new Set(rows.map((row) => row.clerkUserId));
+  return items.map((item) => {
+    if (!deleted.has(item.actorClerkUserId)) return item;
+    const payload = {
+      ...item.payload,
+      actorName: DELETED_PROFILE_NAME,
+      actorHandle: "",
+      actorImageUrl: null,
+    };
+    return {
+      ...item,
+      payload,
+      href: notificationHref(item.type, payload, item.entityId),
+      message: formatNotificationMessage(item.type, payload, item.actorCount),
+    };
+  });
 }
 
 function decodeCursor(cursor: string | null | undefined) {
@@ -122,7 +150,7 @@ export async function listLatestUnread(
       .orderBy(desc(notifications.createdAt), desc(notifications.id))
       .limit(limit);
 
-    return rows.map((row) => toItem({ ...row, type: row.type as NotificationType }));
+    return maskDeletedActors(rows.map((row) => toItem({ ...row, type: row.type as NotificationType })));
   } catch (error) {
     console.error("[notifications] listLatestUnread failed", error);
     return [];
@@ -170,7 +198,9 @@ export async function listNotifications(opts: {
       .limit(limit + 1);
 
     const page = rows.slice(0, limit);
-    const items = page.map((row) => toItem({ ...row, type: row.type as NotificationType }));
+    const items = await maskDeletedActors(
+      page.map((row) => toItem({ ...row, type: row.type as NotificationType })),
+    );
     const last = page[page.length - 1];
     const nextCursor =
       rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null;
@@ -335,10 +365,19 @@ export async function ensureActorPayload(actorId: string) {
       name: profiles.name,
       handle: profiles.handle,
       imageUrl: profiles.imageUrl,
+      deletedAt: profiles.deletedAt,
     })
     .from(profiles)
     .where(eq(profiles.clerkUserId, actorId))
     .limit(1);
+
+  if (actor?.deletedAt) {
+    return {
+      actorName: DELETED_PROFILE_NAME,
+      actorHandle: "",
+      actorImageUrl: null,
+    };
+  }
 
   return {
     actorName: actor?.name ?? "Someone",

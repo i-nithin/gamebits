@@ -1,8 +1,9 @@
 import { currentUser } from "@clerk/nextjs/server";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { cache } from "react";
 
 import { profiles } from "@/db/schema";
+import { deletionDeadline, deletionGraceEnded } from "@/lib/account-deletion";
 import { getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getDb, hasDatabase } from "@/lib/db";
@@ -10,6 +11,8 @@ import { slugify } from "@/lib/sanitize";
 import type { PublicProfile, Viewer } from "@/lib/types";
 
 export const HANDLE_RE = /^[a-z0-9_]{3,30}$/;
+
+export const DELETED_PROFILE_NAME = "Deleted user";
 
 const publicColumns = {
   clerkUserId: profiles.clerkUserId,
@@ -100,7 +103,7 @@ export const getProfileByHandle = cache(async function getProfileByHandle(handle
   const [row] = await db
     .select(publicColumns)
     .from(profiles)
-    .where(eq(profiles.handle, normalized))
+    .where(and(eq(profiles.handle, normalized), isNull(profiles.deletedAt)))
     .limit(1);
   return row ? toPublicProfile(row) : null;
 });
@@ -111,12 +114,27 @@ export const getViewer = cache(async function getViewer(): Promise<Viewer | null
   if (!userId) return null;
   const db = getDb();
   const [row] = await db
-    .select({ name: profiles.name, handle: profiles.handle, imageUrl: profiles.imageUrl })
+    .select({
+      name: profiles.name,
+      handle: profiles.handle,
+      imageUrl: profiles.imageUrl,
+      deletedAt: profiles.deletedAt,
+      purgedAt: profiles.purgedAt,
+    })
     .from(profiles)
     .where(eq(profiles.clerkUserId, userId))
     .limit(1);
-  if (!row) return { name: "", handle: "", imageUrl: null };
-  return row;
+  if (!row) return { name: "", handle: "", imageUrl: null, deletionDeadline: null };
+  if (row.deletedAt) {
+    if (row.purgedAt || deletionGraceEnded(row.deletedAt)) return null;
+    return {
+      name: row.name,
+      handle: row.handle,
+      imageUrl: row.imageUrl,
+      deletionDeadline: deletionDeadline(row.deletedAt).toISOString(),
+    };
+  }
+  return { name: row.name, handle: row.handle, imageUrl: row.imageUrl, deletionDeadline: null };
 });
 
 export async function getProfileHandle(clerkUserId: string) {
@@ -146,6 +164,8 @@ export async function ensureCurrentProfile() {
     .where(eq(profiles.clerkUserId, userId))
     .limit(1);
 
+  if (existing?.deletedAt) return existing;
+
   const user = await currentUser();
   if (!user) return existing ?? null;
 
@@ -155,7 +175,7 @@ export async function ensureCurrentProfile() {
       await db
         .update(profiles)
         .set({ email, updatedAt: new Date() })
-        .where(eq(profiles.clerkUserId, userId));
+        .where(and(eq(profiles.clerkUserId, userId), isNull(profiles.deletedAt)));
       return { ...existing, email };
     }
     return existing;
