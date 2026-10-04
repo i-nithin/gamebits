@@ -148,6 +148,17 @@ export async function getProfileHandle(clerkUserId: string) {
   return row?.handle ?? null;
 }
 
+export async function getProfileName(clerkUserId: string) {
+  if (!hasDatabase()) return null;
+  const db = getDb();
+  const [row] = await db
+    .select({ name: profiles.name })
+    .from(profiles)
+    .where(and(eq(profiles.clerkUserId, clerkUserId), isNull(profiles.deletedAt)))
+    .limit(1);
+  return row?.name ?? null;
+}
+
 function clerkEmail(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>) {
   return user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? null;
 }

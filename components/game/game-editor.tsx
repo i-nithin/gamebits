@@ -1,20 +1,14 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Gamepad2Icon,
-  GlobeIcon,
-  JoystickIcon,
-  MessageCircleIcon,
-  SmartphoneIcon,
-  StoreIcon,
-} from "lucide-react";
+import dynamic from "next/dynamic";
 
 import { upsertOwnedGameAction } from "@/app/actions/games";
 import { LabelWithInfo } from "@/components/game/field-info";
 import { GameFormShell } from "@/components/game/game-form-shell";
 import { LogoPicker, MediaPicker, type DraftMedia } from "@/components/game/media-picker";
 import { PlatformChip } from "@/components/game/platform-chip";
+import { StoreIcon } from "@/components/game/store-icons";
 import { Field, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import type { gameLinks, gameMedia, games } from "@/db/schema";
 import {
   CATEGORY_CAP,
@@ -51,17 +44,13 @@ import {
 import { withVideosFirst } from "@/lib/urls";
 import type { GameCategoryItem, GamePlatformItem } from "@/lib/types";
 
-const LINK_ICONS: Record<GameLinkKind, typeof GlobeIcon> = {
-  web: GlobeIcon,
-  steam: Gamepad2Icon,
-  playstore: SmartphoneIcon,
-  appstore: SmartphoneIcon,
-  nintendo: JoystickIcon,
-  playstation: JoystickIcon,
-  xbox: Gamepad2Icon,
-  discord: MessageCircleIcon,
-  x: StoreIcon,
-};
+const DescriptionField = dynamic(
+  () => import("@/components/game/description-editor").then((mod) => mod.DescriptionEditor),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-40 rounded-lg border border-iron bg-graphite" />,
+  },
+);
 
 type GameRow = typeof games.$inferSelect;
 type MediaRow = typeof gameMedia.$inferSelect;
@@ -107,7 +96,6 @@ export function GameEditor({
   }));
   const [logoUrl, setLogoUrl] = useState(game?.logoUrl ?? "");
   const [name, setName] = useState(game?.name ?? "");
-  const [developerName, setDeveloperName] = useState(game?.developerName ?? "");
   const [tagline, setTagline] = useState(game?.tagline ?? "");
   const [description, setDescription] = useState(game?.description ?? "");
   const [status, setStatus] = useState<GameStatus>(game?.status ?? "upcoming");
@@ -133,7 +121,6 @@ export function GameEditor({
 
   const currentDraft: GameDraft = {
     name,
-    developerName,
     tagline,
     description,
     status,
@@ -150,7 +137,6 @@ export function GameEditor({
     const draft = loadGameDraft();
     if (draft) {
       setName(draft.name);
-      setDeveloperName(draft.developerName);
       setTagline(draft.tagline);
       setDescription(draft.description);
       setStatus(draft.status);
@@ -173,7 +159,6 @@ export function GameEditor({
     isEdit,
     draftReady,
     name,
-    developerName,
     tagline,
     description,
     status,
@@ -234,9 +219,8 @@ export function GameEditor({
       }
       right={
         <div className="flex flex-col gap-6 pb-4">
-          <div className="flex items-center gap-4">
-            <LogoPicker value={logoUrl} onChange={setLogoUrl} onBusyChange={setLogoBusy} />
-            <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-4">
+            <div>
               <h1 className="text-lg font-medium text-paper-white sm:text-xl">
                 {isEdit ? "Edit your game" : "Add your game"}
               </h1>
@@ -246,44 +230,25 @@ export function GameEditor({
                   : "Progress is saved on this device until you create the game."}
               </p>
             </div>
+            <LogoPicker value={logoUrl} onChange={setLogoUrl} onBusyChange={setLogoBusy} />
           </div>
 
           <FieldGroup className="gap-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field>
-                <LabelWithInfo htmlFor="name" info="The title shown on the board and game page.">
-                  Game name
-                </LabelWithInfo>
-                <Input
-                  id="name"
-                  name="name"
-                  required
-                  maxLength={120}
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Add game name"
-                  className="h-9 rounded-lg border-iron bg-graphite"
-                />
-              </Field>
-              <Field>
-                <LabelWithInfo
-                  htmlFor="developerName"
-                  info="Studio or maker credited on the listing."
-                >
-                  Developer
-                </LabelWithInfo>
-                <Input
-                  id="developerName"
-                  name="developerName"
-                  required
-                  maxLength={120}
-                  value={developerName}
-                  onChange={(event) => setDeveloperName(event.target.value)}
-                  placeholder="Studio or maker name"
-                  className="h-9 rounded-lg border-iron bg-graphite"
-                />
-              </Field>
-            </div>
+            <Field>
+              <LabelWithInfo htmlFor="name" info="The title shown on the board and game page.">
+                Game name
+              </LabelWithInfo>
+              <Input
+                id="name"
+                name="name"
+                required
+                maxLength={120}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Add game name"
+                className="h-9 rounded-lg border-iron bg-graphite"
+              />
+            </Field>
             <Field>
               <LabelWithInfo
                 htmlFor="tagline"
@@ -305,20 +270,11 @@ export function GameEditor({
             <Field>
               <LabelWithInfo
                 htmlFor="description"
-                info="A longer pitch for the game page. Keep it readable and player-facing."
+                info="A longer pitch for the game page. You can add formatting, images, and short clips up to 4MB."
               >
                 Description
               </LabelWithInfo>
-              <Textarea
-                id="description"
-                name="description"
-                required
-                maxLength={4000}
-                className="min-h-32 rounded-lg border-iron bg-graphite"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="What should players know?"
-              />
+              <DescriptionField id="description" value={description} onChange={setDescription} />
             </Field>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field>
@@ -472,29 +428,29 @@ export function GameEditor({
               <LabelWithInfo info="Optional store and social URLs. Only matching hostnames are saved.">
                 Links and stores
               </LabelWithInfo>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {GAME_LINK_FIELDS.map((field) => {
-                  const Icon = LINK_ICONS[field.kind];
-                  return (
-                    <InputGroup key={field.kind} className="h-9 rounded-lg border-iron bg-graphite">
-                      <InputGroupAddon>
-                        <Icon className="size-4 text-fog" />
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        name={`link_${field.kind}`}
-                        type="url"
-                        inputMode="url"
-                        placeholder={field.label}
-                        value={linkValues[field.kind]}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setLinkValues((current) => ({ ...current, [field.kind]: value }));
-                        }}
-                        aria-label={field.label}
-                      />
-                    </InputGroup>
-                  );
-                })}
+              <div className="flex w-full flex-col gap-3">
+                {GAME_LINK_FIELDS.map((field) => (
+                  <InputGroup
+                    key={field.kind}
+                    className="h-10 w-full rounded-lg border-iron bg-graphite"
+                  >
+                    <InputGroupAddon>
+                      <StoreIcon kind={field.kind} className="size-5 text-fog" />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      name={`link_${field.kind}`}
+                      type="url"
+                      inputMode="url"
+                      placeholder={field.placeholder}
+                      value={linkValues[field.kind]}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setLinkValues((current) => ({ ...current, [field.kind]: value }));
+                      }}
+                      aria-label={field.label}
+                    />
+                  </InputGroup>
+                ))}
               </div>
             </Field>
             {game ? (

@@ -45,6 +45,7 @@ function DropzoneFrame({
   disabled,
   onClick,
   onFile,
+  ariaLabel,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -52,12 +53,14 @@ function DropzoneFrame({
   disabled?: boolean;
   onClick?: () => void;
   onFile?: (file: File) => void;
+  ariaLabel?: string;
 }) {
   const [over, setOver] = useState(false);
 
   return (
     <button
       type="button"
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={onClick}
       onDragEnter={(event) => {
@@ -126,44 +129,55 @@ export function LogoPicker({
   }
 
   return (
-    <div className="relative shrink-0">
-      {value ? (
-        <div className="group relative size-14 overflow-hidden rounded-xl card-ring bg-graphite sm:size-16">
-          <button
-            type="button"
+    <div>
+      <div className="flex items-center gap-4">
+        {value ? (
+          <div className="group relative size-20 shrink-0 overflow-hidden rounded-xl bg-graphite card-ring sm:size-24">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="size-full"
+              aria-label="Replace logo"
+              disabled={busy}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={value} alt="" className="size-full object-cover" />
+            </button>
+            <button
+              type="button"
+              aria-label="Remove logo"
+              className="absolute top-1 right-1 z-20 flex size-5 items-center justify-center rounded-full bg-void/80 text-paper-white"
+              onClick={() => onChange("")}
+              disabled={busy}
+            >
+              <Trash2Icon className="size-3" />
+            </button>
+            <UploadOverlay visible={busy} />
+          </div>
+        ) : (
+          <DropzoneFrame
+            className="size-20 shrink-0 rounded-xl p-2 sm:size-24"
+            ariaLabel="Upload logo"
+            disabled={busy}
             onClick={() => inputRef.current?.click()}
-            className="size-full"
-            aria-label="Replace logo"
-            disabled={busy}
+            onFile={handleFile}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={value} alt="" className="size-full object-cover" />
-          </button>
-          <button
-            type="button"
-            aria-label="Remove logo"
-            className="absolute top-1 right-1 z-20 flex size-5 items-center justify-center rounded-full bg-void/80 text-paper-white"
-            onClick={() => onChange("")}
-            disabled={busy}
-          >
-            <Trash2Icon className="size-3" />
-          </button>
-          <UploadOverlay visible={busy} />
+            {busy ? (
+              <Spinner className="size-5 text-fog" />
+            ) : (
+              <>
+                <UploadIcon className="size-5 text-fog" strokeWidth={1.5} />
+                <span className="mt-1 text-[11px] leading-tight text-fog">Upload logo</span>
+              </>
+            )}
+          </DropzoneFrame>
+        )}
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-paper-white">Logo</p>
+          <p className="mt-1 text-xs text-fog">512×512 square</p>
+          <p className="text-xs text-fog">PNG, WebP, GIF, or JPEG</p>
         </div>
-      ) : (
-        <DropzoneFrame
-          className="size-14 rounded-xl p-2 sm:size-16"
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-          onFile={handleFile}
-        >
-          {busy ? (
-            <Spinner className="size-5 text-fog" />
-          ) : (
-            <UploadIcon className="size-5 text-fog" strokeWidth={1.5} />
-          )}
-        </DropzoneFrame>
-      )}
+      </div>
       <input
         ref={inputRef}
         type="file"

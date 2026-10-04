@@ -28,6 +28,7 @@ import type {
   SavedGame,
   WeekBoard,
 } from "@/lib/types";
+import { sanitizeStoredDescription } from "@/lib/description";
 import { withVideosFirst } from "@/lib/urls";
 
 function toRanked(
@@ -62,7 +63,7 @@ function rankedGame(
     slug: game.slug,
     name: game.name,
     tagline: game.tagline,
-    description: game.description,
+    description: sanitizeStoredDescription(game.description),
     coverUrl: game.coverUrl,
     logoUrl: game.logoUrl,
     trailerUrl: game.trailerUrl,
@@ -1197,7 +1198,7 @@ export async function getGameEditorData(id: string) {
       .orderBy(asc(categories.sortOrder), asc(categories.name)),
   ]);
   return {
-    game,
+    game: { ...game, description: sanitizeStoredDescription(game.description) },
     media: withVideosFirst(media),
     links,
     platformIds: selected.map((row) => row.platformId),

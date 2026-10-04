@@ -175,6 +175,20 @@ export function isProfileImageUrl(raw: string) {
   return parsed?.hostname.toLowerCase() === "img.clerk.com";
 }
 
+export function isR2PublicUrl(raw: string) {
+  const parsed = parseHttpsUrl(raw);
+  if (!parsed) return false;
+  const host = r2PublicHostname();
+  if (!host || parsed.hostname.toLowerCase() !== host) return false;
+  return parsed.pathname.split("/").filter(Boolean).length > 0;
+}
+
+export function isAllowedClipUrl(raw: string) {
+  if (!isR2PublicUrl(raw)) return false;
+  const parsed = parseHttpsUrl(raw);
+  return Boolean(parsed && /\.(mp4|webm)$/i.test(parsed.pathname));
+}
+
 export function isAllowedImageUrl(raw: string) {
   const parsed = parseHttpsUrl(raw);
   if (!parsed) return false;

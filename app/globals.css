@@ -168,3 +168,88 @@
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
+
+.game-description {
+  max-width: 48rem;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: var(--gb-paper-white);
+  overflow-wrap: anywhere;
+}
+
+.game-description > * + * {
+  margin-top: 0.75rem;
+}
+
+.game-description h2 {
+  font-size: 1.125rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.game-description h3 {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.game-description a {
+  color: var(--gb-ice-signal);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.game-description ul,
+.game-description ol {
+  padding-left: 1.25rem;
+}
+
+.game-description ul {
+  list-style: disc;
+}
+
+.game-description ol {
+  list-style: decimal;
+}
+
+.game-description blockquote {
+  border-left: 2px solid var(--gb-iron);
+  padding-left: 0.75rem;
+  color: var(--gb-fog);
+}
+
+.game-description pre,
+.game-description code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+}
+
+.game-description pre {
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: var(--gb-obsidian);
+  padding: 0.75rem 1rem;
+}
+
+.game-description img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+}
+
+.game-description video {
+  display: block;
+  width: min(100%, 16rem);
+  max-height: 9rem;
+  border-radius: 0.75rem;
+  background: var(--gb-obsidian);
+}
+
+.game-description p.is-empty:first-child::before,
+.game-description p.is-editor-empty:first-child::before {
+  color: var(--gb-fog);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

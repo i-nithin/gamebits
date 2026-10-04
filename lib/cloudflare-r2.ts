@@ -3,15 +3,19 @@ import { randomUUID } from "node:crypto";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-import { PLATFORM_LOGO_TYPES } from "@/lib/constants";
+import { ACCEPTED_CLIP_TYPES, PLATFORM_LOGO_TYPES } from "@/lib/constants";
 
-const EXT_BY_TYPE: Record<(typeof PLATFORM_LOGO_TYPES)[number], string> = {
+const EXT_BY_TYPE: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
   "image/gif": "gif",
   "image/svg+xml": "svg",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
 };
+
+type UploadContentType = (typeof PLATFORM_LOGO_TYPES)[number] | (typeof ACCEPTED_CLIP_TYPES)[number];
 
 function trimPublicUrl(raw: string) {
   return raw.replace(/\/+$/, "");
@@ -62,8 +66,8 @@ function getR2Client() {
 
 export async function createPresignedUpload(opts: {
   userId: string;
-  purpose: "logo" | "media" | "platform" | "avatar" | "cover" | "ad";
-  contentType: (typeof PLATFORM_LOGO_TYPES)[number];
+  purpose: "logo" | "media" | "platform" | "avatar" | "cover" | "ad" | "clip";
+  contentType: UploadContentType;
   contentLength?: number;
 }) {
   const bucket = process.env.R2_BUCKET_NAME;
@@ -73,6 +77,7 @@ export async function createPresignedUpload(opts: {
   }
 
   const ext = EXT_BY_TYPE[opts.contentType];
+  if (!ext) throw new Error("Unsupported file type");
   const folder =
     opts.purpose === "platform"
       ? "platforms"

@@ -20,11 +20,12 @@ import {
   PRIMARY_LINK_ORDER,
   type GameLinkKind,
 } from "@/lib/constants";
+import { descriptionPlainText, sanitizeGameDescription } from "@/lib/description";
 import { getDb } from "@/lib/db";
 import { isPlatformId } from "@/lib/platform-catalog";
-import { ensureCurrentProfile, getProfileHandle } from "@/lib/profile";
+import { ensureCurrentProfile, getProfileHandle, getProfileName } from "@/lib/profile";
 import { getGameById } from "@/lib/queries";
-import { isUuid, sanitizeMultiline, sanitizePlainText, slugify } from "@/lib/sanitize";
+import { isUuid, sanitizePlainText, slugify } from "@/lib/sanitize";
 import { isAllowedImageUrl, parseVideoEmbed, sanitizeGameLink, withVideosFirst } from "@/lib/urls";
 
 const mediaItemSchema = z.object({
@@ -127,8 +128,16 @@ export async function upsertOwnedGameAction(
 
   const name = sanitizePlainText(String(formData.get("name") ?? ""), 120);
   const tagline = sanitizePlainText(String(formData.get("tagline") ?? ""), 160);
-  const description = sanitizeMultiline(String(formData.get("description") ?? ""), 4000);
-  const developerName = sanitizePlainText(String(formData.get("developerName") ?? ""), 120);
+  const sanitizedDescription = sanitizeGameDescription(String(formData.get("description") ?? ""));
+  if (sanitizedDescription.error) return { error: sanitizedDescription.error };
+  const description = sanitizedDescription.html;
+  const developerNamePromise = existing
+    ? existing.ownerClerkUserId
+      ? getProfileName(existing.ownerClerkUserId)
+      : Promise.resolve(null)
+    : ensureCurrentProfile().then((profile) =>
+        profile && !profile.deletedAt ? profile.name : null,
+      );
   const logoUrl = String(formData.get("logoUrl") ?? "");
   const statusRaw = String(formData.get("status") ?? "upcoming");
   const requestedIds = [
@@ -139,8 +148,8 @@ export async function upsertOwnedGameAction(
   ].slice(0, CATEGORY_CAP);
   const requestedSlug = slugify(String(formData.get("slug") ?? "") || name);
 
-  if (!name || !tagline || !description || !developerName) {
-    return { error: "Fill in name, tagline, description, and developer" };
+  if (!name || !tagline || !descriptionPlainText(description)) {
+    return { error: "Fill in name, tagline, and description" };
   }
   if (!GAME_STATUSES.includes(statusRaw as (typeof GAME_STATUSES)[number])) {
     return { error: "Invalid status" };
@@ -149,7 +158,7 @@ export async function upsertOwnedGameAction(
   if (!isAllowedImageUrl(logoUrl)) return { error: "Upload a valid logo image" };
 
   const db = getDb();
-  const [catalogRows, categoryRows, currentCategoryIds] = await Promise.all([
+  const [catalogRows, categoryRows, currentCategoryIds, lookedUpRaw] = await Promise.all([
     db
       .select({ id: platforms.id })
       .from(platforms)
@@ -166,7 +175,14 @@ export async function upsertOwnedGameAction(
           .from(gameCategories)
           .where(eq(gameCategories.gameId, existing.id))
       : Promise.resolve([]),
+    developerNamePromise,
   ]);
+  const lookedUpName = sanitizePlainText(lookedUpRaw ?? "", 120);
+  const developerName =
+    lookedUpName || (existing ? sanitizePlainText(existing.developerName, 120) : "");
+  if (!developerName) {
+    return { error: "Add a display name before publishing a game" };
+  }
   if (catalogRows.length !== requestedIds.length) {
     return { error: "Select a valid platform" };
   }

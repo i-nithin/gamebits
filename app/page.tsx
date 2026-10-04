@@ -1,3 +1,5 @@
+import { connection } from "next/server";
+
 import { HomeBoard } from "@/components/board/home-board";
 import { listLiveSidebarAds } from "@/lib/ads";
 import {
@@ -11,6 +13,7 @@ import { buildIsoWeekRange, getIsoWeekUtc } from "@/lib/iso-week";
 import { getWeekBoard } from "@/lib/queries";
 
 export default async function HomePage() {
+  await connection();
   const current = getIsoWeekUtc();
   const userId = await getCurrentUserId();
   const weekRange = buildIsoWeekRange(current, 6, 6);

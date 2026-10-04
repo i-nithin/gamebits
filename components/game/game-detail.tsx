@@ -2,15 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ArrowUpRightIcon,
-  BadgeCheckIcon,
-  Gamepad2Icon,
-  GlobeIcon,
-  JoystickIcon,
-  MessageCircleIcon,
-  SmartphoneIcon,
-} from "lucide-react";
+import { ArrowUpRightIcon, BadgeCheckIcon } from "lucide-react";
 
 import { BookmarkButton } from "@/components/game/bookmark-button";
 import { LikeButton } from "@/components/game/like-button";
@@ -18,27 +10,18 @@ import { GameGallery } from "@/components/game/game-gallery";
 import { GameItemToolbar } from "@/components/game/game-item-toolbar";
 import { GameReviews } from "@/components/game/game-reviews";
 import { PlatformChipList } from "@/components/game/platform-chip";
+import { StoreIcon } from "@/components/game/store-icons";
 import { VoteButton } from "@/components/game/vote-button";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trackedOutboundHref } from "@/lib/analytics/links";
-import { GAME_LINK_FIELDS, GAME_STATUS_LABELS, type GameLinkKind } from "@/lib/constants";
+import { GAME_LINK_FIELDS, GAME_STATUS_LABELS } from "@/lib/constants";
 import { formatIsoWeekLabel, weekHref } from "@/lib/iso-week";
 import type { GamePageData } from "@/lib/types";
 
-const LINK_ICONS: Record<GameLinkKind, typeof GlobeIcon> = {
-  web: GlobeIcon,
-  steam: Gamepad2Icon,
-  playstore: SmartphoneIcon,
-  appstore: SmartphoneIcon,
-  nintendo: JoystickIcon,
-  playstation: JoystickIcon,
-  xbox: Gamepad2Icon,
-  discord: MessageCircleIcon,
-  x: MessageCircleIcon,
-};
+const RICH_TAG = /<\/?[a-z][\s\S]*>/i;
 
 export function GameDetail({
   data,
@@ -189,9 +172,16 @@ export function GameDetail({
         </TabsList>
 
         <TabsContent value="details" className="flex flex-col gap-6 pt-6">
-          <p className="max-w-3xl text-sm leading-7 whitespace-pre-wrap text-paper-white">
-            {game.description}
-          </p>
+          {RICH_TAG.test(game.description) ? (
+            <div
+              className="game-description"
+              dangerouslySetInnerHTML={{ __html: game.description }}
+            />
+          ) : (
+            <p className="max-w-3xl text-sm leading-7 whitespace-pre-wrap text-paper-white">
+              {game.description}
+            </p>
+          )}
           {game.platforms.length > 0 ? (
             <div className="flex flex-col gap-3">
               <p className="text-[11px] tracking-[0.08em] text-fog uppercase">Available on</p>
@@ -217,7 +207,6 @@ export function GameDetail({
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {data.links.map((link) => {
                     const field = GAME_LINK_FIELDS.find((item) => item.kind === link.kind);
-                    const Icon = LINK_ICONS[link.kind] ?? GlobeIcon;
                     return (
                       <a
                         key={link.kind}
@@ -226,15 +215,9 @@ export function GameDetail({
                         rel="noreferrer"
                         className="flex items-center gap-3 rounded-xl bg-obsidian px-3 py-3 card-ring hover:bg-graphite"
                       >
-                        {link.kind === "x" ? (
-                          <span className="flex size-8 items-center justify-center rounded-lg bg-graphite text-xs font-medium">
-                            X
-                          </span>
-                        ) : (
-                          <span className="flex size-8 items-center justify-center rounded-lg bg-graphite text-fog">
-                            <Icon className="size-4" strokeWidth={1.5} />
-                          </span>
-                        )}
+                        <span className="flex size-8 items-center justify-center rounded-lg bg-graphite text-fog">
+                          <StoreIcon kind={link.kind} className="size-4" />
+                        </span>
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">
                           {field?.label ?? link.kind}
                         </span>
