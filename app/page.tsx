@@ -1,4 +1,5 @@
 import { HomeBoard } from "@/components/board/home-board";
+import { listLiveSidebarAds } from "@/lib/ads";
 import {
   Empty,
   EmptyDescription,
@@ -13,9 +14,10 @@ export default async function HomePage() {
   const current = getIsoWeekUtc();
   const userId = await getCurrentUserId();
   const weekRange = buildIsoWeekRange(current, 6, 6);
-  const weekBoards = await Promise.all(
-    weekRange.map(({ year, week }) => getWeekBoard(year, week, userId)),
-  );
+  const [weekBoards, ads] = await Promise.all([
+    Promise.all(weekRange.map(({ year, week }) => getWeekBoard(year, week, userId))),
+    listLiveSidebarAds(),
+  ]);
   const board = weekBoards.find(
     (item) => item.year === current.year && item.week === current.week,
   ) ?? weekBoards[6];
@@ -43,6 +45,7 @@ export default async function HomePage() {
       weekBoards={weekBoards}
       currentWeek={current}
       carouselGames={carouselGames}
+      ads={ads}
     />
   );
 }

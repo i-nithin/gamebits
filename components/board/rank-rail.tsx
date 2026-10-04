@@ -2,12 +2,19 @@ import Link from "next/link";
 import Image from "next/image";
 import { BadgeCheckIcon } from "lucide-react";
 
+import { OpenAdSlot } from "@/components/ads/open-ad-slot";
+import { SidebarAdStack } from "@/components/ads/sidebar-ad-stack";
+import type { SidebarAd } from "@/lib/ads-types";
 import type { RankedGame } from "@/lib/types";
 
-export function RankRail({ games }: { games: RankedGame[] }) {
+export function RankRail({ games, ads }: { games: RankedGame[]; ads: SidebarAd[] }) {
   return (
     <aside className="w-full shrink-0 lg:w-80">
-      <div className="flex flex-col gap-0.5 lg:sticky lg:top-16 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+      <div className="lg:sticky lg:top-16 lg:flex lg:max-h-[calc(100vh-6rem)] lg:flex-col">
+        <div className="mb-3 hidden lg:block">
+          {ads.length > 0 ? <SidebarAdStack ads={ads} /> : <OpenAdSlot />}
+        </div>
+        <div className="flex min-h-0 flex-col gap-0.5 lg:overflow-y-auto">
         <div className="flex items-center justify-between px-2 py-2 text-xs tracking-wide text-fog uppercase">
           <span>Game</span>
           <span>Votes</span>
@@ -32,6 +39,7 @@ export function RankRail({ games }: { games: RankedGame[] }) {
             <span className="stat-mono text-sm text-paper-white">{game.voteCount}</span>
           </Link>
         ))}
+        </div>
       </div>
     </aside>
   );

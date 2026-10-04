@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumnIcon, CompassIcon, LayoutGridIcon, LifeBuoyIcon, PlusIcon, SettingsIcon, ShieldIcon } from "lucide-react";
+import { ChartColumnIcon, CompassIcon, LayoutGridIcon, LifeBuoyIcon, MegaphoneIcon, PlusIcon, SettingsIcon, ShieldIcon } from "lucide-react";
 
 import { useAuthDialog } from "@/components/shell/auth-dialog";
 import { ViewerMark } from "@/components/shell/viewer-mark";
@@ -41,6 +41,13 @@ export function LeftRail({
       label: "Analytics",
       icon: ChartColumnIcon,
       active: pathname === "/analytics" || pathname.startsWith("/analytics/"),
+    },
+    {
+      href: "/adbits",
+      label: "Adbits",
+      icon: MegaphoneIcon,
+      active: pathname === "/adbits" || pathname.startsWith("/adbits/"),
+      requiresAuth: true,
     },
     {
       href: "/settings",
@@ -105,6 +112,14 @@ export function LeftRail({
               <Link key={item.label} href={item.href} className={className}>
                 {mark}
               </Link>
+            );
+          }
+          if (item.requiresAuth && !viewer && clerkEnabled) {
+            return (
+              <button key={item.label} type="button" onClick={openAuth} className={className}>
+                {Icon ? <Icon className="size-5 shrink-0" /> : null}
+                {label}
+              </button>
             );
           }
           return (

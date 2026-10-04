@@ -1,4 +1,10 @@
 export const WEEK_LISTING_CAP = 20;
+export const AD_SLOT_CAP = 6;
+export const AD_MONTH_WINDOW = 6;
+export const AD_NAME_MAX = 40;
+export const AD_TAGLINE_MAX = 80;
+export const AD_ROTATE_MS = 10_000;
+export const MAX_AD_IMAGE_BYTES = 2 * 1024 * 1024;
 export const CATEGORY_CAP = 3;
 export const GAME_MEDIA_CAP = 8;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;

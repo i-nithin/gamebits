@@ -506,6 +506,87 @@ export const gameAnalyticsDaily = pgTable(
   ],
 );
 
+export const adPlacementEnum = pgEnum("ad_placement", ["sidebar"]);
+
+export const adFormatEnum = pgEnum("ad_format", ["brand", "media"]);
+
+export const adBookingStatusEnum = pgEnum("ad_booking_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "removed",
+]);
+
+export const adOrders = pgTable(
+  "ad_orders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    placement: adPlacementEnum("placement").notNull().default("sidebar"),
+    format: adFormatEnum("format").notNull(),
+    year: integer("year").notNull(),
+    month: integer("month").notNull(),
+    ownerClerkUserId: text("owner_clerk_user_id")
+      .notNull()
+      .references(() => profiles.clerkUserId),
+    logoUrl: text("logo_url"),
+    productName: text("product_name"),
+    tagline: text("tagline"),
+    mediaUrl: text("media_url"),
+    destinationUrl: text("destination_url").notNull(),
+    slotCount: integer("slot_count").notNull(),
+    status: adBookingStatusEnum("status").notNull().default("pending"),
+    bookedAt: timestamp("booked_at", { withTimezone: true }).notNull().defaultNow(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedByClerkUserId: text("reviewed_by_clerk_user_id"),
+    clickCount: integer("click_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("ad_orders_month_idx").on(table.placement, table.year, table.month),
+    index("ad_orders_owner_booked_idx").on(table.ownerClerkUserId, table.bookedAt),
+    check("ad_orders_month_chk", sql`${table.month} between 1 and 12`),
+    check("ad_orders_year_chk", sql`${table.year} between 2020 and 2100`),
+    check("ad_orders_slots_chk", sql`${table.slotCount} between 1 and 6`),
+    check(
+      "ad_orders_destination_chk",
+      sql`${table.destinationUrl} like 'https://%'`,
+    ),
+    check(
+      "ad_orders_name_len_chk",
+      sql`${table.productName} is null or char_length(${table.productName}) between 1 and 40`,
+    ),
+    check(
+      "ad_orders_tagline_len_chk",
+      sql`${table.tagline} is null or char_length(${table.tagline}) between 1 and 80`,
+    ),
+    check(
+      "ad_orders_creative_chk",
+      sql`(
+        (${table.format} = 'brand' and ${table.productName} is not null and ${table.tagline} is not null and ${table.logoUrl} is not null and ${table.mediaUrl} is null)
+        or
+        (${table.format} = 'media' and ${table.mediaUrl} is not null and ${table.productName} is null and ${table.tagline} is null and ${table.logoUrl} is null)
+      )`,
+    ),
+  ],
+);
+
+export const adSlots = pgTable(
+  "ad_slots",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => adOrders.id, { onDelete: "cascade" }),
+    status: adBookingStatusEnum("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("ad_slots_order_idx").on(table.orderId),
+    index("ad_slots_status_idx").on(table.status),
+  ],
+);
+
 export const notificationJobs = pgTable(
   "notification_jobs",
   {
