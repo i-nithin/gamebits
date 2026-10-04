@@ -19,7 +19,6 @@ export type GameDraftMedia = {
 
 export type GameDraft = {
   name: string;
-  developerName: string;
   tagline: string;
   description: string;
   status: GameStatus;
@@ -38,7 +37,6 @@ const EMPTY_LINKS = Object.fromEntries(GAME_LINK_KINDS.map((kind) => [kind, ""])
 export function emptyGameDraft(): GameDraft {
   return {
     name: "",
-    developerName: "",
     tagline: "",
     description: "",
     status: "upcoming",
@@ -50,12 +48,16 @@ export function emptyGameDraft(): GameDraft {
   };
 }
 
+function descriptionIsBlank(value: string) {
+  if (/<(img|video)\b/i.test(value)) return false;
+  return !value.replace(/<[^>]*>/g, "").replace(/&nbsp;/gi, " ").trim();
+}
+
 export function isGameDraftEmpty(draft: GameDraft) {
   return (
     !draft.name &&
-    !draft.developerName &&
     !draft.tagline &&
-    !draft.description &&
+    descriptionIsBlank(draft.description) &&
     draft.categories.length === 0 &&
     !draft.logoUrl &&
     draft.media.length === 0 &&
@@ -86,7 +88,6 @@ function isDraft(value: unknown): value is GameDraft {
   const draft = value as Partial<GameDraft>;
   return (
     typeof draft.name === "string" &&
-    typeof draft.developerName === "string" &&
     typeof draft.tagline === "string" &&
     typeof draft.description === "string" &&
     typeof draft.logoUrl === "string" &&
@@ -124,7 +125,6 @@ export function loadGameDraft(): GameDraft | null {
 
   return {
     name: parsed.name,
-    developerName: parsed.developerName,
     tagline: parsed.tagline,
     description: parsed.description,
     status,

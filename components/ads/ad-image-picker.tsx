@@ -95,11 +95,10 @@ export function AdImagePicker({
         <p className="relative mt-4 text-sm text-paper-white">
           {busy ? "Uploading…" : value ? `Replace ${label}` : `Upload ${label}`}
         </p>
-        <p className="relative mt-1 text-xs text-fog">
-          {variant === "logo"
-            ? "Click or drop a square PNG, WebP, GIF, or JPEG"
-            : "Click or drop a wide PNG, WebP, GIF, or JPEG under 2MB"}
-        </p>
+        <div className="relative mt-2 flex flex-col gap-0.5 text-xs text-fog">
+          <span>{variant === "logo" ? "512×512 square" : "640×216 wide"}</span>
+          <span>PNG, WebP, GIF, or JPEG · 2MB</span>
+        </div>
         <input
           type="file"
           accept={ACCEPT}

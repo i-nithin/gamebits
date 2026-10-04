@@ -8,6 +8,8 @@ export const MAX_AD_IMAGE_BYTES = 2 * 1024 * 1024;
 export const CATEGORY_CAP = 3;
 export const GAME_MEDIA_CAP = 8;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+export const MAX_CLIP_BYTES = 4 * 1024 * 1024;
+export const DESCRIPTION_HTML_MAX = 20_000;
 export const REVIEW_PAGE_SIZE = 10;
 export const COLLECTION_PAGE_SIZE = 24;
 export const COLLECTION_SORTS = ["newest", "name", "status", "votes"] as const;
@@ -81,6 +83,8 @@ export const ACCEPTED_IMAGE_TYPES = [
   "image/webp",
   "image/gif",
 ] as const;
+
+export const ACCEPTED_CLIP_TYPES = ["video/mp4", "video/webm"] as const;
 
 export const PLATFORM_LOGO_TYPES = [
   ...ACCEPTED_IMAGE_TYPES,
