@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { CircleIcon } from "lucide-react";
 
+import { MobileAdBar } from "@/components/ads/mobile-ad-bar";
+import { OpenAdSlot } from "@/components/ads/open-ad-slot";
 import { GameCardGrid } from "@/components/board/game-card-grid";
 import { HeroCarousel } from "@/components/board/hero-carousel";
 import { RankRail } from "@/components/board/rank-rail";
@@ -16,16 +18,19 @@ import {
 } from "@/components/ui/empty";
 import { compareIsoWeek, type IsoWeek } from "@/lib/iso-week";
 import { cn } from "@/lib/utils";
+import type { SidebarAd } from "@/lib/ads-types";
 import type { RankedGame, WeekBoard } from "@/lib/types";
 
 export function HomeBoard({
   weekBoards,
   currentWeek,
   carouselGames,
+  ads,
 }: {
   weekBoards: WeekBoard[];
   currentWeek: IsoWeek;
   carouselGames: RankedGame[];
+  ads: SidebarAd[];
 }) {
   const weeks = useMemo(
     () => weekBoards.map((board) => ({ year: board.year, week: board.week })),
@@ -110,6 +115,11 @@ export function HomeBoard({
       <div className="relative z-10 mx-auto flex max-w-[1440px] flex-col gap-8 px-4 pt-3 pb-8 sm:px-6 lg:flex-row lg:gap-8">
         <div className="flex min-w-0 flex-1 flex-col gap-8">
           <HeroCarousel games={carouselGames} index={heroIndex} onIndexChange={setHeroIndex} />
+          {ads.length === 0 ? (
+            <div className="lg:hidden">
+              <OpenAdSlot />
+            </div>
+          ) : null}
           <section className="flex flex-col gap-5">
             <div className="flex items-end justify-between gap-3">
               <div className="flex min-w-0 flex-col gap-1">
@@ -191,8 +201,9 @@ export function HomeBoard({
             )}
           </section>
         </div>
-        <RankRail games={currentWeekBoard?.games ?? []} />
+        <RankRail games={currentWeekBoard?.games ?? []} ads={ads} />
       </div>
+      {ads.length > 0 ? <MobileAdBar ads={ads} /> : null}
     </div>
   );
 }

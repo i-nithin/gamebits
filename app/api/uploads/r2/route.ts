@@ -2,17 +2,24 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getAdminAccess, requireSignedIn } from "@/lib/auth-admin";
-import { ACCEPTED_IMAGE_TYPES, PLATFORM_LOGO_TYPES } from "@/lib/constants";
+import { ACCEPTED_IMAGE_TYPES, MAX_AD_IMAGE_BYTES, PLATFORM_LOGO_TYPES } from "@/lib/constants";
 import { createPresignedUpload, r2Configured } from "@/lib/cloudflare-r2";
 
 const bodySchema = z.discriminatedUnion("purpose", [
   z.object({
     purpose: z.enum(["logo", "media", "avatar", "cover"]),
     contentType: z.enum(ACCEPTED_IMAGE_TYPES),
+    contentLength: z.number().int().positive().optional(),
   }),
   z.object({
     purpose: z.literal("platform"),
     contentType: z.enum(PLATFORM_LOGO_TYPES),
+    contentLength: z.number().int().positive().optional(),
+  }),
+  z.object({
+    purpose: z.literal("ad"),
+    contentType: z.enum(ACCEPTED_IMAGE_TYPES),
+    contentLength: z.number().int().positive().max(MAX_AD_IMAGE_BYTES),
   }),
 ]);
 
@@ -39,6 +46,7 @@ export async function POST(request: Request) {
       userId,
       purpose: parsed.data.purpose,
       contentType: parsed.data.contentType,
+      contentLength: parsed.data.contentLength,
     });
     return NextResponse.json(upload);
   } catch (error) {

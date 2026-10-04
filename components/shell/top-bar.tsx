@@ -8,6 +8,7 @@ import {
   ChartColumnIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
+  MegaphoneIcon,
   MenuIcon,
   PlusIcon,
   SearchIcon,
@@ -101,6 +102,13 @@ export function TopBar({
       label: "Analytics",
       icon: ChartColumnIcon,
       active: pathname === "/analytics" || pathname.startsWith("/analytics/"),
+    },
+    {
+      href: "/adbits",
+      label: "Adbits",
+      icon: MegaphoneIcon,
+      active: pathname === "/adbits" || pathname.startsWith("/adbits/"),
+      requiresAuth: true,
     },
     {
       href: "/settings",
@@ -210,6 +218,22 @@ export function TopBar({
                   <Link key={item.label} href={item.href} className={className}>
                     {mark}
                   </Link>
+                );
+              }
+              if (item.requiresAuth && !viewer && clerkEnabled) {
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openAuth();
+                    }}
+                    className={className}
+                  >
+                    {Icon ? <Icon className="size-5 shrink-0" /> : null}
+                    <span className="text-sm font-medium">{item.label}</span>
+                  </button>
                 );
               }
               return (

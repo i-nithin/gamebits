@@ -1,5 +1,6 @@
 import {
   ACCEPTED_IMAGE_TYPES,
+  MAX_AD_IMAGE_BYTES,
   MAX_IMAGE_BYTES,
   PLATFORM_LOGO_TYPES,
 } from "@/lib/constants";
@@ -7,7 +8,7 @@ import { cacheUploadUrl, fileFingerprint, getCachedUploadUrl } from "@/lib/game-
 
 const inflight = new Map<string, Promise<string>>();
 
-type UploadPurpose = "logo" | "media" | "platform" | "avatar" | "cover";
+type UploadPurpose = "logo" | "media" | "platform" | "avatar" | "cover" | "ad";
 
 function contentTypeFor(file: File, purpose: UploadPurpose) {
   const type = file.type.toLowerCase().split(";")[0]?.trim() ?? "";
@@ -28,14 +29,17 @@ async function putToR2(file: File, purpose: UploadPurpose) {
         : "Only JPEG, PNG, WebP, and GIF images are allowed",
     );
   }
-  if (file.size > MAX_IMAGE_BYTES) {
-    throw new Error("Images must be 8MB or smaller");
+  const maxBytes = purpose === "ad" ? MAX_AD_IMAGE_BYTES : MAX_IMAGE_BYTES;
+  if (file.size > maxBytes) {
+    throw new Error(
+      purpose === "ad" ? "Ad images must be 2MB or smaller" : "Images must be 8MB or smaller",
+    );
   }
 
   const tokenRes = await fetch("/api/uploads/r2", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ purpose, contentType }),
+    body: JSON.stringify({ purpose, contentType, contentLength: file.size }),
   });
   const token = (await tokenRes.json()) as {
     error?: string;

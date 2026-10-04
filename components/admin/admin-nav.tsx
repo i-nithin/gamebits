@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gamepad2Icon, LayersIcon, TagsIcon, UsersIcon } from "lucide-react";
+import { Gamepad2Icon, LayersIcon, MegaphoneIcon, TagsIcon, UsersIcon } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ const ITEMS = [
   { href: "/4dm1n/games", label: "Games", match: "prefix", icon: Gamepad2Icon },
   { href: "/4dm1n/categories", label: "Categories", match: "prefix", icon: TagsIcon },
   { href: "/4dm1n/platforms", label: "Platforms", match: "prefix", icon: LayersIcon },
+  { href: "/4dm1n/adbits", label: "Adbits", match: "prefix", icon: MegaphoneIcon },
 ] as const;
 
 export function AdminNav() {

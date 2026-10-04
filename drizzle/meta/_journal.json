@@ -141,6 +141,13 @@
       "when": 1790964010987,
       "tag": "0019_profile_purged_at",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791045920192,
+      "tag": "0020_fast_thundra",
+      "breakpoints": true
     }
   ]
 }

@@ -25,7 +25,7 @@ export function AppShell({
     <>
       <div className="min-h-dvh bg-obsidian">
         <LeftRail viewer={viewer} showAdminNav={showAdminNav} />
-        <div className="flex min-h-dvh flex-col bg-charcoal pt-14 md:pl-14">
+        <div data-app-shell className="flex min-h-dvh flex-col bg-charcoal pt-14 md:pl-14">
           <TopBar viewer={viewer} showAdminNav={showAdminNav} />
           {viewer?.deletionDeadline ? (
             <div className="border-b border-iron bg-obsidian px-4 py-3 text-sm text-paper-white">
