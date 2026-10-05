@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/purge-accounts",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/expire-ad-checkouts",
+      "schedule": "0 * * * *"
     }
   ]
 }

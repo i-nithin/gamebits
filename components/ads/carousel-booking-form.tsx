@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CAROUSEL_AD_UNIT_CENTS, formatUsd } from "@/lib/ad-catalog";
 import type { CarouselGameChoice, MonthOption } from "@/lib/ads-types";
 import {
   AD_TAGLINE_MAX,
@@ -146,7 +147,9 @@ export function CarouselBookingForm({
       }
       backHref={listHref}
       cancelHref={listHref}
-      submitLabel={editing ? "Save ad" : isAdmin ? "Place ad" : "Book slot"}
+      submitLabel={
+        editing ? "Save ad" : isAdmin ? "Place ad" : `Pay ${formatUsd(CAROUSEL_AD_UNIT_CENTS)}`
+      }
       submitDisabled={!mediaUrl || !gameId || !destinationUrl.trim() || (!editing && !monthKey)}
       pending={pending}
       uploading={mediaBusy}
@@ -180,7 +183,7 @@ export function CarouselBookingForm({
                 ? "Change the card and where it sends people. The month stays the same."
                 : isAdmin
                   ? "Goes live right away. The carousel still stops at six slots."
-                  : "One slot in the home carousel. It waits for approval, then rotates every 10 seconds."}
+                  : `One slot in the home carousel for the month you book. ${formatUsd(CAROUSEL_AD_UNIT_CENTS)} before tax at checkout. It rotates every 10 seconds.`}
             </p>
           </div>
           <FieldGroup className="gap-4">

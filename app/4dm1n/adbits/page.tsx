@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AdCard } from "@/components/ads/ad-card";
+import { AdPaymentLine } from "@/components/ads/ad-payment-line";
 import { AdPhaseBadge } from "@/components/ads/ad-phase-badge";
 import { AdminMonthFilter } from "@/components/ads/admin-month-filter";
 import { BookSlotDialog } from "@/components/ads/book-slot-dialog";
@@ -122,6 +123,12 @@ export default async function AdminAdbitsPage({
                         {order.activeSlots} active of {order.slotCount} · Booked {order.bookedAt} ·{" "}
                         {order.clickCount} {order.clickCount === 1 ? "click" : "clicks"}
                       </p>
+                      <AdPaymentLine
+                        status={order.paymentStatus}
+                        amountCents={order.amountCents}
+                        currency={order.currency}
+                        paymentId={order.dodoPaymentId}
+                      />
                       <p className="truncate text-xs text-fog">{order.destinationUrl}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -147,7 +154,9 @@ export default async function AdminAdbitsPage({
                       ) : null}
                       <AdminOrderButtons
                         orderId={order.id}
-                        pendingReview={order.status === "pending"}
+                        pendingReview={
+                          order.status === "pending" && order.paymentStatus !== "checkout"
+                        }
                         canRemove={openSlots.length > 0}
                       />
                     </div>

@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SIDEBAR_AD_UNIT_CENTS, formatUsd } from "@/lib/ad-catalog";
 import type { AdCreativePrefill, AdFormat, MonthOption } from "@/lib/ads-types";
 import { AD_NAME_MAX, AD_TAGLINE_MAX } from "@/lib/constants";
 
@@ -105,6 +106,7 @@ export function AdBookingForm({
         };
 
   const creativeReady = format === "brand" ? Boolean(logoUrl) : Boolean(mediaUrl);
+  const sidebarTotal = formatUsd(SIDEBAR_AD_UNIT_CENTS * slots);
 
   return (
     <GameFormShell
@@ -122,7 +124,7 @@ export function AdBookingForm({
       }
       backHref={listHref}
       cancelHref={listHref}
-      submitLabel={editing ? "Save ad" : isAdmin ? "Place ad" : "Book slots"}
+      submitLabel={editing ? "Save ad" : isAdmin ? "Place ad" : `Pay ${sidebarTotal}`}
       submitDisabled={!creativeReady || (!editing && openSlots < 1)}
       pending={pending}
       uploading={imageBusy}
@@ -193,7 +195,7 @@ export function AdBookingForm({
                 ? "Change the card and where it sends people. The month and slot count stay."
                 : isAdmin
                   ? "Goes live right away. A month still stops at six slots."
-                  : "Six slots run each month. Your booking waits for approval."}
+                  : `${formatUsd(SIDEBAR_AD_UNIT_CENTS)} per slot for the month you book. Tax may be added at checkout.`}
             </p>
           </div>
 
@@ -269,7 +271,9 @@ export function AdBookingForm({
               <FieldDescription>
                 {openSlots < 1
                   ? "Pick another month to free up slots."
-                  : `${openSlots} of ${selected?.cap ?? 6} still open this month.`}
+                  : isAdmin
+                    ? `${openSlots} of ${selected?.cap ?? 6} still open this month.`
+                    : `${slots} ${slots === 1 ? "slot" : "slots"} · ${sidebarTotal} before tax. ${openSlots} still open.`}
               </FieldDescription>
             </Field>
               </>

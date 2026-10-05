@@ -162,6 +162,13 @@
       "when": 1791102442477,
       "tag": "0022_carousel_ads_check",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791208452845,
+      "tag": "0023_yielding_excalibur",
+      "breakpoints": true
     }
   ]
 }
