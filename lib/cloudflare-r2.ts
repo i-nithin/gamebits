@@ -66,7 +66,7 @@ function getR2Client() {
 
 export async function createPresignedUpload(opts: {
   userId: string;
-  purpose: "logo" | "media" | "platform" | "avatar" | "cover" | "ad" | "clip";
+  purpose: "logo" | "media" | "platform" | "avatar" | "cover" | "ad" | "carousel" | "clip";
   contentType: UploadContentType;
   contentLength?: number;
 }) {
@@ -81,7 +81,7 @@ export async function createPresignedUpload(opts: {
   const folder =
     opts.purpose === "platform"
       ? "platforms"
-      : opts.purpose === "ad"
+      : opts.purpose === "ad" || opts.purpose === "carousel"
         ? "ads"
         : opts.purpose === "avatar" || opts.purpose === "cover"
           ? `profiles/${opts.purpose}`

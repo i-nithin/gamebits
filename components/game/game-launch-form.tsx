@@ -112,7 +112,7 @@ export function GameLaunchForm({
                 type="checkbox"
                 className="size-4 rounded border-iron"
               />
-              <FieldLabel htmlFor="featured">Featured in carousel</FieldLabel>
+              <FieldLabel htmlFor="featured">Featured</FieldLabel>
             </Field>
           </FieldGroup>
         </>

@@ -3,7 +3,7 @@
 /* GIF animation and blob previews need a plain img element. */
 /* eslint-disable @next/next/no-img-element */
 
-import type { SidebarAd } from "@/lib/ads-types";
+import { isCarouselVideo, type SidebarAd } from "@/lib/ads-types";
 import { cn } from "@/lib/utils";
 
 type AdVisual = Pick<SidebarAd, "format" | "logoUrl" | "productName" | "tagline" | "mediaUrl">;
@@ -26,7 +26,11 @@ export function AdCard({
           className,
         )}
       >
-        <img src={ad.mediaUrl} alt="" className="size-full object-contain" />
+        {isCarouselVideo(ad.mediaUrl) ? (
+          <video src={ad.mediaUrl} muted playsInline className="size-full object-cover" />
+        ) : (
+          <img src={ad.mediaUrl} alt="" className="size-full object-contain" />
+        )}
         <span className="absolute top-1.5 left-1.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] tracking-wide text-white/80 uppercase">
           Ad
         </span>

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { CircleIcon } from "lucide-react";
 
 import { MobileAdBar } from "@/components/ads/mobile-ad-bar";
 import { OpenAdSlot } from "@/components/ads/open-ad-slot";
+import { AdCarousel } from "@/components/board/ad-carousel";
 import { GameCardGrid } from "@/components/board/game-card-grid";
-import { HeroCarousel } from "@/components/board/hero-carousel";
 import { RankRail } from "@/components/board/rank-rail";
 import { WeekFilter } from "@/components/board/week-filter";
 import {
@@ -18,25 +18,24 @@ import {
 } from "@/components/ui/empty";
 import { compareIsoWeek, type IsoWeek } from "@/lib/iso-week";
 import { cn } from "@/lib/utils";
-import type { SidebarAd } from "@/lib/ads-types";
-import type { RankedGame, WeekBoard } from "@/lib/types";
+import { isCarouselVideo, type CarouselAd, type SidebarAd } from "@/lib/ads-types";
+import type { WeekBoard } from "@/lib/types";
 
 export function HomeBoard({
   weekBoards,
   currentWeek,
-  carouselGames,
   ads,
+  carouselAds,
 }: {
   weekBoards: WeekBoard[];
   currentWeek: IsoWeek;
-  carouselGames: RankedGame[];
   ads: SidebarAd[];
+  carouselAds: CarouselAd[];
 }) {
   const weeks = useMemo(
     () => weekBoards.map((board) => ({ year: board.year, week: board.week })),
     [weekBoards],
   );
-  const slides = carouselGames.slice(0, 5);
   const [heroIndex, setHeroIndex] = useState(0);
   const [selectedWeek, setSelectedWeek] = useState<IsoWeek>(currentWeek);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -86,35 +85,36 @@ export function HomeBoard({
       )
     : board.games;
 
-  useEffect(() => {
-    if (heroIndex >= slides.length) setHeroIndex(0);
-  }, [heroIndex, slides.length]);
+  const backdropIndex =
+    carouselAds.length === 0 ? 0 : Math.min(heroIndex, carouselAds.length - 1);
 
   return (
     <div className="relative">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[520px] overflow-hidden lg:h-[560px]">
         <div className="relative h-full w-full">
-          {slides.map((slide, slideIndex) => (
-            <Image
-              key={slide.id}
-              src={slide.coverUrl}
-              alt=""
-              fill
-              className={
-                slideIndex === heroIndex
-                  ? "scale-125 object-cover opacity-45 blur-3xl transition-opacity duration-500"
-                  : "scale-125 object-cover opacity-0 blur-3xl transition-opacity duration-500"
-              }
-              sizes="100vw"
-            />
-          ))}
+          {carouselAds.map((slide, slideIndex) =>
+            isCarouselVideo(slide.mediaUrl) ? null : (
+              <Image
+                key={slide.id}
+                src={slide.mediaUrl}
+                alt=""
+                fill
+                className={
+                  slideIndex === backdropIndex
+                    ? "scale-125 object-cover opacity-45 blur-3xl transition-opacity duration-500"
+                    : "scale-125 object-cover opacity-0 blur-3xl transition-opacity duration-500"
+                }
+                sizes="100vw"
+              />
+            ),
+          )}
           <div className="absolute inset-0 bg-linear-to-b from-charcoal/40 via-charcoal/80 to-charcoal" />
         </div>
       </div>
 
       <div className="relative z-10 mx-auto flex max-w-[1440px] flex-col gap-8 px-4 pt-3 pb-8 sm:px-6 lg:flex-row lg:gap-8">
         <div className="flex min-w-0 flex-1 flex-col gap-8">
-          <HeroCarousel games={carouselGames} index={heroIndex} onIndexChange={setHeroIndex} />
+          <AdCarousel ads={carouselAds} onIndexChange={setHeroIndex} />
           {ads.length === 0 ? (
             <div className="lg:hidden">
               <OpenAdSlot />

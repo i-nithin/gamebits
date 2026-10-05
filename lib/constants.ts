@@ -5,6 +5,36 @@ export const AD_NAME_MAX = 40;
 export const AD_TAGLINE_MAX = 80;
 export const AD_ROTATE_MS = 10_000;
 export const MAX_AD_IMAGE_BYTES = 2 * 1024 * 1024;
+export const MAX_CAROUSEL_IMAGE_BYTES = 8 * 1024 * 1024;
+export const MAX_CAROUSEL_VIDEO_BYTES = 12 * 1024 * 1024;
+
+export const IARC_RATINGS = ["3", "7", "12", "16", "18"] as const;
+export type IarcRating = (typeof IARC_RATINGS)[number];
+
+export const IARC_LABELS: Record<IarcRating, string> = {
+  "3": "Ages 3+",
+  "7": "Ages 7+",
+  "12": "Ages 12+",
+  "16": "Ages 16+",
+  "18": "Ages 18+",
+};
+
+export const CAROUSEL_BADGES = [
+  "coming_soon",
+  "pre_release",
+  "new_arrival",
+  "pre_register",
+  "special_event",
+] as const;
+export type CarouselBadge = (typeof CAROUSEL_BADGES)[number];
+
+export const CAROUSEL_BADGE_LABELS: Record<CarouselBadge, string> = {
+  coming_soon: "Coming soon",
+  pre_release: "Pre-release",
+  new_arrival: "New Arrival",
+  pre_register: "Pre-register",
+  special_event: "Special Event",
+};
 export const CATEGORY_CAP = 3;
 export const GAME_MEDIA_CAP = 8;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;

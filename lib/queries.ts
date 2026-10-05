@@ -1163,6 +1163,7 @@ export async function getGamePageData(
     isOwner,
     isAdmin,
     archived: Boolean(gameRow.archivedAt),
+    iarcRating: gameRow.iarcRating,
     reviewAverage: agg?.average != null ? Number(agg.average) : null,
     reviewCount: agg?.count ?? 0,
     reviews: reviews,

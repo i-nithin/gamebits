@@ -1,8 +1,10 @@
 import {
   GAME_LINK_KINDS,
   GAME_STATUSES,
+  IARC_RATINGS,
   type GameLinkKind,
   type GameStatus,
+  type IarcRating,
 } from "@/lib/constants";
 import { isPlatformId } from "@/lib/platform-catalog";
 import { isUuid } from "@/lib/sanitize";
@@ -22,6 +24,7 @@ export type GameDraft = {
   tagline: string;
   description: string;
   status: GameStatus;
+  iarcRating: IarcRating | "";
   categories: string[];
   platforms: string[];
   logoUrl: string;
@@ -40,6 +43,7 @@ export function emptyGameDraft(): GameDraft {
     tagline: "",
     description: "",
     status: "upcoming",
+    iarcRating: "",
     categories: [],
     platforms: [],
     logoUrl: "",
@@ -58,6 +62,7 @@ export function isGameDraftEmpty(draft: GameDraft) {
     !draft.name &&
     !draft.tagline &&
     descriptionIsBlank(draft.description) &&
+    !draft.iarcRating &&
     draft.categories.length === 0 &&
     !draft.logoUrl &&
     draft.media.length === 0 &&
@@ -104,6 +109,9 @@ export function loadGameDraft(): GameDraft | null {
   const status = GAME_STATUSES.includes(parsed.status as GameStatus)
     ? (parsed.status as GameStatus)
     : "upcoming";
+  const iarcRating = IARC_RATINGS.includes(parsed.iarcRating as IarcRating)
+    ? (parsed.iarcRating as IarcRating)
+    : "";
   const platforms = parsed.platforms.filter(
     (platform): platform is string => typeof platform === "string" && isPlatformId(platform),
   );
@@ -128,6 +136,7 @@ export function loadGameDraft(): GameDraft | null {
     tagline: parsed.tagline,
     description: parsed.description,
     status,
+    iarcRating,
     categories,
     platforms,
     logoUrl: parsed.logoUrl,

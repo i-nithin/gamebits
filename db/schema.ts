@@ -35,6 +35,8 @@ export const gameStatusEnum = pgEnum("game_status", [
   "unreleased",
 ]);
 
+export const iarcRatingEnum = pgEnum("iarc_rating", ["3", "7", "12", "16", "18"]);
+
 export const gameMediaKindEnum = pgEnum("game_media_kind", ["image", "video"]);
 
 export const gameLinkKindEnum = pgEnum("game_link_kind", [
@@ -63,6 +65,7 @@ export const games = pgTable(
     developerName: text("developer_name").notNull(),
     primaryUrl: text("primary_url").notNull(),
     status: gameStatusEnum("status").notNull(),
+    iarcRating: iarcRatingEnum("iarc_rating"),
     ownerClerkUserId: text("owner_clerk_user_id"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     pageViews: integer("page_views").notNull().default(0),
@@ -506,7 +509,15 @@ export const gameAnalyticsDaily = pgTable(
   ],
 );
 
-export const adPlacementEnum = pgEnum("ad_placement", ["sidebar"]);
+export const adPlacementEnum = pgEnum("ad_placement", ["sidebar", "carousel"]);
+
+export const carouselBadgeEnum = pgEnum("carousel_badge", [
+  "coming_soon",
+  "pre_release",
+  "new_arrival",
+  "pre_register",
+  "special_event",
+]);
 
 export const adFormatEnum = pgEnum("ad_format", ["brand", "media"]);
 
@@ -532,6 +543,9 @@ export const adOrders = pgTable(
     productName: text("product_name"),
     tagline: text("tagline"),
     mediaUrl: text("media_url"),
+    gameId: uuid("game_id").references(() => games.id, { onDelete: "restrict" }),
+    badge: carouselBadgeEnum("badge"),
+    countdownEndsAt: timestamp("countdown_ends_at", { withTimezone: true }),
     destinationUrl: text("destination_url").notNull(),
     slotCount: integer("slot_count").notNull(),
     status: adBookingStatusEnum("status").notNull().default("pending"),
@@ -545,6 +559,7 @@ export const adOrders = pgTable(
   (table) => [
     index("ad_orders_month_idx").on(table.placement, table.year, table.month),
     index("ad_orders_owner_booked_idx").on(table.ownerClerkUserId, table.bookedAt),
+    index("ad_orders_game_idx").on(table.gameId),
     check("ad_orders_month_chk", sql`${table.month} between 1 and 12`),
     check("ad_orders_year_chk", sql`${table.year} between 2020 and 2100`),
     check("ad_orders_slots_chk", sql`${table.slotCount} between 1 and 6`),
@@ -563,9 +578,11 @@ export const adOrders = pgTable(
     check(
       "ad_orders_creative_chk",
       sql`(
-        (${table.format} = 'brand' and ${table.productName} is not null and ${table.tagline} is not null and ${table.logoUrl} is not null and ${table.mediaUrl} is null)
+        (${table.placement} = 'sidebar' and ${table.format} = 'brand' and ${table.gameId} is null and ${table.badge} is null and ${table.countdownEndsAt} is null and ${table.productName} is not null and ${table.tagline} is not null and ${table.logoUrl} is not null and ${table.mediaUrl} is null)
         or
-        (${table.format} = 'media' and ${table.mediaUrl} is not null and ${table.productName} is null and ${table.tagline} is null and ${table.logoUrl} is null)
+        (${table.placement} = 'sidebar' and ${table.format} = 'media' and ${table.gameId} is null and ${table.badge} is null and ${table.countdownEndsAt} is null and ${table.mediaUrl} is not null and ${table.productName} is null and ${table.tagline} is null and ${table.logoUrl} is null)
+        or
+        (${table.placement} <> 'sidebar' and ${table.format} = 'media' and ${table.gameId} is not null and ${table.mediaUrl} is not null and ${table.productName} is null and ${table.logoUrl} is null and ${table.slotCount} = 1)
       )`,
     ),
   ],

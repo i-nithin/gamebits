@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpRightIcon, BadgeCheckIcon } from "lucide-react";
 
 import { BookmarkButton } from "@/components/game/bookmark-button";
+import { IarcBadge } from "@/components/game/iarc-badge";
 import { LikeButton } from "@/components/game/like-button";
 import { GameGallery } from "@/components/game/game-gallery";
 import { GameItemToolbar } from "@/components/game/game-item-toolbar";
@@ -98,6 +99,7 @@ export function GameDetail({
             <Badge variant="secondary">{GAME_STATUS_LABELS[game.status]}</Badge>
             {data.archived ? <Badge variant="outline">Archived</Badge> : null}
             {game.featured ? <Badge variant="outline">Featured</Badge> : null}
+            {data.iarcRating ? <IarcBadge rating={data.iarcRating} className="h-8" /> : null}
             {game.categories.map((category) => (
               <Badge key={category.id} variant="outline">
                 {category.name}

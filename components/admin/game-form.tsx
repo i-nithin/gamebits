@@ -24,7 +24,7 @@ export function AssignWeekForm({ gameId }: { gameId: string }) {
         </Field>
         <Field orientation="horizontal">
           <input id="featured" name="featured" type="checkbox" className="size-4 rounded border-iron" />
-          <FieldLabel htmlFor="featured">Featured in carousel</FieldLabel>
+          <FieldLabel htmlFor="featured">Featured</FieldLabel>
         </Field>
         <Button type="submit">Assign to week</Button>
       </FieldGroup>

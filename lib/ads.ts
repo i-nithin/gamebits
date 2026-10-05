@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
-import { adOrders, adSlots, profiles } from "@/db/schema";
+import { adOrders, adSlots, games, profiles } from "@/db/schema";
 import {
   AD_PHASE_LABELS,
   formatMonthLabel,
@@ -11,8 +11,15 @@ import {
   orderPhase,
   type PacificMonth,
 } from "@/lib/ads-month";
-import type { AdOrderRecord, MonthOption, SidebarAd } from "@/lib/ads-types";
-import { AD_MONTH_WINDOW, AD_SLOT_CAP } from "@/lib/constants";
+import type {
+  AdOrderRecord,
+  AdPlacement,
+  CarouselAd,
+  CarouselGameChoice,
+  MonthOption,
+  SidebarAd,
+} from "@/lib/ads-types";
+import { AD_MONTH_WINDOW, AD_SLOT_CAP, type CarouselBadge, type IarcRating } from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { r2PublicBaseUrl } from "@/lib/cloudflare-r2";
 
@@ -40,7 +47,10 @@ export function isAdImageUrl(url: string, userId: string) {
   }
 }
 
-export async function listMonthOptions(now = new Date()): Promise<MonthOption[]> {
+export async function listMonthOptions(
+  placement: AdPlacement = "sidebar",
+  now = new Date(),
+): Promise<MonthOption[]> {
   const months = monthWindow(AD_MONTH_WINDOW, now);
   const db = getDb();
   const rows = await db
@@ -53,7 +63,7 @@ export async function listMonthOptions(now = new Date()): Promise<MonthOption[]>
     .innerJoin(adOrders, eq(adSlots.orderId, adOrders.id))
     .where(
       and(
-        eq(adOrders.placement, "sidebar"),
+        eq(adOrders.placement, placement),
         inArray(adSlots.status, [...OCCUPYING]),
         or(
           ...months.map((month) =>
@@ -131,8 +141,103 @@ export async function listLiveSidebarAds(now = new Date()): Promise<SidebarAd[]>
   }));
 }
 
+function numericAverage(value: number | string | null) {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export async function listLiveCarouselAds(now = new Date()): Promise<CarouselAd[]> {
+  const month = monthWindow(1, now)[0];
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: adOrders.id,
+      destinationUrl: adOrders.destinationUrl,
+      mediaUrl: adOrders.mediaUrl,
+      tagline: adOrders.tagline,
+      badge: adOrders.badge,
+      countdownEndsAt: adOrders.countdownEndsAt,
+      gameName: games.name,
+      developerName: games.developerName,
+      iarcRating: games.iarcRating,
+      reviewAverage: sql<number | null>`(select avg(game_reviews.rating) from game_reviews where game_reviews.game_id = ${games.id})`,
+      reviewCount: sql<number>`(select count(*)::int from game_reviews where game_reviews.game_id = ${games.id})`,
+    })
+    .from(adOrders)
+    .innerJoin(games, eq(games.id, adOrders.gameId))
+    .where(
+      and(
+        eq(adOrders.placement, "carousel"),
+        eq(adOrders.status, "approved"),
+        eq(adOrders.year, month.year),
+        eq(adOrders.month, month.month),
+        isNull(games.archivedAt),
+        sql`exists (
+          select 1 from ad_slots
+          where ad_slots.order_id = ${adOrders.id} and ad_slots.status = 'approved'
+        )`,
+      ),
+    )
+    .orderBy(adOrders.bookedAt);
+
+  return rows.flatMap((row) => {
+    if (!row.mediaUrl || !row.iarcRating) return [];
+    return [
+      {
+        id: row.id,
+        destinationUrl: row.destinationUrl,
+        mediaUrl: row.mediaUrl,
+        tagline: row.tagline,
+        badge: row.badge,
+        countdownEndsAt: row.countdownEndsAt ? row.countdownEndsAt.toISOString() : null,
+        gameName: row.gameName,
+        developerName: row.developerName,
+        iarcRating: row.iarcRating,
+        reviewAverage: numericAverage(row.reviewAverage),
+        reviewCount: Number(row.reviewCount),
+      },
+    ];
+  });
+}
+
+export async function listCarouselGameChoices(opts: {
+  userId: string;
+  admin: boolean;
+}): Promise<CarouselGameChoice[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: games.id,
+      slug: games.slug,
+      name: games.name,
+      developerName: games.developerName,
+      iarcRating: games.iarcRating,
+      reviewAverage: sql<number | null>`(select avg(game_reviews.rating) from game_reviews where game_reviews.game_id = ${games.id})`,
+      reviewCount: sql<number>`(select count(*)::int from game_reviews where game_reviews.game_id = ${games.id})`,
+    })
+    .from(games)
+    .where(
+      opts.admin
+        ? isNull(games.archivedAt)
+        : and(isNull(games.archivedAt), eq(games.ownerClerkUserId, opts.userId)),
+    )
+    .orderBy(asc(games.name));
+
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    developerName: row.developerName,
+    iarcRating: row.iarcRating,
+    reviewAverage: numericAverage(row.reviewAverage),
+    reviewCount: Number(row.reviewCount),
+  }));
+}
+
 type OrderRow = {
   id: string;
+  placement: AdPlacement;
   format: "brand" | "media";
   year: number;
   month: number;
@@ -147,6 +252,13 @@ type OrderRow = {
   clickCount: number;
   ownerName: string;
   ownerHandle: string;
+  gameId: string | null;
+  gameName: string | null;
+  gameSlug: string | null;
+  developerName: string | null;
+  iarcRating: IarcRating | null;
+  badge: CarouselBadge | null;
+  countdownEndsAt: Date | null;
   slotId: string;
   slotStatus: "pending" | "approved" | "rejected" | "removed";
 };
@@ -159,10 +271,18 @@ function groupOrders(rows: OrderRow[], now = new Date()): AdOrderRecord[] {
       const month = { year: row.year, month: row.month };
       order = {
         id: row.id,
+        placement: row.placement,
         format: row.format,
         year: row.year,
         month: row.month,
         monthLabel: formatMonthLabel(month),
+        gameId: row.gameId,
+        gameName: row.gameName,
+        gameSlug: row.gameSlug,
+        developerName: row.developerName,
+        iarcRating: row.iarcRating,
+        badge: row.badge,
+        countdownEndsAt: row.countdownEndsAt ? row.countdownEndsAt.toISOString() : null,
         logoUrl: row.logoUrl,
         productName: row.productName,
         tagline: row.tagline,
@@ -204,6 +324,7 @@ async function listOrders(
   const rows = await db
     .select({
       id: adOrders.id,
+      placement: adOrders.placement,
       format: adOrders.format,
       year: adOrders.year,
       month: adOrders.month,
@@ -218,12 +339,20 @@ async function listOrders(
       clickCount: adOrders.clickCount,
       ownerName: profiles.name,
       ownerHandle: profiles.handle,
+      gameId: adOrders.gameId,
+      gameName: games.name,
+      gameSlug: games.slug,
+      developerName: games.developerName,
+      iarcRating: games.iarcRating,
+      badge: adOrders.badge,
+      countdownEndsAt: adOrders.countdownEndsAt,
       slotId: adSlots.id,
       slotStatus: adSlots.status,
     })
     .from(adOrders)
     .innerJoin(adSlots, eq(adSlots.orderId, adOrders.id))
     .innerJoin(profiles, eq(profiles.clerkUserId, adOrders.ownerClerkUserId))
+    .leftJoin(games, eq(games.id, adOrders.gameId))
     .where(where)
     .orderBy(desc(adOrders.bookedAt), adSlots.createdAt);
   return groupOrders(rows, now);
@@ -233,10 +362,10 @@ export function listUserAdOrders(userId: string) {
   return listOrders(eq(adOrders.ownerClerkUserId, userId));
 }
 
-export function listAdminAdOrders(month: PacificMonth) {
+export function listAdminAdOrders(month: PacificMonth, placement: AdPlacement = "sidebar") {
   return listOrders(
     and(
-      eq(adOrders.placement, "sidebar"),
+      eq(adOrders.placement, placement),
       eq(adOrders.year, month.year),
       eq(adOrders.month, month.month),
     ),
@@ -250,6 +379,7 @@ export async function getAdOrderForEdit(orderId: string) {
   const [row] = await db
     .select({
       id: adOrders.id,
+      placement: adOrders.placement,
       format: adOrders.format,
       year: adOrders.year,
       month: adOrders.month,
@@ -261,6 +391,9 @@ export async function getAdOrderForEdit(orderId: string) {
       destinationUrl: adOrders.destinationUrl,
       slotCount: adOrders.slotCount,
       status: adOrders.status,
+      gameId: adOrders.gameId,
+      badge: adOrders.badge,
+      countdownEndsAt: adOrders.countdownEndsAt,
     })
     .from(adOrders)
     .where(eq(adOrders.id, orderId))
@@ -276,6 +409,7 @@ export async function getAdOrderForEdit(orderId: string) {
   const phase = orderPhase(row.status, month, activeSlots);
   return {
     ...row,
+    countdownEndsAt: row.countdownEndsAt ? row.countdownEndsAt.toISOString() : null,
     activeSlots,
     phase,
     monthLabel: formatMonthLabel(month),
@@ -406,6 +540,110 @@ export async function createAdOrder(input: {
     );
     return { ok: true as const, id: order.id, slotCount: creative.slotCount };
   });
+}
+
+export async function createCarouselAdOrder(input: {
+  ownerClerkUserId: string;
+  year: number;
+  month: number;
+  destinationUrl: string;
+  tagline: string | null;
+  mediaUrl: string;
+  gameId: string;
+  badge: CarouselBadge | null;
+  countdownEndsAt: Date | null;
+  status: "pending" | "approved";
+  reviewedByClerkUserId: string | null;
+}) {
+  if (!monthInWindow(input)) {
+    return { ok: false as const, error: "That month is not open for booking" };
+  }
+
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(84215046, ${input.year * 12 + input.month})`,
+    );
+    const [countRow] = await tx
+      .select({ booked: sql<number>`count(*)::int` })
+      .from(adSlots)
+      .innerJoin(adOrders, eq(adSlots.orderId, adOrders.id))
+      .where(
+        and(
+          eq(adOrders.placement, "carousel"),
+          eq(adOrders.year, input.year),
+          eq(adOrders.month, input.month),
+          inArray(adSlots.status, [...OCCUPYING]),
+        ),
+      );
+    const booked = Number(countRow?.booked ?? 0);
+    if (booked + 1 > AD_SLOT_CAP) {
+      return { ok: false as const, error: "That month does not have an open carousel slot" };
+    }
+
+    const now = new Date();
+    const [order] = await tx
+      .insert(adOrders)
+      .values({
+        placement: "carousel",
+        format: "media",
+        year: input.year,
+        month: input.month,
+        ownerClerkUserId: input.ownerClerkUserId,
+        logoUrl: null,
+        productName: null,
+        tagline: input.tagline,
+        mediaUrl: input.mediaUrl,
+        gameId: input.gameId,
+        badge: input.badge,
+        countdownEndsAt: input.countdownEndsAt,
+        destinationUrl: input.destinationUrl,
+        slotCount: 1,
+        status: input.status,
+        reviewedAt: input.status === "approved" ? now : null,
+        reviewedByClerkUserId: input.reviewedByClerkUserId,
+      })
+      .returning({ id: adOrders.id });
+
+    await tx.insert(adSlots).values({ orderId: order.id, status: input.status });
+    return { ok: true as const, id: order.id };
+  });
+}
+
+export async function updateCarouselCreative(
+  orderId: string,
+  creative: {
+    destinationUrl: string;
+    tagline: string | null;
+    mediaUrl: string;
+    gameId: string;
+    badge: CarouselBadge | null;
+    countdownEndsAt: Date | null;
+  },
+) {
+  const order = await getAdOrderForEdit(orderId);
+  if (!order) return { ok: false as const, error: "Booking not found" };
+  if (order.placement !== "carousel") {
+    return { ok: false as const, error: "Booking not found" };
+  }
+  if (!order.editable) {
+    return { ok: false as const, error: "This booking can no longer be edited" };
+  }
+
+  const db = getDb();
+  await db
+    .update(adOrders)
+    .set({
+      destinationUrl: creative.destinationUrl,
+      tagline: creative.tagline,
+      mediaUrl: creative.mediaUrl,
+      gameId: creative.gameId,
+      badge: creative.badge,
+      countdownEndsAt: creative.countdownEndsAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(adOrders.id, orderId));
+  return { ok: true as const };
 }
 
 async function occupyingLeft(orderId: string, tx: Pick<ReturnType<typeof getDb>, "select">) {
