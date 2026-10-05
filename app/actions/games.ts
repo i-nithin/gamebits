@@ -17,8 +17,10 @@ import {
   GAME_LINK_KINDS,
   GAME_MEDIA_CAP,
   GAME_STATUSES,
+  IARC_RATINGS,
   PRIMARY_LINK_ORDER,
   type GameLinkKind,
+  type IarcRating,
 } from "@/lib/constants";
 import { descriptionPlainText, sanitizeGameDescription } from "@/lib/description";
 import { getDb } from "@/lib/db";
@@ -156,6 +158,11 @@ export async function upsertOwnedGameAction(
   }
   if (requestedIds.length < 1) return { error: "Select at least one platform" };
   if (!isAllowedImageUrl(logoUrl)) return { error: "Upload a valid logo image" };
+  const iarcRaw = String(formData.get("iarcRating") ?? "");
+  if (!IARC_RATINGS.includes(iarcRaw as IarcRating)) {
+    return { error: "Choose an IARC age rating" };
+  }
+  const iarcRating = iarcRaw as IarcRating;
 
   const db = getDb();
   const [catalogRows, categoryRows, currentCategoryIds, lookedUpRaw] = await Promise.all([
@@ -223,6 +230,7 @@ export async function upsertOwnedGameAction(
     developerName,
     primaryUrl,
     status: statusRaw as (typeof GAME_STATUSES)[number],
+    iarcRating,
     archivedAt: archived ? (existing?.archivedAt ?? new Date()) : null,
     updatedAt: new Date(),
   };
@@ -304,6 +312,13 @@ export async function upsertOwnedGameAction(
   revalidatePath("/4dm1n");
   revalidatePath(`/games/${slug}`);
   await revalidateOwnerProfile(existing?.ownerClerkUserId ?? userId, userId);
+  const next = String(formData.get("next") ?? "");
+  if (createdNew && gameId && next === "carousel") {
+    redirect(`/adbits/carousel/new?game=${gameId}`);
+  }
+  if (createdNew && gameId && next === "admin-carousel") {
+    redirect(`/4dm1n/adbits/carousel/new?game=${gameId}`);
+  }
   redirect(`/games/${slug}`);
 }
 

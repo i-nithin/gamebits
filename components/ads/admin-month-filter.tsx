@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { MonthOption } from "@/lib/ads-types";
+import type { AdPlacement, MonthOption } from "@/lib/ads-types";
 
 function monthChoice(month: MonthOption) {
   const count = `${month.label} · ${month.booked}/${month.cap}`;
@@ -20,9 +20,11 @@ function monthChoice(month: MonthOption) {
 export function AdminMonthFilter({
   months,
   value,
+  placement = "sidebar",
 }: {
   months: MonthOption[];
   value: string;
+  placement?: AdPlacement;
 }) {
   const router = useRouter();
   const selected = months.find((month) => month.key === value) ?? months[0];
@@ -31,7 +33,7 @@ export function AdminMonthFilter({
     <Select
       value={selected?.key ?? null}
       onValueChange={(next) => {
-        if (next) router.push(`/4dm1n/adbits?month=${next}`);
+        if (next) router.push(`/4dm1n/adbits?placement=${placement}&month=${next}`);
       }}
     >
       <SelectTrigger

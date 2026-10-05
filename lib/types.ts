@@ -1,4 +1,4 @@
-import type { GameLinkKind, GameStatus } from "@/lib/constants";
+import type { GameLinkKind, GameStatus, IarcRating } from "@/lib/constants";
 
 export type SearchScope = "all" | "games" | "people";
 
@@ -156,6 +156,7 @@ export type GamePageData = {
   isOwner: boolean;
   isAdmin: boolean;
   archived: boolean;
+  iarcRating: IarcRating | null;
   reviewAverage: number | null;
   reviewCount: number;
   reviews: GameReviewItem[];

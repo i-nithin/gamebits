@@ -4,11 +4,13 @@ import { useRef, useState } from "react";
 import { ImageUpIcon, Trash2Icon, UploadIcon } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
-import { ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
-import { uploadImage } from "@/lib/image-upload";
+import { isCarouselVideo } from "@/lib/ads-types";
+import { ACCEPTED_CLIP_TYPES, ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
+import { uploadCarouselMedia, uploadImage } from "@/lib/image-upload";
 import { cn } from "@/lib/utils";
 
 const ACCEPT = ACCEPTED_IMAGE_TYPES.join(",");
+const CAROUSEL_ACCEPT = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_CLIP_TYPES].join(",");
 
 export function AdImagePicker({
   value,
@@ -19,14 +21,15 @@ export function AdImagePicker({
   value: string;
   onChange: (url: string) => void;
   onBusyChange?: (busy: boolean) => void;
-  variant: "logo" | "media";
+  variant: "logo" | "media" | "carousel";
 }) {
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const uploading = useRef(false);
 
-  const label = variant === "logo" ? "logo" : "image";
+  const label = variant === "logo" ? "logo" : variant === "carousel" ? "media" : "image";
+  const video = variant === "carousel" && value ? isCarouselVideo(value) : false;
 
   function setUploadBusy(next: boolean) {
     setBusy(next);
@@ -39,7 +42,7 @@ export function AdImagePicker({
     setUploadBusy(true);
     setError(null);
     try {
-      onChange(await uploadImage(file, "ad"));
+      onChange(variant === "carousel" ? await uploadCarouselMedia(file) : await uploadImage(file, "ad"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -54,6 +57,7 @@ export function AdImagePicker({
         className={cn(
           "relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-iron bg-obsidian px-6 text-center transition-colors",
           variant === "logo" ? "min-h-44 py-8" : "min-h-52 py-8",
+          variant === "carousel" && "min-h-64",
           (over || busy) && "border-ice-signal bg-ice-soft/30",
         )}
         onDragEnter={(event) => {
@@ -78,17 +82,30 @@ export function AdImagePicker({
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,var(--gb-ice-soft),transparent_68%)]"
         />
         {value ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={value}
-            alt=""
-            className={cn(
-              "relative object-contain card-ring",
-              variant === "logo"
-                ? "size-16 rounded-xl"
-                : "h-[108px] w-full max-w-[280px] rounded-2xl",
-            )}
-          />
+          video ? (
+            <video
+              src={value}
+              muted
+              playsInline
+              loop
+              autoPlay
+              className="relative h-40 w-full max-w-md rounded-2xl object-cover card-ring"
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={value}
+              alt=""
+              className={cn(
+                "relative object-contain card-ring",
+                variant === "logo"
+                  ? "size-16 rounded-xl"
+                  : variant === "carousel"
+                    ? "h-40 w-full max-w-md rounded-2xl object-cover"
+                    : "h-[108px] w-full max-w-[280px] rounded-2xl",
+              )}
+            />
+          )
         ) : (
           <UploadIcon className="relative size-8 text-fog" strokeWidth={1.5} />
         )}
@@ -96,12 +113,22 @@ export function AdImagePicker({
           {busy ? "Uploading…" : value ? `Replace ${label}` : `Upload ${label}`}
         </p>
         <div className="relative mt-2 flex flex-col gap-0.5 text-xs text-fog">
-          <span>{variant === "logo" ? "512×512 square" : "640×216 wide"}</span>
-          <span>PNG, WebP, GIF, or JPEG · 2MB</span>
+          <span>
+            {variant === "logo"
+              ? "512×512 square"
+              : variant === "carousel"
+                ? "Wide image, GIF, or short video"
+                : "640×216 wide"}
+          </span>
+          <span>
+            {variant === "carousel"
+              ? "PNG, WebP, GIF, JPEG · 8MB, or MP4, WebM · 12MB"
+              : "PNG, WebP, GIF, or JPEG · 2MB"}
+          </span>
         </div>
         <input
           type="file"
-          accept={ACCEPT}
+          accept={variant === "carousel" ? CAROUSEL_ACCEPT : ACCEPT}
           disabled={busy}
           aria-label={value ? `Replace ad ${label}` : `Upload ad ${label}`}
           className="absolute inset-0 z-10 cursor-pointer opacity-0 disabled:pointer-events-none"

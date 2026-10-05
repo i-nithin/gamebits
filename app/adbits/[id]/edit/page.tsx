@@ -18,6 +18,7 @@ export default async function EditAdbitsPage({
   if (!isUuid(id)) redirect("/adbits");
   const order = await getAdOrderForEdit(id);
   if (!order || order.ownerClerkUserId !== userId || !order.editable) redirect("/adbits");
+  if (order.placement === "carousel") redirect(`/adbits/carousel/${id}/edit`);
 
   return (
     <AdBookingForm

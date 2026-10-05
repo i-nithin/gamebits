@@ -3,7 +3,9 @@ import { SignInButton } from "@clerk/nextjs";
 
 import { AdCard } from "@/components/ads/ad-card";
 import { AdPhaseBadge } from "@/components/ads/ad-phase-badge";
+import { BookSlotDialog } from "@/components/ads/book-slot-dialog";
 import { CancelOrderButton } from "@/components/ads/order-actions";
+import { PlacementSwitch } from "@/components/ads/placement-switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,9 +17,14 @@ import {
 import { listMonthOptions, listUserAdOrders } from "@/lib/ads";
 import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
-import type { AdOrderRecord, MonthOption } from "@/lib/ads-types";
+import type { AdOrderRecord, AdPlacement, MonthOption } from "@/lib/ads-types";
+import { CAROUSEL_BADGE_LABELS } from "@/lib/constants";
 
-export default async function AdbitsPage() {
+export default async function AdbitsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ placement?: string }>;
+}) {
   const userId = await getCurrentUserId();
   const closed = userId ? await isAccountClosed(userId) : false;
 
@@ -48,24 +55,28 @@ export default async function AdbitsPage() {
     );
   }
 
-  const [months, orders] = await Promise.all([listMonthOptions(), listUserAdOrders(userId)]);
+  const params = await searchParams;
+  const placement: AdPlacement = params.placement === "carousel" ? "carousel" : "sidebar";
+  const [months, orders] = await Promise.all([
+    listMonthOptions(placement),
+    listUserAdOrders(userId),
+  ]);
   const current = months[0];
+  const visible = orders.filter((order) => order.placement === placement);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-      <AdbitsHeader
-        action={
-          <Button
-            className="h-9 rounded-full px-5"
-            nativeButton={false}
-            render={<Link href="/adbits/new" />}
-          >
-            Book a slot
-          </Button>
-        }
+      <AdbitsHeader action={<BookSlotDialog mode="user" />} />
+      <PlacementSwitch
+        value={placement}
+        hrefFor={(next) => (next === "carousel" ? "/adbits?placement=carousel" : "/adbits")}
       />
-      <AvailabilityPanel months={months} windowLabel={current?.windowLabel} />
-      <YourAdsPanel orders={orders} />
+      <AvailabilityPanel
+        months={months}
+        windowLabel={current?.windowLabel}
+        placement={placement}
+      />
+      <YourAdsPanel orders={visible} placement={placement} />
     </div>
   );
 }
@@ -77,7 +88,7 @@ function AdbitsHeader({ action }: { action?: React.ReactNode }) {
         <p className="text-xs tracking-wide text-fog uppercase">Advertise</p>
         <h1 className="text-2xl font-medium text-paper-white sm:text-[32px]">Adbits</h1>
         <p className="max-w-xl text-sm text-fog">
-          A card in the right rail of the board. Six slots run each month.
+          Right-rail cards and the home carousel. Each placement has six slots a month.
         </p>
       </div>
       {action}
@@ -88,14 +99,18 @@ function AdbitsHeader({ action }: { action?: React.ReactNode }) {
 function AvailabilityPanel({
   months,
   windowLabel,
+  placement,
 }: {
   months: MonthOption[];
   windowLabel?: string;
+  placement: AdPlacement;
 }) {
   return (
     <section className="flex flex-col gap-1 rounded-2xl border border-iron bg-obsidian px-4 py-4 sm:px-5">
       <div className="pb-2">
-        <h2 className="text-lg font-medium text-paper-white">Availability</h2>
+        <h2 className="text-lg font-medium text-paper-white">
+          {placement === "carousel" ? "Carousel availability" : "Right rail availability"}
+        </h2>
         <p className="mt-1 text-sm text-fog">
           {windowLabel
             ? `A month starts and ends at midnight Pacific. ${windowLabel}.`
@@ -124,7 +139,13 @@ function AvailabilityPanel({
   );
 }
 
-function YourAdsPanel({ orders }: { orders: AdOrderRecord[] }) {
+function YourAdsPanel({
+  orders,
+  placement,
+}: {
+  orders: AdOrderRecord[];
+  placement: AdPlacement;
+}) {
   return (
     <section className="flex flex-col gap-1 rounded-2xl border border-iron bg-obsidian px-4 py-4 sm:px-5">
       <div className="pb-2">
@@ -135,7 +156,8 @@ function YourAdsPanel({ orders }: { orders: AdOrderRecord[] }) {
       </div>
       {orders.length === 0 ? (
         <p className="border-t border-iron py-3 text-sm text-fog">
-          Nothing booked yet. Book a slot to put a card in the rail.
+          Nothing booked yet. Book a slot to put a card in the{" "}
+          {placement === "carousel" ? "carousel" : "rail"}.
         </p>
       ) : (
         <ul className="flex flex-col">
@@ -149,7 +171,13 @@ function YourAdsPanel({ orders }: { orders: AdOrderRecord[] }) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2 text-sm text-paper-white">
+                      {order.placement === "carousel" && order.gameName
+                        ? `${order.gameName} · `
+                        : null}
                       {order.monthLabel} · {slots} {slots === 1 ? "slot" : "slots"}
+                      {order.badge ? (
+                        <Badge variant="outline">{CAROUSEL_BADGE_LABELS[order.badge]}</Badge>
+                      ) : null}
                       <AdPhaseBadge phase={order.phase} />
                     </p>
                     <p className="mt-1 text-xs text-fog">
@@ -166,7 +194,15 @@ function YourAdsPanel({ orders }: { orders: AdOrderRecord[] }) {
                         variant="outline"
                         className="h-9 rounded-full border-iron px-5"
                         nativeButton={false}
-                        render={<Link href={`/adbits/${order.id}/edit`} />}
+                        render={
+                          <Link
+                            href={
+                              order.placement === "carousel"
+                                ? `/adbits/carousel/${order.id}/edit`
+                                : `/adbits/${order.id}/edit`
+                            }
+                          />
+                        }
                       >
                         Edit
                       </Button>
@@ -175,7 +211,15 @@ function YourAdsPanel({ orders }: { orders: AdOrderRecord[] }) {
                       variant="outline"
                       className="h-9 rounded-full border-iron px-5"
                       nativeButton={false}
-                      render={<Link href={`/adbits/new?again=${order.id}`} />}
+                      render={
+                        <Link
+                          href={
+                            order.placement === "carousel"
+                              ? `/adbits/carousel/new?again=${order.id}`
+                              : `/adbits/new?again=${order.id}`
+                          }
+                        />
+                      }
                     >
                       Place again
                     </Button>

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 
 import { upsertOwnedGameAction } from "@/app/actions/games";
 import { LabelWithInfo } from "@/components/game/field-info";
+import { IarcBadge } from "@/components/game/iarc-badge";
 import { GameFormShell } from "@/components/game/game-form-shell";
 import { LogoPicker, MediaPicker, type DraftMedia } from "@/components/game/media-picker";
 import { PlatformChip } from "@/components/game/platform-chip";
@@ -31,8 +32,11 @@ import {
   GAME_LINK_FIELDS,
   GAME_STATUS_LABELS,
   GAME_STATUSES,
+  IARC_LABELS,
+  IARC_RATINGS,
   type GameLinkKind,
   type GameStatus,
+  type IarcRating,
 } from "@/lib/constants";
 import {
   clearGameDraft,
@@ -72,6 +76,7 @@ export function GameEditor({
   categories,
   selectedPlatformIds = [],
   selectedCategoryIds = [],
+  next,
 }: {
   game?: GameRow;
   media?: MediaRow[];
@@ -80,6 +85,7 @@ export function GameEditor({
   categories: GameCategoryItem[];
   selectedPlatformIds?: string[];
   selectedCategoryIds?: string[];
+  next?: "carousel" | "admin-carousel";
 }) {
   const isEdit = Boolean(game);
   const catalogById = useMemo(
@@ -99,6 +105,7 @@ export function GameEditor({
   const [tagline, setTagline] = useState(game?.tagline ?? "");
   const [description, setDescription] = useState(game?.description ?? "");
   const [status, setStatus] = useState<GameStatus>(game?.status ?? "upcoming");
+  const [iarcRating, setIarcRating] = useState<IarcRating | "">(game?.iarcRating ?? "");
   const [categoryIds, setCategoryIds] = useState<string[]>(() => selectedCategoryIds);
   const [platforms, setPlatforms] = useState<string[]>(() => selectedPlatformIds);
   const [linkValues, setLinkValues] = useState<Record<GameLinkKind, string>>(() =>
@@ -124,6 +131,7 @@ export function GameEditor({
     tagline,
     description,
     status,
+    iarcRating,
     categories: categoryIds,
     platforms,
     logoUrl,
@@ -140,6 +148,7 @@ export function GameEditor({
       setTagline(draft.tagline);
       setDescription(draft.description);
       setStatus(draft.status);
+      setIarcRating(draft.iarcRating);
       setCategoryIds(
         draft.categories.filter((id) => categoryById.has(id)).slice(0, CATEGORY_CAP),
       );
@@ -162,6 +171,7 @@ export function GameEditor({
     tagline,
     description,
     status,
+    iarcRating,
     categoryIds,
     platforms,
     logoUrl,
@@ -209,7 +219,7 @@ export function GameEditor({
       backHref={cancelHref}
       cancelHref={cancelHref}
       submitLabel={isEdit ? "Save game" : "Create game"}
-      submitDisabled={!logoUrl}
+      submitDisabled={!logoUrl || !iarcRating}
       pending={pending}
       uploading={uploading}
       error={state?.error}
@@ -361,6 +371,48 @@ export function GameEditor({
               </Field>
             </div>
             <Field>
+              <LabelWithInfo htmlFor="iarcRating" info="Required IARC age rating shown on the game and in carousel ads.">
+                IARC rating
+              </LabelWithInfo>
+              <Select
+                value={iarcRating || null}
+                onValueChange={(value) => {
+                  if (typeof value === "string" && IARC_RATINGS.includes(value as IarcRating)) {
+                    setIarcRating(value as IarcRating);
+                  }
+                }}
+              >
+                <SelectTrigger
+                  id="iarcRating"
+                  type="button"
+                  className="h-9 w-full rounded-lg border-iron bg-graphite"
+                >
+                  <SelectValue>
+                    {iarcRating ? (
+                      <span className="flex items-center gap-2">
+                        <IarcBadge rating={iarcRating} className="h-8" />
+                        {IARC_LABELS[iarcRating]}
+                      </span>
+                    ) : (
+                      <span className="text-fog">Select an age rating</span>
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start" className="border-iron bg-obsidian p-1 shadow-lg">
+                  <SelectGroup>
+                    {IARC_RATINGS.map((rating) => (
+                      <SelectItem key={rating} value={rating}>
+                        <span className="flex items-center gap-2">
+                          <IarcBadge rating={rating} className="h-8" />
+                          {IARC_LABELS[rating]}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
               <LabelWithInfo info="Select every platform where players can play this game.">
                 Platforms
               </LabelWithInfo>
@@ -475,6 +527,8 @@ export function GameEditor({
       }
     >
       {game ? <input type="hidden" name="id" value={game.id} /> : null}
+      {next ? <input type="hidden" name="next" value={next} /> : null}
+      <input type="hidden" name="iarcRating" value={iarcRating} />
       <input type="hidden" name="logoUrl" value={logoUrl} />
       <input
         type="hidden"

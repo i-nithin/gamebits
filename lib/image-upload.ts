@@ -2,6 +2,8 @@ import {
   ACCEPTED_CLIP_TYPES,
   ACCEPTED_IMAGE_TYPES,
   MAX_AD_IMAGE_BYTES,
+  MAX_CAROUSEL_IMAGE_BYTES,
+  MAX_CAROUSEL_VIDEO_BYTES,
   MAX_CLIP_BYTES,
   MAX_IMAGE_BYTES,
   PLATFORM_LOGO_TYPES,
@@ -79,6 +81,55 @@ export async function uploadImage(file: File, purpose: UploadPurpose) {
     .finally(() => {
       inflight.delete(fingerprint);
     });
+
+  inflight.set(fingerprint, request);
+  return request;
+}
+
+export async function uploadCarouselMedia(file: File) {
+  const contentType = file.type.toLowerCase().split(";")[0]?.trim() ?? "";
+  const video = (ACCEPTED_CLIP_TYPES as readonly string[]).includes(contentType);
+  const image = (ACCEPTED_IMAGE_TYPES as readonly string[]).includes(contentType);
+  if (!video && !image) {
+    throw new Error("Use a JPEG, PNG, WebP, GIF, MP4, or WebM file");
+  }
+  const max = video ? MAX_CAROUSEL_VIDEO_BYTES : MAX_CAROUSEL_IMAGE_BYTES;
+  if (file.size > max) {
+    throw new Error(video ? "Videos must be 12MB or smaller" : "Images must be 8MB or smaller");
+  }
+
+  const fingerprint = fileFingerprint(file);
+  const cached = getCachedUploadUrl(fingerprint);
+  if (cached) return cached;
+
+  const pending = inflight.get(fingerprint);
+  if (pending) return pending;
+
+  const request = (async () => {
+    const tokenRes = await fetch("/api/uploads/r2", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ purpose: "carousel", contentType, contentLength: file.size }),
+    });
+    const token = (await tokenRes.json()) as {
+      error?: string;
+      uploadURL?: string;
+      deliveryUrl?: string;
+    };
+    if (!tokenRes.ok || !token.uploadURL || !token.deliveryUrl) {
+      throw new Error(token.error ?? "Could not start upload");
+    }
+    const uploaded = await fetch(token.uploadURL, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: file,
+    });
+    if (!uploaded.ok) throw new Error("Upload failed");
+    cacheUploadUrl(fingerprint, token.deliveryUrl);
+    return token.deliveryUrl;
+  })().finally(() => {
+    inflight.delete(fingerprint);
+  });
 
   inflight.set(fingerprint, request);
   return request;
