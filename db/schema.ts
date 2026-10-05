@@ -528,6 +528,14 @@ export const adBookingStatusEnum = pgEnum("ad_booking_status", [
   "removed",
 ]);
 
+export const adPaymentStatusEnum = pgEnum("ad_payment_status", [
+  "checkout",
+  "paid",
+  "failed",
+  "refunded",
+  "waived",
+]);
+
 export const adOrders = pgTable(
   "ad_orders",
   {
@@ -553,6 +561,14 @@ export const adOrders = pgTable(
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     reviewedByClerkUserId: text("reviewed_by_clerk_user_id"),
     clickCount: integer("click_count").notNull().default(0),
+    paymentStatus: adPaymentStatusEnum("payment_status").notNull().default("waived"),
+    dodoProductId: text("dodo_product_id"),
+    dodoCheckoutSessionId: text("dodo_checkout_session_id"),
+    dodoPaymentId: text("dodo_payment_id"),
+    dodoCustomerId: text("dodo_customer_id"),
+    amountCents: integer("amount_cents"),
+    currency: text("currency"),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -560,6 +576,7 @@ export const adOrders = pgTable(
     index("ad_orders_month_idx").on(table.placement, table.year, table.month),
     index("ad_orders_owner_booked_idx").on(table.ownerClerkUserId, table.bookedAt),
     index("ad_orders_game_idx").on(table.gameId),
+    uniqueIndex("ad_orders_dodo_payment_idx").on(table.dodoPaymentId),
     check("ad_orders_month_chk", sql`${table.month} between 1 and 12`),
     check("ad_orders_year_chk", sql`${table.year} between 2020 and 2100`),
     check("ad_orders_slots_chk", sql`${table.slotCount} between 1 and 6`),
@@ -603,6 +620,12 @@ export const adSlots = pgTable(
     index("ad_slots_status_idx").on(table.status),
   ],
 );
+
+export const dodoWebhookEvents = pgTable("dodo_webhook_events", {
+  webhookId: text("webhook_id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const notificationJobs = pgTable(
   "notification_jobs",

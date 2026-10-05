@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { adOrders, adSlots, games, profiles } from "@/db/schema";
+import type { AdPaymentStatus } from "@/lib/ad-catalog";
 import {
   AD_PHASE_LABELS,
   formatMonthLabel,
@@ -248,6 +249,10 @@ type OrderRow = {
   destinationUrl: string;
   slotCount: number;
   status: "pending" | "approved" | "rejected" | "removed";
+  paymentStatus: AdPaymentStatus;
+  amountCents: number | null;
+  currency: string | null;
+  dodoPaymentId: string | null;
   bookedAt: Date;
   clickCount: number;
   ownerName: string;
@@ -292,6 +297,10 @@ function groupOrders(rows: OrderRow[], now = new Date()): AdOrderRecord[] {
         activeSlots: 0,
         status: row.status,
         phase: "pending",
+        paymentStatus: row.paymentStatus,
+        amountCents: row.amountCents,
+        currency: row.currency,
+        dodoPaymentId: row.dodoPaymentId,
         bookedAt: formatPacificInstant(row.bookedAt),
         clickCount: row.clickCount,
         ownerName: row.ownerName,
@@ -335,6 +344,10 @@ async function listOrders(
       destinationUrl: adOrders.destinationUrl,
       slotCount: adOrders.slotCount,
       status: adOrders.status,
+      paymentStatus: adOrders.paymentStatus,
+      amountCents: adOrders.amountCents,
+      currency: adOrders.currency,
+      dodoPaymentId: adOrders.dodoPaymentId,
       bookedAt: adOrders.bookedAt,
       clickCount: adOrders.clickCount,
       ownerName: profiles.name,
@@ -475,11 +488,16 @@ type CreativeInsert = {
   mediaUrl: string | null;
 };
 
+type AdPaymentInsert =
+  | { status: "waived" }
+  | { status: "checkout"; productId: string };
+
 export async function createAdOrder(input: {
   ownerClerkUserId: string;
   creative: CreativeInsert;
   status: "pending" | "approved";
   reviewedByClerkUserId: string | null;
+  payment: AdPaymentInsert;
 }) {
   const { creative } = input;
   if (!monthInWindow(creative)) {
@@ -527,6 +545,8 @@ export async function createAdOrder(input: {
         destinationUrl: creative.destinationUrl,
         slotCount: creative.slotCount,
         status: input.status,
+        paymentStatus: input.payment.status,
+        dodoProductId: input.payment.status === "checkout" ? input.payment.productId : null,
         reviewedAt: input.status === "approved" ? now : null,
         reviewedByClerkUserId: input.reviewedByClerkUserId,
       })
@@ -554,6 +574,7 @@ export async function createCarouselAdOrder(input: {
   countdownEndsAt: Date | null;
   status: "pending" | "approved";
   reviewedByClerkUserId: string | null;
+  payment: AdPaymentInsert;
 }) {
   if (!monthInWindow(input)) {
     return { ok: false as const, error: "That month is not open for booking" };
@@ -600,6 +621,8 @@ export async function createCarouselAdOrder(input: {
         destinationUrl: input.destinationUrl,
         slotCount: 1,
         status: input.status,
+        paymentStatus: input.payment.status,
+        dodoProductId: input.payment.status === "checkout" ? input.payment.productId : null,
         reviewedAt: input.status === "approved" ? now : null,
         reviewedByClerkUserId: input.reviewedByClerkUserId,
       })
@@ -658,7 +681,11 @@ export async function cancelAdOrder(userId: string, orderId: string) {
   const db = getDb();
   return db.transaction(async (tx) => {
     const [order] = await tx
-      .select({ id: adOrders.id, status: adOrders.status })
+      .select({
+        id: adOrders.id,
+        status: adOrders.status,
+        paymentStatus: adOrders.paymentStatus,
+      })
       .from(adOrders)
       .where(and(eq(adOrders.id, orderId), eq(adOrders.ownerClerkUserId, userId)))
       .limit(1);
@@ -672,7 +699,11 @@ export async function cancelAdOrder(userId: string, orderId: string) {
       .where(and(eq(adSlots.orderId, orderId), eq(adSlots.status, "pending")));
     await tx
       .update(adOrders)
-      .set({ status: "removed", updatedAt: now })
+      .set({
+        status: "removed",
+        paymentStatus: order.paymentStatus === "checkout" ? "failed" : order.paymentStatus,
+        updatedAt: now,
+      })
       .where(eq(adOrders.id, orderId));
     return { ok: true as const };
   });
@@ -686,12 +717,19 @@ export async function reviewAdOrder(
   const db = getDb();
   return db.transaction(async (tx) => {
     const [order] = await tx
-      .select({ id: adOrders.id, status: adOrders.status })
+      .select({
+        id: adOrders.id,
+        status: adOrders.status,
+        paymentStatus: adOrders.paymentStatus,
+      })
       .from(adOrders)
       .where(eq(adOrders.id, orderId))
       .limit(1);
     if (!order || order.status !== "pending") {
       return { ok: false as const, error: "That booking is no longer pending" };
+    }
+    if (order.paymentStatus === "checkout") {
+      return { ok: false as const, error: "That booking is waiting for payment" };
     }
     const now = new Date();
     await tx
@@ -725,9 +763,18 @@ export async function removeAdSlot(slotId: string) {
     await tx.update(adSlots).set({ status: "removed" }).where(eq(adSlots.id, slotId));
     const left = await occupyingLeft(slot.orderId, tx);
     if (left === 0) {
+      const [order] = await tx
+        .select({ paymentStatus: adOrders.paymentStatus })
+        .from(adOrders)
+        .where(eq(adOrders.id, slot.orderId))
+        .limit(1);
       await tx
         .update(adOrders)
-        .set({ status: "removed", updatedAt: new Date() })
+        .set({
+          status: "removed",
+          paymentStatus: order?.paymentStatus === "checkout" ? "failed" : order?.paymentStatus,
+          updatedAt: new Date(),
+        })
         .where(eq(adOrders.id, slot.orderId));
     }
     return { ok: true as const };
@@ -738,7 +785,7 @@ export async function removeAdOrder(orderId: string) {
   const db = getDb();
   return db.transaction(async (tx) => {
     const [order] = await tx
-      .select({ id: adOrders.id })
+      .select({ id: adOrders.id, paymentStatus: adOrders.paymentStatus })
       .from(adOrders)
       .where(eq(adOrders.id, orderId))
       .limit(1);
@@ -749,7 +796,11 @@ export async function removeAdOrder(orderId: string) {
       .where(and(eq(adSlots.orderId, orderId), inArray(adSlots.status, [...OCCUPYING])));
     await tx
       .update(adOrders)
-      .set({ status: "removed", updatedAt: new Date() })
+      .set({
+        status: "removed",
+        paymentStatus: order.paymentStatus === "checkout" ? "failed" : order.paymentStatus,
+        updatedAt: new Date(),
+      })
       .where(eq(adOrders.id, orderId));
     return { ok: true as const };
   });

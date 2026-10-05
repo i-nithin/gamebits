@@ -1,11 +1,14 @@
 "use server";
 
+import { currentUser } from "@clerk/nextjs/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { games, profiles } from "@/db/schema";
+import { adProductId } from "@/lib/ad-catalog";
+import { attachAdCheckoutSession, getPayableAdOrder } from "@/lib/ad-payments";
 import {
   cancelAdOrder,
   createAdOrder,
@@ -20,8 +23,10 @@ import {
 } from "@/lib/ads";
 import { monthKey, parseMonthKey } from "@/lib/ads-month";
 import { getCurrentUserId, isAccountClosed, requireAdmin } from "@/lib/auth-admin";
+import { clerkEnabled } from "@/lib/clerk-enabled";
 import { AD_NAME_MAX, AD_SLOT_CAP, AD_TAGLINE_MAX, CAROUSEL_BADGES, type CarouselBadge } from "@/lib/constants";
 import { getDb } from "@/lib/db";
+import { createAdCheckoutSession } from "@/lib/dodo";
 import { isUuid, sanitizePlainText } from "@/lib/sanitize";
 
 const creativeSchema = z.object({
@@ -35,6 +40,50 @@ const creativeSchema = z.object({
   tagline: z.string().max(160).nullable(),
   mediaUrl: z.string().max(2000).nullable(),
 });
+
+async function bookerBilling(userId: string) {
+  const user = clerkEnabled ? await currentUser() : null;
+  const clerkEmail =
+    user?.primaryEmailAddress?.emailAddress ?? user?.emailAddresses[0]?.emailAddress ?? null;
+  const clerkName = user?.fullName ?? user?.firstName ?? null;
+  if (clerkEmail) return { email: clerkEmail, name: clerkName };
+
+  const db = getDb();
+  const [profile] = await db
+    .select({ email: profiles.email, name: profiles.name })
+    .from(profiles)
+    .where(eq(profiles.clerkUserId, userId))
+    .limit(1);
+  if (!profile?.email) return null;
+  return { email: profile.email, name: clerkName ?? profile.name };
+}
+
+async function startBookingCheckout(input: {
+  orderId: string;
+  placement: "sidebar" | "carousel";
+  quantity: number;
+  userId: string;
+}) {
+  const billing = await bookerBilling(input.userId);
+  if (!billing) {
+    return { ok: false as const, error: "Add an email to your account before paying" };
+  }
+
+  try {
+    const session = await createAdCheckoutSession({
+      orderId: input.orderId,
+      placement: input.placement,
+      quantity: input.quantity,
+      email: billing.email,
+      name: billing.name,
+    });
+    await attachAdCheckoutSession(input.orderId, session.sessionId);
+    return { ok: true as const, checkoutUrl: session.checkoutUrl };
+  } catch (error) {
+    console.error("[dodo] checkout failed", error);
+    return { ok: false as const, error: "Could not start checkout. Try again." };
+  }
+}
 
 function revalidateAds() {
   revalidatePath("/");
@@ -163,11 +212,23 @@ export async function bookAdFormAction(
     creative: creative.creative,
     status: "pending",
     reviewedByClerkUserId: null,
+    payment: { status: "checkout", productId: adProductId("sidebar") },
   });
   if (!created.ok) return { error: created.error };
 
+  const checkout = await startBookingCheckout({
+    orderId: created.id,
+    placement: "sidebar",
+    quantity: created.slotCount,
+    userId: booker.userId,
+  });
+  if (!checkout.ok) {
+    await removeAdOrder(created.id);
+    return { error: checkout.error };
+  }
+
   revalidateAds();
-  redirect("/adbits");
+  redirect(checkout.checkoutUrl);
 }
 
 export async function placeAdminAdFormAction(
@@ -188,6 +249,7 @@ export async function placeAdminAdFormAction(
     creative: creative.creative,
     status: "approved",
     reviewedByClerkUserId: adminId,
+    payment: { status: "waived" },
   });
   if (!created.ok) return { error: created.error };
 
@@ -250,6 +312,28 @@ export async function saveAdminAdFormAction(
   const saved = await saveAdCreative(formData, adminId, true);
   if ("error" in saved) return saved;
   redirect(`/4dm1n/adbits?month=${monthKey(saved.order)}`);
+}
+
+export async function continueAdCheckoutAction(orderId: string) {
+  const booker = await requireBooker();
+  if (!booker.ok) return { ok: false as const, error: booker.error };
+  if (!isUuid(orderId)) return { ok: false as const, error: "Booking not found" };
+
+  const order = await getPayableAdOrder(booker.userId, orderId);
+  if (!order) {
+    return { ok: false as const, error: "That booking is no longer waiting for payment" };
+  }
+
+  const checkout = await startBookingCheckout({
+    orderId: order.id,
+    placement: order.placement,
+    quantity: order.slotCount,
+    userId: booker.userId,
+  });
+  if (!checkout.ok) return checkout;
+
+  revalidateAds();
+  redirect(checkout.checkoutUrl);
 }
 
 export async function cancelAdOrderAction(orderId: string) {
@@ -403,11 +487,23 @@ export async function bookCarouselFormAction(
     ...creative.creative,
     status: "pending",
     reviewedByClerkUserId: null,
+    payment: { status: "checkout", productId: adProductId("carousel") },
   });
   if (!created.ok) return { error: created.error };
 
+  const checkout = await startBookingCheckout({
+    orderId: created.id,
+    placement: "carousel",
+    quantity: 1,
+    userId: booker.userId,
+  });
+  if (!checkout.ok) {
+    await removeAdOrder(created.id);
+    return { error: checkout.error };
+  }
+
   revalidateAds();
-  redirect("/adbits?placement=carousel");
+  redirect(checkout.checkoutUrl);
 }
 
 export async function placeAdminCarouselFormAction(
@@ -428,6 +524,7 @@ export async function placeAdminCarouselFormAction(
     ...creative.creative,
     status: "approved",
     reviewedByClerkUserId: adminId,
+    payment: { status: "waived" },
   });
   if (!created.ok) return { error: created.error };
 

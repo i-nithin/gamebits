@@ -34,7 +34,11 @@ cp .env.example .env.local
 | `R2_SECRET_ACCESS_KEY` | For uploads | R2 API token secret access key |
 | `R2_BUCKET_NAME` | For uploads | R2 bucket name |
 | `R2_PUBLIC_URL` | For uploads | Public base URL for objects (no trailing slash) |
-| `CRON_SECRET` | Production | Bearer token for the daily account-purge job |
+| `CRON_SECRET` | Production | Bearer token for the account-purge and unpaid-ad checkout jobs |
+| `DODO_PAYMENTS_API_KEY` | For ad checkout | Dodo API key (`dodo_test_…` or `dodo_live_…`) |
+| `DODO_PAYMENTS_WEBHOOK_KEY` | For ad checkout | Signing secret from the Dodo webhook endpoint |
+| `DODO_PAYMENTS_ENVIRONMENT` | For ad checkout | `test_mode` or `live_mode`. Anything else, including unset, stays in test mode |
+| `NEXT_PUBLIC_APP_URL` | Optional | Public site origin with no trailing slash. Checkout return URLs use this when set, otherwise the request host |
 
 \*Without Clerk keys the app still boots, but sign-in, add-game, and votes are unavailable.
 
@@ -50,6 +54,35 @@ cp .env.example .env.local
 
 1. Create an application with **Google** and **Email** sign-in.
 2. Add keys from the Clerk dashboard to `.env.local`.
+
+### Dodo Payments
+
+Adbits bookings charge through Dodo Checkout. The right rail is $99 per slot and the carousel is $299. A booking is approved only after a verified `payment.succeeded` webhook. The browser return to `/adbits?checkout=return` does not mark the booking paid.
+
+Webhook URL to register in the Dodo dashboard (**Developer → Webhooks → Create Webhook**):
+
+```text
+https://YOUR_PRODUCTION_DOMAIN/api/webhooks/dodo
+```
+
+Subscribe that endpoint to:
+
+- `payment.succeeded`
+- `payment.failed`
+- `payment.cancelled`
+- `refund.succeeded`
+
+Then:
+
+1. Create a test-mode API key and set `DODO_PAYMENTS_API_KEY` to the `dodo_test_…` value.
+2. Leave `DODO_PAYMENTS_ENVIRONMENT` unset, or set it to `test_mode`. Set `live_mode` only for the production key (`dodo_live_…`). Test and live each need their own webhook endpoint and signing secret.
+3. Copy the endpoint’s signing secret into `DODO_PAYMENTS_WEBHOOK_KEY`.
+4. On Vercel, set `NEXT_PUBLIC_APP_URL` to the production origin, for example `https://YOUR_PRODUCTION_DOMAIN`, with no trailing slash.
+5. Run `npm run db:migrate` so `ad_orders` has the payment columns and `dodo_webhook_events` exists.
+
+Dodo cannot call `http://localhost:3000`. For a local webhook test, expose the dev server with an HTTPS tunnel and register `https://YOUR_TUNNEL_HOST/api/webhooks/dodo` on the **test** webhook endpoint. Use the test signing secret in `.env.local`.
+
+Unpaid checkouts hold their slots for 24 hours. `vercel.json` calls `GET /api/cron/expire-ad-checkouts` every hour with the same `Authorization: Bearer $CRON_SECRET` check as the account-purge job.
 
 ### Account deletion
 
@@ -150,11 +183,12 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Deploy (Vercel)
 
 1. Push the repo and import it in Vercel.
-2. Set the same env vars (including R2 and `CRON_SECRET`) in the Vercel project settings. There is no admin env var. Admin access stays the `profiles.super_admin` flag.
+2. Set the same env vars (including R2, `CRON_SECRET`, and the Dodo keys) in the Vercel project settings. There is no admin env var. Admin access stays the `profiles.super_admin` flag. Set `DODO_PAYMENTS_ENVIRONMENT=live_mode` only when `DODO_PAYMENTS_API_KEY` is a live key.
 3. Use Neon’s pooled URL for `DATABASE_URL` and the direct URL for `DATABASE_URL_UNPOOLED`.
 4. Add your production origin to the R2 bucket CORS `AllowedOrigins`.
 5. Run migrations against production (`npm run db:migrate` with production `DATABASE_URL_UNPOOLED`), or wire a migrate step into your deploy pipeline. On a new production database, sign in once, then promote your profile with the SQL in the Admin section above.
-6. Confirm the cron in the Vercel project. `vercel.json` calls `/api/cron/purge-accounts` once a day. Without `CRON_SECRET`, that request is rejected and logins past the 30-day window stay open until the person signs in again.
+6. Confirm the crons in the Vercel project. `vercel.json` calls `/api/cron/purge-accounts` once a day and `/api/cron/expire-ad-checkouts` every hour. Without `CRON_SECRET`, those requests are rejected: logins past the 30-day window stay open until the person signs in again, and unpaid ad slots stay held until the checkout row is cancelled.
+7. In the Dodo dashboard, register `https://YOUR_PRODUCTION_DOMAIN/api/webhooks/dodo` and put that endpoint’s signing secret in `DODO_PAYMENTS_WEBHOOK_KEY`. Without it, paid bookings stay pending and never go live.
 
 ## Docs
 

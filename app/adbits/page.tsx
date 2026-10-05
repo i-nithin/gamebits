@@ -2,9 +2,10 @@ import Link from "next/link";
 import { SignInButton } from "@clerk/nextjs";
 
 import { AdCard } from "@/components/ads/ad-card";
+import { AdPaymentLine } from "@/components/ads/ad-payment-line";
 import { AdPhaseBadge } from "@/components/ads/ad-phase-badge";
 import { BookSlotDialog } from "@/components/ads/book-slot-dialog";
-import { CancelOrderButton } from "@/components/ads/order-actions";
+import { CancelOrderButton, ContinueCheckoutButton } from "@/components/ads/order-actions";
 import { PlacementSwitch } from "@/components/ads/placement-switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ import { CAROUSEL_BADGE_LABELS } from "@/lib/constants";
 export default async function AdbitsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ placement?: string }>;
+  searchParams: Promise<{ placement?: string; checkout?: string }>;
 }) {
   const userId = await getCurrentUserId();
   const closed = userId ? await isAccountClosed(userId) : false;
@@ -67,6 +68,12 @@ export default async function AdbitsPage({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
       <AdbitsHeader action={<BookSlotDialog mode="user" />} />
+      {params.checkout === "return" ? (
+        <p className="rounded-2xl border border-iron bg-obsidian px-4 py-3 text-sm text-fog">
+          If the payment went through, this page updates once we confirm it. A paid booking goes
+          live for the month you chose.
+        </p>
+      ) : null}
       <PlacementSwitch
         value={placement}
         hrefFor={(next) => (next === "carousel" ? "/adbits?placement=carousel" : "/adbits")}
@@ -184,6 +191,14 @@ function YourAdsPanel({
                       Booked {order.bookedAt} · {order.clickCount}{" "}
                       {order.clickCount === 1 ? "click" : "clicks"}
                     </p>
+                    {order.paymentStatus === "waived" ? null : (
+                      <AdPaymentLine
+                        status={order.paymentStatus}
+                        amountCents={order.amountCents}
+                        currency={order.currency}
+                        paymentId={null}
+                      />
+                    )}
                     <p className="truncate text-xs text-fog">{order.destinationUrl}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -223,6 +238,9 @@ function YourAdsPanel({
                     >
                       Place again
                     </Button>
+                    {order.paymentStatus === "checkout" ? (
+                      <ContinueCheckoutButton orderId={order.id} />
+                    ) : null}
                     {order.phase === "pending" ? <CancelOrderButton orderId={order.id} /> : null}
                   </div>
                 </div>

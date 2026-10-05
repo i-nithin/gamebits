@@ -1,3 +1,4 @@
+import type { AdPaymentStatus } from "@/lib/ad-catalog";
 import type { CarouselBadge, IarcRating } from "@/lib/constants";
 
 export type AdFormat = "brand" | "media";
@@ -85,6 +86,10 @@ export type AdOrderRecord = AdCreativePrefill & {
   activeSlots: number;
   status: "pending" | "approved" | "rejected" | "removed";
   phase: "pending" | "scheduled" | "live" | "ended" | "rejected" | "removed";
+  paymentStatus: AdPaymentStatus;
+  amountCents: number | null;
+  currency: string | null;
+  dodoPaymentId: string | null;
   bookedAt: string;
   clickCount: number;
   ownerName: string;

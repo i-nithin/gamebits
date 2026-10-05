@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   approveAdOrderAction,
   cancelAdOrderAction,
+  continueAdCheckoutAction,
   rejectAdOrderAction,
   removeAdOrderAction,
   removeAdSlotAction,
@@ -30,6 +31,23 @@ function useOrderAction(action: (id: string) => Promise<{ ok: boolean; error?: s
   }
 
   return { pending, error, run };
+}
+
+export function ContinueCheckoutButton({ orderId }: { orderId: string }) {
+  const { pending, error, run } = useOrderAction(continueAdCheckoutAction);
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <Button
+        type="button"
+        className="h-9 rounded-full px-5"
+        disabled={pending}
+        onClick={() => run(orderId)}
+      >
+        {pending ? "Opening checkout" : "Pay"}
+      </Button>
+      {error ? <p className="text-xs text-error">{error}</p> : null}
+    </div>
+  );
 }
 
 export function CancelOrderButton({ orderId }: { orderId: string }) {
