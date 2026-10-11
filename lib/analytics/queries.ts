@@ -3,6 +3,7 @@ import { and, desc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
 import {
   bookmarks,
   gameAnalyticsDaily,
+  gameAnalyticsVisitors,
   gameReviews,
   games,
   likes,
@@ -39,7 +40,6 @@ import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { getDb, hasDatabase } from "@/lib/db";
 import { isIsoWeekLive } from "@/lib/iso-week";
 
-const TOP_COUNTRIES = 8;
 function asCount(value: number | string | null | undefined) {
   const count = Number(value ?? 0);
   return Number.isFinite(count) ? count : 0;
@@ -49,6 +49,7 @@ function emptyTotals(): AnalyticsTotals {
   return {
     upvotes: 0,
     pageViews: 0,
+    uniqueViews: 0,
     linkClicks: 0,
     likes: 0,
     bookmarks: 0,
@@ -133,9 +134,8 @@ function clickRowsFromMap(
   return clicks;
 }
 
-function topCountriesFromMap(
+function countriesFromMap(
   totals: Map<string, { pageViews: number; linkClicks: number }>,
-  limit = TOP_COUNTRIES,
 ): AnalyticsCountryRow[] {
   return [...totals.entries()]
     .map(([code, value]) => ({
@@ -143,8 +143,38 @@ function topCountriesFromMap(
       pageViews: value.pageViews,
       linkClicks: value.linkClicks,
     }))
-    .toSorted((a, b) => b.pageViews - a.pageViews || b.linkClicks - a.linkClicks || a.code.localeCompare(b.code))
-    .slice(0, limit);
+    .toSorted((a, b) => b.pageViews - a.pageViews || b.linkClicks - a.linkClicks || a.code.localeCompare(b.code));
+}
+
+async function uniqueViewsForGames(gameIds: string[], window: AnalyticsWindow) {
+  const db = getDb();
+  const filters: SQL[] = [inArray(gameAnalyticsVisitors.gameId, gameIds)];
+  if (window.start && window.end) {
+    filters.push(gte(gameAnalyticsVisitors.day, window.start));
+    filters.push(lte(gameAnalyticsVisitors.day, window.end));
+  }
+  const where = and(...filters);
+  const [rows, totalRow] = await Promise.all([
+    db
+      .select({
+        gameId: gameAnalyticsVisitors.gameId,
+        count: sql<number>`count(distinct ${gameAnalyticsVisitors.visitorKey})::int`,
+      })
+      .from(gameAnalyticsVisitors)
+      .where(where)
+      .groupBy(gameAnalyticsVisitors.gameId),
+    db
+      .select({
+        count: sql<number>`count(distinct ${gameAnalyticsVisitors.visitorKey})::int`,
+      })
+      .from(gameAnalyticsVisitors)
+      .where(where),
+  ]);
+
+  return {
+    total: asCount(totalRow[0]?.count),
+    byGame: countByGame(rows),
+  };
 }
 
 function mergeCountryBucket(
@@ -376,7 +406,7 @@ export async function getAnalyticsPortfolio(
       id: games.id,
       slug: games.slug,
       name: games.name,
-      coverUrl: games.coverUrl,
+      logoUrl: games.logoUrl,
       archivedAt: games.archivedAt,
       pageViews: games.pageViews,
       outboundClicks: games.outboundClicks,
@@ -407,6 +437,8 @@ export async function getAnalyticsPortfolio(
   const [
     daily,
     previousDaily,
+    uniques,
+    previousUniques,
     upvoteMap,
     previousUpvotes,
     likeCounts,
@@ -418,6 +450,8 @@ export async function getAnalyticsPortfolio(
   ] = await Promise.all([
     sumDailyForGames(ids, window),
     previousWindow ? sumDailyForGames(ids, previousWindow) : Promise.resolve(null),
+    uniqueViewsForGames(ids, window),
+    previousWindow ? uniqueViewsForGames(ids, previousWindow) : Promise.resolve(null),
     countVotesForGames(ids, window),
     previousWindow ? countVotesForGames(ids, previousWindow) : Promise.resolve(null),
     countLikesForGames(ids, window),
@@ -438,10 +472,11 @@ export async function getAnalyticsPortfolio(
       id: game.id,
       slug: game.slug,
       name: game.name,
-      coverUrl: game.coverUrl,
+      logoUrl: game.logoUrl,
       archived: Boolean(game.archivedAt),
       upvotes: upvoteMap.get(game.id) ?? 0,
       pageViews: lifetime ? asCount(game.pageViews) : (rollup?.pageViews ?? 0),
+      uniqueViews: uniques.byGame.get(game.id) ?? 0,
       linkClicks: lifetime ? asCount(game.outboundClicks) : (rollup?.linkClicks ?? 0),
       series: daily.seriesByGame.get(game.id) ?? [],
     };
@@ -460,9 +495,17 @@ export async function getAnalyticsPortfolio(
     emptyTotals(),
   );
   totals.reviewAverage = totals.reviewCount > 0 ? ratingSum / totals.reviewCount : null;
+  totals.uniqueViews = uniques.total;
 
   let previous: AnalyticsTotals | null = null;
-  if (previousDaily && previousUpvotes && previousLikes && previousBookmarks && previousReviews) {
+  if (
+    previousDaily &&
+    previousUniques &&
+    previousUpvotes &&
+    previousLikes &&
+    previousBookmarks &&
+    previousReviews
+  ) {
     previous = emptyTotals();
     let prevRatingSum = 0;
     for (const id of ids) {
@@ -477,6 +520,7 @@ export async function getAnalyticsPortfolio(
     }
     previous.reviewAverage =
       previous.reviewCount > 0 ? prevRatingSum / previous.reviewCount : null;
+    previous.uniqueViews = previousUniques.total;
   }
 
   return {
@@ -489,7 +533,7 @@ export async function getAnalyticsPortfolio(
     previous,
     deltas: buildMetricDeltas(totals, previous),
     series: daily.series,
-    countries: topCountriesFromMap(daily.countries),
+    countries: countriesFromMap(daily.countries),
     games: list,
   };
 }
@@ -507,7 +551,7 @@ export async function getGameAnalytics(
       id: games.id,
       slug: games.slug,
       name: games.name,
-      coverUrl: games.coverUrl,
+      logoUrl: games.logoUrl,
       archivedAt: games.archivedAt,
       pageViews: games.pageViews,
       outboundClicks: games.outboundClicks,
@@ -546,6 +590,8 @@ export async function getGameAnalytics(
   const [
     daily,
     previousDaily,
+    uniques,
+    previousUniques,
     upvoteMap,
     previousUpvotes,
     likeCounts,
@@ -557,6 +603,8 @@ export async function getGameAnalytics(
   ] = await Promise.all([
     sumDailyForGames([game.id], window),
     previousWindow ? sumDailyForGames([game.id], previousWindow) : Promise.resolve(null),
+    uniqueViewsForGames([game.id], window),
+    previousWindow ? uniqueViewsForGames([game.id], previousWindow) : Promise.resolve(null),
     countVotesForGames([game.id], window),
     previousWindow ? countVotesForGames([game.id], previousWindow) : Promise.resolve(null),
     countLikesForGames([game.id], window),
@@ -574,6 +622,7 @@ export async function getGameAnalytics(
   const totals: AnalyticsTotals = {
     upvotes: upvoteMap.get(game.id) ?? 0,
     pageViews: lifetime ? asCount(game.pageViews) : (rollup?.pageViews ?? 0),
+    uniqueViews: uniques.total,
     linkClicks: lifetime ? asCount(game.outboundClicks) : (rollup?.linkClicks ?? 0),
     likes: likeCounts.get(game.id) ?? 0,
     bookmarks: bookmarkCounts.get(game.id) ?? 0,
@@ -582,12 +631,20 @@ export async function getGameAnalytics(
   };
 
   let previous: AnalyticsTotals | null = null;
-  if (previousDaily && previousUpvotes && previousLikes && previousBookmarks && previousReviews) {
+  if (
+    previousDaily &&
+    previousUniques &&
+    previousUpvotes &&
+    previousLikes &&
+    previousBookmarks &&
+    previousReviews
+  ) {
     const prev = previousDaily.byGame.get(game.id);
     const prevReviewCount = previousReviews.counts.get(game.id) ?? 0;
     const prevRatingSum = previousReviews.ratingSums.get(game.id) ?? 0;
     previous = {
       pageViews: prev?.pageViews ?? 0,
+      uniqueViews: previousUniques.total,
       linkClicks: prev?.linkClicks ?? 0,
       upvotes: previousUpvotes.get(game.id) ?? 0,
       likes: previousLikes.get(game.id) ?? 0,
@@ -616,7 +673,7 @@ export async function getGameAnalytics(
   return {
     slug: game.slug,
     name: game.name,
-    coverUrl: game.coverUrl,
+    logoUrl: game.logoUrl,
     archived: Boolean(game.archivedAt),
     range: window.key,
     start: window.start,
@@ -627,7 +684,7 @@ export async function getGameAnalytics(
     previous,
     deltas,
     series: daily.series,
-    countries: topCountriesFromMap(daily.countries),
+    countries: countriesFromMap(daily.countries),
     launches,
     clicks,
   };

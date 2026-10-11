@@ -33,7 +33,7 @@ export function GameCardGrid({
             href={`/games/${game.slug}`}
             className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-graphite sm:size-14"
           >
-            <Image src={game.logoUrl} alt="" fill className="object-contain p-1.5" sizes="56px" />
+            <Image src={game.logoUrl} alt="" fill className="object-cover" sizes="56px" />
           </Link>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <Link href={`/games/${game.slug}`} className="flex items-center gap-1.5">

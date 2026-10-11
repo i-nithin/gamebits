@@ -52,7 +52,7 @@ export function DiscoverTable({
                   alt=""
                   width={28}
                   height={28}
-                  className="size-7 rounded-full bg-graphite object-contain p-0.5"
+                  className="size-7 rounded-full object-cover"
                 />
                 <span className="stat-mono w-6 text-fog">{game.rank}</span>
                 <span className="font-medium">{game.name}</span>

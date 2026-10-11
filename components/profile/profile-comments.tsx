@@ -27,7 +27,7 @@ export function ProfileComments({ reviews }: { reviews: ProfileReview[] }) {
               src={review.gameLogoUrl}
               alt=""
               fill
-              className="object-contain p-1.5"
+              className="object-cover"
               sizes="56px"
             />
           </span>

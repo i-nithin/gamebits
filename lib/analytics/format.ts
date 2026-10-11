@@ -51,6 +51,7 @@ export function percentChange(current: number, previous: number | null | undefin
 export function emptyDeltas(): AnalyticsDelta {
   return {
     pageViews: null,
+    uniqueViews: null,
     linkClicks: null,
     upvotes: null,
     ctr: null,
@@ -82,6 +83,7 @@ export function buildMetricDeltas(
 
   return {
     pageViews: percentChange(current.pageViews, previous.pageViews),
+    uniqueViews: percentChange(current.uniqueViews, previous.uniqueViews),
     linkClicks: percentChange(current.linkClicks, previous.linkClicks),
     upvotes: percentChange(current.upvotes, previous.upvotes),
     ctr:

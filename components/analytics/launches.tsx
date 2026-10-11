@@ -5,6 +5,11 @@ import type { AnalyticsLaunch } from "@/lib/analytics/types";
 import { formatIsoWeekLabel, weekHref } from "@/lib/iso-week";
 import { cn } from "@/lib/utils";
 
+const COLUMNS =
+  "grid grid-cols-[auto_repeat(3,minmax(0,1fr))] items-center gap-x-3 sm:gap-x-8 [&>*:not(:first-child)]:min-w-0";
+
+const HEAD = "text-[11px] tracking-[0.08em] text-fog uppercase";
+
 export function AnalyticsLaunches({ launches }: { launches: AnalyticsLaunch[] }) {
   if (launches.length === 0) {
     return (
@@ -16,42 +21,43 @@ export function AnalyticsLaunches({ launches }: { launches: AnalyticsLaunch[] })
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-obsidian p-5 card-ring">
-      <h2 className="text-[11px] tracking-[0.08em] text-fog uppercase">Launch history</h2>
-      <div className="flex flex-col">
-        {launches.map((launch) => (
-          <Link
-            key={`${launch.year}-${launch.week}`}
-            href={weekHref(launch.year, launch.week)}
-            className="flex items-center gap-4 rounded-xl px-1 py-3 transition-colors hover:bg-graphite"
-          >
-            <span
-              className={cn(
-                "stat-mono w-14 shrink-0 text-2xl",
-                launch.live ? "text-ice-signal" : "text-paper-white",
-              )}
-            >
-              {launch.rank > 0 ? `#${launch.rank}` : "—"}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span
-                className={cn(
-                  "block truncate text-sm",
-                  launch.live ? "text-ice-signal" : "text-paper-white",
-                )}
-              >
-                {formatIsoWeekLabel(launch.year, launch.week)}
-              </span>
-              <span className="stat-mono text-xs text-fog">
-                {formatAnalyticsCount(launch.voteCount)} votes
-              </span>
-            </span>
-            {launch.live ? (
-              <span className="text-[11px] tracking-[0.08em] text-ice-signal uppercase">Live</span>
-            ) : null}
-          </Link>
-        ))}
+    <div className="overflow-hidden rounded-2xl bg-obsidian card-ring">
+      <h2 className="px-4 pt-5 pb-1 text-[11px] tracking-[0.08em] text-fog uppercase sm:px-5">
+        Launch history
+      </h2>
+      <div className={COLUMNS}>
+        <span className={cn(HEAD, "py-3 pl-4 sm:pl-5")}>Week</span>
+        <span className={cn(HEAD, "py-3 text-right")}>Rank</span>
+        <span className={cn(HEAD, "py-3 text-right")}>Votes</span>
+        <span className={cn(HEAD, "py-3 pr-4 text-right sm:pr-5")}>Status</span>
       </div>
+      {launches.map((launch) => (
+        <Link
+          key={`${launch.year}-${launch.week}`}
+          href={weekHref(launch.year, launch.week)}
+          className={cn(
+            "group border-t border-white/8 transition-colors hover:bg-white/4",
+            COLUMNS,
+          )}
+        >
+          <span className="py-3.5 pl-4 text-sm whitespace-nowrap text-paper-white group-hover:text-ice-signal sm:pl-5">
+            {formatIsoWeekLabel(launch.year, launch.week)}
+          </span>
+          <span className="stat-mono py-3.5 text-right text-sm text-paper-white">
+            {launch.rank > 0 ? `#${launch.rank}` : "—"}
+          </span>
+          <span className="stat-mono py-3.5 text-right text-sm text-paper-white">
+            {formatAnalyticsCount(launch.voteCount)}
+          </span>
+          <span className="py-3.5 pr-4 text-right text-xs sm:pr-5">
+            {launch.live ? (
+              <span className="text-ice-signal">Live</span>
+            ) : (
+              <span className="text-fog">Ended</span>
+            )}
+          </span>
+        </Link>
+      ))}
     </div>
   );
 }

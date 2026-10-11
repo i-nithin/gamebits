@@ -3,6 +3,7 @@ export type AnalyticsRangeKey = "7d" | "30d" | "all" | "launch" | "custom";
 export type AnalyticsTotals = {
   upvotes: number;
   pageViews: number;
+  uniqueViews: number;
   linkClicks: number;
   likes: number;
   bookmarks: number;
@@ -12,6 +13,7 @@ export type AnalyticsTotals = {
 
 export type AnalyticsDelta = {
   pageViews: number | null;
+  uniqueViews: number | null;
   linkClicks: number | null;
   upvotes: number | null;
   ctr: number | null;
@@ -31,10 +33,11 @@ export type AnalyticsGameRow = {
   id: string;
   slug: string;
   name: string;
-  coverUrl: string;
+  logoUrl: string;
   archived: boolean;
   upvotes: number;
   pageViews: number;
+  uniqueViews: number;
   linkClicks: number;
   series: AnalyticsSeriesPoint[];
 };
@@ -76,7 +79,7 @@ export type AnalyticsLaunch = {
 export type GameAnalytics = {
   slug: string;
   name: string;
-  coverUrl: string;
+  logoUrl: string;
   archived: boolean;
   range: AnalyticsRangeKey;
   start: string | null;

@@ -4,6 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatDayLabel, todayUtcDay } from "@/lib/analytics/range";
 import type { AnalyticsRangeKey } from "@/lib/analytics/types";
 import { cn } from "@/lib/utils";
@@ -112,9 +120,24 @@ export function AnalyticsDateRangeControl({
     setOpen(false);
   }
 
+  const selectedLabel =
+    value === "custom"
+      ? customLabel
+      : (presets.find((preset) => preset.key === value)?.label ?? "Custom");
+
+  function chooseRange(next: string) {
+    if (next === "custom") {
+      setFrom(start ?? todayUtcDay());
+      setTo(end ?? todayUtcDay());
+      setOpen(true);
+      return;
+    }
+    selectPreset(next as Exclude<AnalyticsRangeKey, "custom">);
+  }
+
   return (
-    <div className="relative" ref={panelRef}>
-      <div className="flex flex-wrap items-center gap-1 rounded-full bg-graphite/80 p-1 card-ring">
+    <div className="relative min-w-0 max-w-full" ref={panelRef}>
+      <div className="hidden w-fit items-center gap-1 rounded-full bg-graphite/80 p-1 md:flex">
         {presets.map((preset) => (
           <button
             key={preset.key}
@@ -122,9 +145,9 @@ export function AnalyticsDateRangeControl({
             aria-pressed={value === preset.key}
             onClick={() => selectPreset(preset.key)}
             className={cn(
-              "rounded-full px-3 py-1.5 text-xs transition-colors",
+              "rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-colors",
               value === preset.key
-                ? "bg-obsidian text-ice-signal"
+                ? "bg-ice-soft text-ice-signal"
                 : "text-fog hover:text-paper-white",
             )}
           >
@@ -137,9 +160,9 @@ export function AnalyticsDateRangeControl({
           aria-expanded={open}
           onClick={openCustom}
           className={cn(
-            "rounded-full px-3 py-1.5 text-xs transition-colors",
+            "rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-colors",
             value === "custom" || open
-              ? "bg-obsidian text-ice-signal"
+              ? "bg-ice-soft text-ice-signal"
               : "text-fog hover:text-paper-white",
           )}
         >
@@ -147,8 +170,29 @@ export function AnalyticsDateRangeControl({
         </button>
       </div>
 
+      <div className="md:hidden">
+        <Select value={value} onValueChange={(next) => {
+          if (typeof next !== "string" || !next) return;
+          chooseRange(next);
+        }}>
+          <SelectTrigger type="button" className="w-full max-w-56 border-iron bg-charcoal text-paper-white">
+            <SelectValue>{selectedLabel}</SelectValue>
+          </SelectTrigger>
+          <SelectContent align="start" className="border-iron bg-obsidian p-1 shadow-lg">
+            <SelectGroup>
+              {presets.map((preset) => (
+                <SelectItem key={preset.key} value={preset.key}>
+                  {preset.label}
+                </SelectItem>
+              ))}
+              <SelectItem value="custom">Custom</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
+
       {open ? (
-        <div className="absolute top-[calc(100%+0.5rem)] right-0 z-40 w-[min(100vw-2rem,22rem)] rounded-2xl bg-obsidian p-4 shadow-xl card-ring">
+        <div className="absolute top-[calc(100%+0.5rem)] left-0 z-40 w-[min(100vw-2rem,22rem)] rounded-2xl bg-obsidian p-4 shadow-xl card-ring md:right-0 md:left-auto">
           <div className="flex flex-col gap-3">
             <p className="text-xs text-fog">Pick a date range (up to today)</p>
             <label className="flex flex-col gap-1.5 text-xs text-fog">
