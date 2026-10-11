@@ -8,6 +8,11 @@ export const DISCOVERY_METRICS = [
     help: "People who opened your game page",
   },
   {
+    key: "uniqueViews",
+    label: "Unique views",
+    help: "Distinct people who opened your game page in this period.",
+  },
+  {
     key: "linkClicks",
     label: "Link clicks",
     help: "People who left to play or open a store/social link",

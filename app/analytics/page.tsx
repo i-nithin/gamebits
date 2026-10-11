@@ -10,6 +10,7 @@ import { AnalyticsEngagementPanel } from "@/components/analytics/engagement-pane
 import { AnalyticsGameList } from "@/components/analytics/game-list";
 import { AnalyticsTrendChart } from "@/components/analytics/trend-chart";
 import { Button } from "@/components/ui/button";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   Empty,
   EmptyDescription,
@@ -76,9 +77,10 @@ export default async function AnalyticsPage({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-10 px-4 py-6 sm:px-6 sm:py-8">
+    <TooltipProvider delay={200}>
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-10 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-col gap-4">
-        <AnalyticsBreadcrumbs items={[{ label: "Studio" }, { label: "Analytics" }]} />
+        <AnalyticsBreadcrumbs items={[{ label: "Analytics" }]} />
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <AnalyticsHeader />
           <Suspense fallback={null}>
@@ -93,20 +95,9 @@ export default async function AnalyticsPage({
       </div>
 
       <AnalyticsDiscoveryStrip totals={portfolio.totals} deltas={portfolio.deltas} />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <AnalyticsEngagementPanel totals={portfolio.totals} deltas={portfolio.deltas} />
-        <AnalyticsCountriesPanel countries={portfolio.countries} />
-      </div>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="px-1 text-[11px] tracking-[0.08em] text-fog uppercase">
-          Views and link clicks over time
-        </h2>
-        <div className="rounded-2xl bg-obsidian p-4 sm:p-5 card-ring">
-          <AnalyticsTrendChart series={portfolio.series} />
-        </div>
-      </section>
+      <AnalyticsCountriesPanel countries={portfolio.countries} />
+      <AnalyticsEngagementPanel totals={portfolio.totals} deltas={portfolio.deltas} />
+      <AnalyticsTrendChart series={portfolio.series} />
 
       {portfolio.games.length === 0 ? (
         <Empty className="border border-dashed border-iron">
@@ -120,10 +111,10 @@ export default async function AnalyticsPage({
         </Empty>
       ) : (
         <section className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between gap-3 px-1">
-            <h2 className="text-[11px] tracking-[0.08em] text-fog uppercase">Games</h2>
-            <span className="stat-mono text-xs text-fog">{portfolio.gameCount}</span>
-          </div>
+          <h2 className="px-1 text-lg font-medium">
+            Games
+            <span className="stat-mono ml-2 text-sm font-normal text-fog">{portfolio.gameCount}</span>
+          </h2>
           <AnalyticsGameList
             games={portfolio.games}
             query={analyticsQueryString({
@@ -134,7 +125,8 @@ export default async function AnalyticsPage({
           />
         </section>
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
 

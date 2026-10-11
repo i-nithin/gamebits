@@ -26,7 +26,7 @@ cp .env.example .env.local
 | Variable | Required | Purpose |
 |---|---|---|
 | `DATABASE_URL` | Yes | Neon **pooled** connection string (app queries) |
-| `DATABASE_URL_UNPOOLED` | Yes | Neon **direct** connection string (migrations + seed) |
+| `DATABASE_URL_UNPOOLED` | Yes | Neon **direct** connection string (migrations and seed scripts) |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes* | Clerk publishable key |
 | `CLERK_SECRET_KEY` | Yes* | Clerk secret key |
 | `CLOUDFLARE_ACCOUNT_ID` | For uploads | Cloudflare account id (R2 S3 endpoint) |
@@ -132,12 +132,19 @@ Restart `next dev` after changing `R2_PUBLIC_URL` so `next.config` picks up the 
 
 ## 3. Database
 
-Apply migrations, then optionally seed sample games for the current ISO week:
+Apply migrations, then optionally load demo data:
 
 ```bash
 npm run db:migrate
 npm run db:seed
+npm run db:seed:analytics
 ```
+
+`db:seed` inserts the sample catalog (Northstar Drift and the other fictional games) and lists them on the current ISO week. Skip it when the database already has games uploaded from real accounts.
+
+`db:seed:analytics` fills every live game already in the database with 60 days of demo activity: views, unique visitors, link clicks, countries, upvotes, likes, bookmarks, and written reviews. It also lists each of those games on the last four ISO weeks so launch stats show up. Featured flags already on a listing are left as they are.
+
+Run it again any time the team adds games. A re-run rebuilds the demo series for every non-archived game. Reviews, likes, votes, and bookmarks from real accounts stay. Demo rows use accounts whose ids start with `seed:` and are replaced on the next run. The previous view and click rollup for those games is replaced too, including any real traffic recorded since the last run.
 
 ### Admin
 
@@ -161,6 +168,7 @@ Useful scripts:
 | `npm run db:migrate` | Apply migrations (uses `DATABASE_URL_UNPOOLED`) |
 | `npm run db:push` | Push schema without a migration file (dev only) |
 | `npm run db:seed` | Insert demo games + current-week listings |
+| `npm run db:seed:analytics` | Demo views, countries, clicks, votes, likes, bookmarks, and reviews for every live game |
 
 ## 4. Run
 

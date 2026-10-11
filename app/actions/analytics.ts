@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { games } from "@/db/schema";
 import { countryFromHeaders } from "@/lib/analytics/geo";
 import { recordPageView } from "@/lib/analytics/record";
+import { resolveVisitorKey } from "@/lib/analytics/visitor";
 import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { getDb, hasDatabase } from "@/lib/db";
 import { isUuid } from "@/lib/sanitize";
@@ -32,7 +33,8 @@ export async function recordPageViewAction(gameId: string) {
   try {
     const requestHeaders = await headers();
     const country = countryFromHeaders(requestHeaders);
-    await recordPageView(game.id, userId, country);
+    const visitorKey = await resolveVisitorKey(userId);
+    await recordPageView(game.id, userId, country, visitorKey);
   } catch (error) {
     console.error("[analytics] page view failed", error);
   }

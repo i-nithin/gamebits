@@ -9,6 +9,7 @@ import {
   TrendingUpIcon,
 } from "lucide-react";
 
+import { InfoTip } from "@/components/game/field-info";
 import {
   formatAnalyticsCount,
   formatDeltaPercent,
@@ -68,50 +69,44 @@ export function AnalyticsEngagementPanel({
   deltas: AnalyticsDelta;
 }) {
   return (
-    <section className="flex flex-col gap-4 rounded-2xl bg-obsidian p-5 card-ring">
-      <h2 className="text-[11px] tracking-[0.08em] text-fog uppercase">Engagement</h2>
-      <div className="flex flex-col">
-        {ENGAGEMENT_METRICS.map((metric) => {
-          const Icon = ICONS[metric.key] ?? HeartIcon;
-          const delta = deltaFor(metric.key, deltas);
-          const deltaLabel = formatDeltaPercent(delta);
-          const positive = delta != null && delta > 0;
-          const negative = delta != null && delta < 0;
-          return (
-            <div
-              key={metric.key}
-              className="flex items-start gap-3 border-b border-white/6 py-3 last:border-b-0 last:pb-0 first:pt-0"
-            >
-              <Icon className="mt-0.5 size-4 shrink-0 text-fog" aria-hidden />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm text-paper-white">{metric.label}</span>
-                  <span className="stat-mono text-sm text-paper-white">
-                    {valueFor(metric.key, totals)}
-                  </span>
-                </div>
-                <div className="mt-1 flex items-center justify-between gap-3">
-                  <p className="text-xs leading-5 text-fog">{metric.help}</p>
-                  {deltaLabel ? (
-                    <span
-                      className={cn(
-                        "stat-mono inline-flex shrink-0 items-center gap-1 text-xs",
-                        positive && "text-success",
-                        negative && "text-error",
-                        !positive && !negative && "text-fog",
-                      )}
-                    >
-                      {positive ? <TrendingUpIcon className="size-3.5" /> : null}
-                      {negative ? <TrendingDownIcon className="size-3.5" /> : null}
-                      {deltaLabel}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      {ENGAGEMENT_METRICS.map((metric) => {
+        const Icon = ICONS[metric.key] ?? HeartIcon;
+        const delta = deltaFor(metric.key, deltas);
+        const deltaLabel = formatDeltaPercent(delta);
+        const positive = delta != null && delta > 0;
+        const negative = delta != null && delta < 0;
+        return (
+          <div key={metric.key} className="flex flex-col gap-3 rounded-2xl bg-obsidian px-4 py-5 card-ring">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex size-8 items-center justify-center rounded-xl bg-graphite text-ice-signal">
+                <Icon className="size-4" aria-hidden />
+              </span>
+              {deltaLabel ? (
+                <span
+                  className={cn(
+                    "stat-mono inline-flex items-center gap-1 text-xs",
+                    positive && "text-success",
+                    negative && "text-error",
+                    !positive && !negative && "text-fog",
+                  )}
+                >
+                  {positive ? <TrendingUpIcon className="size-3.5" /> : null}
+                  {negative ? <TrendingDownIcon className="size-3.5" /> : null}
+                  {deltaLabel}
+                </span>
+              ) : null}
             </div>
-          );
-        })}
-      </div>
+            <div>
+              <p className="stat-mono text-2xl text-paper-white">{valueFor(metric.key, totals)}</p>
+              <p className="mt-1 flex items-center gap-1.5 text-[11px] tracking-[0.08em] text-fog uppercase">
+                {metric.label}
+                <InfoTip text={metric.help} />
+              </p>
+            </div>
+          </div>
+        );
+      })}
     </section>
   );
 }

@@ -169,6 +169,13 @@
       "when": 1791208452845,
       "tag": "0023_yielding_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791723820948,
+      "tag": "0024_demonic_captain_stacy",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 
-import { gameAnalyticsDaily, gameAnalyticsEvents, games } from "@/db/schema";
+import { gameAnalyticsDaily, gameAnalyticsEvents, gameAnalyticsVisitors, games } from "@/db/schema";
 import type { AnalyticsLinkKind } from "@/lib/analytics/links";
 import { getDb, hasDatabase } from "@/lib/db";
 
@@ -30,6 +30,7 @@ export async function recordPageView(
   gameId: string,
   clerkUserId: string | null,
   country: string | null = null,
+  visitorKey: string | null = null,
 ) {
   if (!hasDatabase()) return;
   const db = getDb();
@@ -68,6 +69,12 @@ export async function recordPageView(
         updatedAt: new Date(),
       })
       .where(and(eq(games.id, gameId), isNull(games.archivedAt))),
+    visitorKey
+      ? db
+          .insert(gameAnalyticsVisitors)
+          .values({ gameId, visitorKey, day })
+          .onConflictDoNothing()
+      : Promise.resolve(),
   ]);
 }
 

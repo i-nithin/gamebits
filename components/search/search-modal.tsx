@@ -101,7 +101,7 @@ function ScopeNav({
   );
 }
 
-function HitThumb({ src, name, cover }: { src: string | null; name: string; cover: boolean }) {
+function HitThumb({ src, name }: { src: string | null; name: string }) {
   const initial = name.trim().charAt(0).toUpperCase();
   return (
     <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate text-sm font-medium text-paper-white">
@@ -111,7 +111,7 @@ function HitThumb({ src, name, cover }: { src: string | null; name: string; cove
           alt=""
           fill
           sizes="40px"
-          className={cover ? "object-cover" : "object-contain p-1"}
+          className="object-cover"
         />
       ) : (
         initial
@@ -143,7 +143,7 @@ function HitRow({
         selected ? "bg-graphite" : "hover:bg-graphite",
       )}
     >
-      <HitThumb src={hit.imageUrl} name={hit.name} cover={hit.kind === "person"} />
+      <HitThumb src={hit.imageUrl} name={hit.name} />
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium text-paper-white">{hit.name}</span>
         <span className="block truncate text-xs text-fog">{hit.subtitle}</span>

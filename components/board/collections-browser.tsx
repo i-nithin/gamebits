@@ -753,7 +753,7 @@ function CollectionsTable({
                     alt=""
                     width={32}
                     height={32}
-                    className="size-8 rounded-lg bg-graphite object-contain p-0.5"
+                    className="size-8 rounded-lg object-cover"
                   />
                   <span className="flex items-center gap-1.5 font-medium">
                     {game.name}

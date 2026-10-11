@@ -30,7 +30,7 @@ export function RankRail({ games, ads }: { games: RankedGame[]; ads: SidebarAd[]
               alt=""
               width={32}
               height={32}
-              className="size-8 rounded-full bg-graphite object-contain p-0.5"
+              className="size-8 rounded-full object-cover"
             />
             <span className="min-w-0 flex-1 truncate text-sm font-medium text-paper-white">
               {game.name}
