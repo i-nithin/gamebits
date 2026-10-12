@@ -128,6 +128,7 @@ export type SavedGame = {
   slug: string;
   name: string;
   tagline: string;
+  coverUrl: string;
   logoUrl: string;
   status: GameStatus;
   categories: GameCategoryItem[];

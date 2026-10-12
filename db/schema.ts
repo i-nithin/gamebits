@@ -80,6 +80,8 @@ export const games = pgTable(
   },
   (table) => [
     index("games_catalog_idx").on(table.createdAt, table.id),
+    index("games_owner_created_idx").on(table.ownerClerkUserId, table.createdAt, table.id),
+    index("games_owner_archived_idx").on(table.ownerClerkUserId, table.archivedAt, table.id),
     index("games_name_lower_idx")
       .using("btree", sql`lower(${table.name}) text_pattern_ops`)
       .where(sql`${table.archivedAt} is null`),
@@ -219,6 +221,7 @@ export const gameReviews = pgTable(
   (table) => [
     uniqueIndex("game_reviews_user_game_idx").on(table.clerkUserId, table.gameId),
     index("game_reviews_game_created_idx").on(table.gameId, table.createdAt),
+    index("game_reviews_user_created_idx").on(table.clerkUserId, table.createdAt, table.id),
   ],
 );
 
@@ -279,7 +282,7 @@ export const bookmarks = pgTable(
   },
   (table) => [
     uniqueIndex("bookmarks_user_game_idx").on(table.clerkUserId, table.gameId),
-    index("bookmarks_user_created_idx").on(table.clerkUserId, table.createdAt),
+    index("bookmarks_user_created_idx").on(table.clerkUserId, table.createdAt, table.id),
   ],
 );
 
@@ -296,6 +299,7 @@ export const likes = pgTable(
   (table) => [
     uniqueIndex("likes_user_game_idx").on(table.clerkUserId, table.gameId),
     index("likes_game_idx").on(table.gameId),
+    index("likes_user_created_idx").on(table.clerkUserId, table.createdAt, table.id),
   ],
 );
 
@@ -310,6 +314,16 @@ export const follows = pgTable(
   (table) => [
     uniqueIndex("follows_pair_idx").on(table.followerClerkUserId, table.followingClerkUserId),
     index("follows_following_idx").on(table.followingClerkUserId),
+    index("follows_follower_created_idx").on(
+      table.followerClerkUserId,
+      table.createdAt,
+      table.id,
+    ),
+    index("follows_following_created_idx").on(
+      table.followingClerkUserId,
+      table.createdAt,
+      table.id,
+    ),
     check(
       "follows_no_self",
       sql`${table.followerClerkUserId} <> ${table.followingClerkUserId}`,

@@ -724,6 +724,7 @@ const savedGameColumns = {
   slug: games.slug,
   name: games.name,
   tagline: games.tagline,
+  coverUrl: games.coverUrl,
   logoUrl: games.logoUrl,
   status: games.status,
 };
@@ -734,6 +735,7 @@ async function toSavedGames(
     slug: string;
     name: string;
     tagline: string;
+    coverUrl: string;
     logoUrl: string;
     status: SavedGame["status"];
   }>,
@@ -748,6 +750,7 @@ async function toSavedGames(
     slug: row.slug,
     name: row.name,
     tagline: row.tagline,
+    coverUrl: row.coverUrl,
     logoUrl: row.logoUrl,
     status: row.status,
     categories: categoryMap.get(row.id) ?? [],

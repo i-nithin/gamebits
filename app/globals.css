@@ -6,6 +6,7 @@
 
 @theme inline {
   --color-void: var(--gb-void);
+  --color-page: var(--gb-page);
   --color-obsidian: var(--gb-obsidian);
   --color-charcoal: var(--gb-charcoal);
   --color-graphite: var(--gb-graphite);
@@ -65,6 +66,7 @@
 
 :root {
   --gb-void: #080809;
+  --gb-page: #101011;
   --gb-obsidian: #141415;
   --gb-charcoal: #1b1d1f;
   --gb-graphite: #26272d;
@@ -79,7 +81,7 @@
   --gb-error: #e24756;
   --gb-hairline: rgba(255, 255, 255, 0.08);
   --gb-scrim: rgba(8, 8, 9, 0.72);
-  --background: #1b1d1f;
+  --background: #101011;
   --foreground: #ffffff;
   --card: #1b1d1f;
   --card-foreground: #ffffff;
@@ -114,7 +116,7 @@
 }
 
 .dark {
-  --background: #1b1d1f;
+  --background: #101011;
   --foreground: #ffffff;
   --card: #1b1d1f;
   --card-foreground: #ffffff;
@@ -140,13 +142,13 @@
   }
 
   html {
-    @apply bg-obsidian font-sans;
+    @apply bg-page font-sans;
     color-scheme: dark;
     overscroll-behavior-y: none;
   }
 
   body {
-    @apply bg-obsidian text-paper-white antialiased;
+    @apply bg-page text-paper-white antialiased;
   }
 
   a,

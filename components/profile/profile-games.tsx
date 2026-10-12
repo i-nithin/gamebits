@@ -1,33 +1,187 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useDeferredValue, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import {
+  BookmarkIcon,
+  Gamepad2Icon,
+  HeartIcon,
+  MessageSquareIcon,
+  SearchIcon,
+  UserPlusIcon,
+  UsersIcon,
+  XIcon,
+  type LucideIcon,
+} from "lucide-react";
 
+import { ProfileComments } from "@/components/profile/profile-comments";
+import { ProfileGameGrid } from "@/components/profile/profile-game-grid";
+import { ProfilePeople } from "@/components/profile/profile-people";
+import { Button } from "@/components/ui/button";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GAME_STATUS_LABELS } from "@/lib/constants";
 import { profileTab, type ProfileTab } from "@/lib/profile-tab";
+import type { FollowProfile, ProfileReview, SavedGame } from "@/lib/types";
 
-const TABS: Array<{ id: ProfileTab; label: string; ownerOnly?: boolean }> = [
-  { id: "games", label: "Games" },
-  { id: "saved", label: "Bookmarks", ownerOnly: true },
-  { id: "liked", label: "Liked", ownerOnly: true },
-  { id: "comments", label: "Comments", ownerOnly: true },
-  { id: "followers", label: "Followers" },
-  { id: "following", label: "Following" },
+type TabMeta = {
+  id: ProfileTab;
+  label: string;
+  searchLabel: string;
+  ownerOnly?: boolean;
+};
+
+const TABS: TabMeta[] = [
+  { id: "games", label: "Games", searchLabel: "games" },
+  { id: "followers", label: "Followers", searchLabel: "followers" },
+  { id: "following", label: "Following", searchLabel: "following" },
+  {
+    id: "saved",
+    label: "Bookmarks",
+    searchLabel: "bookmarks",
+    ownerOnly: true,
+  },
+  { id: "liked", label: "Liked", searchLabel: "liked games", ownerOnly: true },
+  {
+    id: "comments",
+    label: "Comments",
+    searchLabel: "comments",
+    ownerOnly: true,
+  },
 ];
+
+type GameView = "published" | "archived" | "all";
+
+const GAME_VIEW_LABELS: Record<GameView, string> = {
+  published: "Published games",
+  archived: "Archived games",
+  all: "All games",
+};
+
+const EMPTY_QUERIES: Record<ProfileTab, string> = {
+  games: "",
+  followers: "",
+  following: "",
+  saved: "",
+  liked: "",
+  comments: "",
+};
+
+function normalize(value: string) {
+  return value.trim().toLocaleLowerCase();
+}
+
+function gameMatches(game: SavedGame, query: string) {
+  if (!query) return true;
+  const haystack = [
+    game.name,
+    game.tagline,
+    game.archived ? "Archived" : "",
+    GAME_STATUS_LABELS[game.status],
+    ...game.categories.map((category) => category.name),
+    ...game.platforms.map((platform) => platform.name),
+  ]
+    .join(" ")
+    .toLocaleLowerCase();
+  return haystack.includes(query);
+}
+
+function personMatches(person: FollowProfile, query: string) {
+  if (!query) return true;
+  return `${person.name} ${person.handle}`.toLocaleLowerCase().includes(query);
+}
+
+function reviewMatches(review: ProfileReview, query: string) {
+  if (!query) return true;
+  return `${review.gameName} ${review.body}`.toLocaleLowerCase().includes(query);
+}
+
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-64 flex-col items-center justify-center px-4 py-12 text-center">
+      <span className="mb-4 flex size-10 items-center justify-center rounded-full bg-graphite/70 text-fog ring-1 ring-white/10">
+        <Icon className="size-4" />
+      </span>
+      <p className="text-sm font-medium text-paper-white">{title}</p>
+      <p className="mt-1 max-w-sm text-sm leading-6 text-fog">{description}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  );
+}
+
+function GameSection({
+  title,
+  games,
+  emptyDescription,
+}: {
+  title: string;
+  games: SavedGame[];
+  emptyDescription: string;
+}) {
+  return (
+    <section className="flex flex-col gap-4">
+      <h3 className="flex items-center gap-2 text-xs font-medium tracking-wide text-fog uppercase">
+        {title}
+        <span className="tabular-nums">{games.length}</span>
+      </h3>
+      {games.length > 0 ? (
+        <ProfileGameGrid games={games} />
+      ) : (
+        <p className="py-8 text-sm text-fog">{emptyDescription}</p>
+      )}
+    </section>
+  );
+}
 
 export function ProfileGames({
   handle,
   tab,
   isOwner,
-  panels,
+  published,
+  archived,
+  saved,
+  liked,
+  comments,
+  followers,
+  following,
 }: {
   handle: string;
   tab: ProfileTab;
   isOwner: boolean;
-  panels: Record<ProfileTab, ReactNode>;
+  published: SavedGame[];
+  archived: SavedGame[];
+  saved: SavedGame[];
+  liked: SavedGame[];
+  comments: ProfileReview[];
+  followers: FollowProfile[];
+  following: FollowProfile[];
 }) {
   const router = useRouter();
   const [current, setCurrent] = useState(tab);
+  const [gameView, setGameView] = useState<GameView>("published");
+  const [queries, setQueries] = useState<Record<ProfileTab, string>>(EMPTY_QUERIES);
   const [seenTab, setSeenTab] = useState(tab);
   if (tab !== seenTab) {
     setSeenTab(tab);
@@ -35,6 +189,46 @@ export function ProfileGames({
   }
 
   const tabs = TABS.filter((item) => !item.ownerOnly || isOwner);
+  const currentMeta = tabs.find((item) => item.id === current) ?? tabs[0];
+  const query = queries[current];
+  const deferredQueries = useDeferredValue(queries);
+  const deferredQuery = normalize(deferredQueries[current]);
+  const filteredPublished = published.filter((game) => gameMatches(game, deferredQuery));
+  const filteredArchived = archived.filter((game) => gameMatches(game, deferredQuery));
+  const filteredSaved = saved.filter((game) => gameMatches(game, deferredQuery));
+  const filteredLiked = liked.filter((game) => gameMatches(game, deferredQuery));
+  const filteredComments = comments.filter((review) => reviewMatches(review, deferredQuery));
+  const filteredFollowers = followers.filter((person) => personMatches(person, deferredQuery));
+  const filteredFollowing = following.filter((person) => personMatches(person, deferredQuery));
+  const selectedGames =
+    gameView === "archived"
+      ? archived
+      : gameView === "all"
+        ? [...published, ...archived]
+        : published;
+  const filteredSelectedGames =
+    gameView === "archived"
+      ? filteredArchived
+      : gameView === "all"
+        ? [...filteredPublished, ...filteredArchived]
+        : filteredPublished;
+
+  function clearSearch() {
+    setQueries((previous) => ({ ...previous, [current]: "" }));
+  }
+
+  const noResults = (
+    <EmptyState
+      icon={SearchIcon}
+      title="No matches found"
+      description={`Try another search in ${currentMeta.searchLabel}.`}
+      action={
+        <Button variant="outline" className="rounded-full" onClick={clearSearch}>
+          Clear search
+        </Button>
+      }
+    />
+  );
 
   return (
     <Tabs
@@ -45,19 +239,213 @@ export function ProfileGames({
         const href = next === "games" ? `/u/${handle}` : `/u/${handle}?tab=${next}`;
         router.replace(href, { scroll: false });
       }}
+      className="gap-0!"
     >
-      <TabsList variant="line">
+      <TabsList
+        variant="line"
+        className="sticky top-14 z-20 h-12! w-full! justify-start gap-2 overflow-x-auto border-b border-white/10 bg-page/95 p-0! backdrop-blur-md lg:gap-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {tabs.map((item) => (
-          <TabsTrigger key={item.id} value={item.id}>
-            {item.id === "games" && isOwner ? "My games" : item.label}
+          <TabsTrigger
+            key={item.id}
+            value={item.id}
+            className="h-full! w-auto! flex-none! rounded-none border-0 px-0 py-0 text-[13px] font-normal text-fog shadow-none! after:-bottom-px! after:h-0.5! hover:text-paper-white data-active:bg-transparent! data-active:font-semibold data-active:text-paper-white! data-active:shadow-none! data-active:after:bg-paper-white! dark:data-active:border-transparent! dark:data-active:bg-transparent!"
+          >
+            {item.label}
           </TabsTrigger>
         ))}
       </TabsList>
-      {tabs.map((item) => (
-        <TabsContent key={item.id} value={item.id} className="pt-4">
-          {panels[item.id]}
-        </TabsContent>
-      ))}
+
+      <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-start">
+        {current === "games" && isOwner ? (
+          <Select
+            value={gameView}
+            onValueChange={(value) => {
+              if (typeof value === "string") setGameView(value as GameView);
+            }}
+          >
+            <SelectTrigger
+              type="button"
+              aria-label="Choose which games to show"
+              className="h-10! w-full rounded-full border-white/15 bg-obsidian/30 px-4 text-sm text-paper-white hover:bg-obsidian/55 data-popup-open:[&_svg]:rotate-180 sm:w-44 sm:flex-none [&_svg]:transition-transform"
+            >
+              <SelectValue>{GAME_VIEW_LABELS[gameView]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent
+              align="start"
+              alignItemWithTrigger={false}
+              sideOffset={8}
+              className="w-(--anchor-width) rounded-xl bg-obsidian p-2 shadow-2xl ring-1 ring-white/15 [&_[data-slot=select-item]>span:last-child]:hidden"
+            >
+              <SelectItem
+                value="published"
+                className="h-10 rounded-lg px-3 pr-3 text-sm data-selected:bg-graphite focus:bg-graphite"
+              >
+                Published games
+              </SelectItem>
+              <SelectItem
+                value="archived"
+                className="h-10 rounded-lg px-3 pr-3 text-sm data-selected:bg-graphite focus:bg-graphite"
+              >
+                Archived games
+              </SelectItem>
+              <SelectItem
+                value="all"
+                className="h-10 rounded-lg px-3 pr-3 text-sm data-selected:bg-graphite focus:bg-graphite"
+              >
+                All games
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        ) : null}
+
+        <InputGroup className="h-10 w-full rounded-full border-white/15 bg-obsidian/30 px-1 sm:w-48 sm:flex-none">
+          <InputGroupAddon className="pl-3">
+            <SearchIcon className="size-5 text-paper-white" />
+          </InputGroupAddon>
+          <InputGroupInput
+            value={query}
+            onChange={(event) =>
+              setQueries((previous) => ({ ...previous, [current]: event.target.value }))
+            }
+            placeholder="Search"
+            aria-label={`Search ${currentMeta.searchLabel}`}
+            className="text-sm placeholder:text-fog"
+          />
+          {query ? (
+            <InputGroupButton
+              size="icon-xs"
+              aria-label={`Clear ${currentMeta.searchLabel} search`}
+              onClick={clearSearch}
+            >
+              <XIcon />
+            </InputGroupButton>
+          ) : null}
+        </InputGroup>
+      </div>
+
+      <TabsContent value="games" className="py-6">
+        {deferredQuery && filteredSelectedGames.length === 0 ? (
+          noResults
+        ) : selectedGames.length === 0 ? (
+          <EmptyState
+            icon={Gamepad2Icon}
+            title={
+              gameView === "archived"
+                ? "No archived games"
+                : isOwner
+                  ? "No published games yet"
+                  : "No games"
+            }
+            description={
+              gameView === "archived"
+                ? "Games you archive will show up here."
+                : isOwner
+                  ? "Games you publish will show up here."
+                  : "Games this person publishes will show up here."
+            }
+          />
+        ) : isOwner && gameView === "all" ? (
+          <div className="flex flex-col gap-8">
+            {filteredPublished.length > 0 ? (
+              <GameSection
+                title="Published"
+                games={filteredPublished}
+                emptyDescription="Games you publish will show up here."
+              />
+            ) : null}
+            {filteredArchived.length > 0 ? (
+              <GameSection
+                title="Archived"
+                games={filteredArchived}
+                emptyDescription="Games you archive will show up here."
+              />
+            ) : null}
+          </div>
+        ) : (
+          <ProfileGameGrid games={filteredSelectedGames} />
+        )}
+      </TabsContent>
+
+      <TabsContent value="followers" className="py-6">
+        {deferredQuery && filteredFollowers.length === 0 ? (
+          noResults
+        ) : followers.length === 0 ? (
+          <EmptyState
+            icon={UsersIcon}
+            title="No followers"
+            description={
+              isOwner ? "People who follow you will show up here." : "Followers will show up here."
+            }
+          />
+        ) : (
+          <ProfilePeople people={filteredFollowers} />
+        )}
+      </TabsContent>
+
+      <TabsContent value="following" className="py-6">
+        {deferredQuery && filteredFollowing.length === 0 ? (
+          noResults
+        ) : following.length === 0 ? (
+          <EmptyState
+            icon={UserPlusIcon}
+            title="Not following anyone"
+            description={
+              isOwner
+                ? "People you follow will show up here."
+                : "People this person follows will show up here."
+            }
+          />
+        ) : (
+          <ProfilePeople people={filteredFollowing} />
+        )}
+      </TabsContent>
+
+      {isOwner ? (
+        <>
+          <TabsContent value="saved" className="py-6">
+            {deferredQuery && filteredSaved.length === 0 ? (
+              noResults
+            ) : saved.length === 0 ? (
+              <EmptyState
+                icon={BookmarkIcon}
+                title="No bookmarks"
+                description="Games you save will show up here."
+              />
+            ) : (
+              <ProfileGameGrid games={filteredSaved} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="liked" className="py-6">
+            {deferredQuery && filteredLiked.length === 0 ? (
+              noResults
+            ) : liked.length === 0 ? (
+              <EmptyState
+                icon={HeartIcon}
+                title="No liked games"
+                description="Games you like will show up here."
+              />
+            ) : (
+              <ProfileGameGrid games={filteredLiked} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="comments" className="py-6">
+            {deferredQuery && filteredComments.length === 0 ? (
+              noResults
+            ) : comments.length === 0 ? (
+              <EmptyState
+                icon={MessageSquareIcon}
+                title="No comments"
+                description="Reviews you post on games will show up here."
+              />
+            ) : (
+              <ProfileComments reviews={filteredComments} />
+            )}
+          </TabsContent>
+        </>
+      ) : null}
     </Tabs>
   );
 }

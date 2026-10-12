@@ -23,9 +23,9 @@ export function AppShell({
 }) {
   const shell = (
     <>
-      <div className="min-h-dvh bg-obsidian">
+      <div className="min-h-dvh bg-page">
         <LeftRail viewer={viewer} showAdminNav={showAdminNav} />
-        <div data-app-shell className="flex min-h-dvh flex-col bg-charcoal pt-14 md:pl-14">
+        <div data-app-shell className="flex min-h-dvh flex-col bg-page pt-14 md:pl-14">
           <TopBar viewer={viewer} showAdminNav={showAdminNav} />
           {viewer?.deletionDeadline ? (
             <div className="border-b border-iron bg-obsidian px-4 py-3 text-sm text-paper-white">
@@ -35,7 +35,7 @@ export function AppShell({
               </Link>
             </div>
           ) : null}
-          <main className="flex-1 bg-charcoal">{children}</main>
+          <main className="flex-1 bg-page">{children}</main>
           <Footer />
         </div>
       </div>

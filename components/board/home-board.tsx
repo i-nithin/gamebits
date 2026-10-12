@@ -108,7 +108,7 @@ export function HomeBoard({
               />
             ),
           )}
-          <div className="absolute inset-0 bg-linear-to-b from-charcoal/40 via-charcoal/80 to-charcoal" />
+          <div className="absolute inset-0 bg-linear-to-b from-page/40 via-page/80 to-page" />
         </div>
       </div>
 
