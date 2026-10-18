@@ -12,8 +12,7 @@ import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getDb } from "@/lib/db";
 import { isNotificationType } from "@/lib/notifications/catalog";
 import { setNotificationPreference } from "@/lib/notifications/preferences";
-import { HANDLE_RE, ensureCurrentProfile } from "@/lib/profile";
-import { sanitizePlainText } from "@/lib/sanitize";
+import { HANDLE_RE } from "@/lib/profile";
 
 export async function updateNotificationPreferenceAction(type: string, enabled: boolean) {
   const userId = await getCurrentUserId();
@@ -26,31 +25,6 @@ export async function updateNotificationPreferenceAction(type: string, enabled: 
 
   await setNotificationPreference(userId, type, enabled);
   return { ok: true as const };
-}
-
-export async function updateDisplayNameAction(name: string) {
-  const userId = await getCurrentUserId();
-  if (!userId) return { ok: false as const, error: "Sign in to continue" };
-
-  const clean = sanitizePlainText(name, 80);
-  if (!clean) return { ok: false as const, error: "Name is required" };
-
-  const profile = await ensureCurrentProfile();
-  if (!profile || profile.clerkUserId !== userId || profile.deletedAt) {
-    return { ok: false as const, error: "Sign in to continue" };
-  }
-  if (clean === profile.name) return { ok: true as const, name: clean };
-
-  await getDb()
-    .update(profiles)
-    .set({ name: clean, updatedAt: new Date() })
-    .where(eq(profiles.clerkUserId, userId));
-
-  revalidatePath("/", "layout");
-  revalidatePath("/settings");
-  revalidatePath(`/u/${profile.handle}`);
-  revalidatePath(`/u/${profile.handle}/edit`);
-  return { ok: true as const, name: clean };
 }
 
 export async function revokeSessionAction(sessionId: string) {
@@ -194,7 +168,7 @@ export async function restoreAccountAction() {
     .where(and(eq(profiles.clerkUserId, userId), isNull(profiles.purgedAt)));
 
   revalidatePath("/", "layout");
-  revalidatePath("/settings");
+  revalidatePath("/settings", "layout");
   revalidatePath(`/u/${row.handle}`);
   revalidatePath("/4dm1n");
   return { ok: true as const };

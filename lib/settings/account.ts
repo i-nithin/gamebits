@@ -7,6 +7,7 @@ export type AccountEmail = {
 
 export type AccountProvider = {
   id: string;
+  key: string;
   label: string;
   detail: string | null;
 };
@@ -42,8 +43,12 @@ const PROVIDER_LABELS: Record<string, string> = {
   twitch: "Twitch",
 };
 
+function providerKey(provider: string) {
+  return provider.replace(/^oauth_/, "").toLowerCase();
+}
+
 function providerLabel(provider: string) {
-  const key = provider.replace(/^oauth_/, "").toLowerCase();
+  const key = providerKey(provider);
   if (PROVIDER_LABELS[key]) return PROVIDER_LABELS[key];
   if (!key) return "Connected account";
   return key.charAt(0).toUpperCase() + key.slice(1);
@@ -68,6 +73,7 @@ export async function getClerkAccount(userId: string): Promise<ClerkAccount> {
 
   const providers = user.externalAccounts.map((account) => ({
     id: account.id,
+    key: providerKey(account.provider),
     label: providerLabel(account.provider),
     detail: account.emailAddress || account.username || null,
   }));

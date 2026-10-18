@@ -30,7 +30,7 @@ export function AppShell({
           {viewer?.deletionDeadline ? (
             <div className="border-b border-iron bg-obsidian px-4 py-3 text-sm text-paper-white">
               {`Your account is scheduled for deletion on ${formatDeletionDate(viewer.deletionDeadline)}. `}
-              <Link href="/settings" className="text-ice-signal underline">
+              <Link href="/settings/security" className="text-ice-signal underline">
                 Restore
               </Link>
             </div>

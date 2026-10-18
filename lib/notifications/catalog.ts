@@ -1,12 +1,36 @@
 import type { NotificationType } from "@/lib/notifications/types";
 
 export const NOTIFICATION_SETTINGS = [
-  { type: "follow", label: "Someone follows you" },
-  { type: "game_like", label: "Someone likes your game" },
-  { type: "game_upvote", label: "Someone upvotes your game" },
-  { type: "followee_publish", label: "A developer you follow publishes a game" },
-  { type: "followee_launch", label: "A developer you follow launches a game" },
-] as const satisfies ReadonlyArray<{ type: NotificationType; label: string }>;
+  {
+    type: "follow",
+    label: "Follows",
+    description: "Someone follows you.",
+  },
+  {
+    type: "game_like",
+    label: "Likes",
+    description: "Someone likes your game.",
+  },
+  {
+    type: "game_upvote",
+    label: "Upvotes",
+    description: "Someone upvotes your game.",
+  },
+  {
+    type: "followee_publish",
+    label: "New games",
+    description: "A developer you follow publishes a game.",
+  },
+  {
+    type: "followee_launch",
+    label: "Launches",
+    description: "A developer you follow launches a game.",
+  },
+] as const satisfies ReadonlyArray<{
+  type: NotificationType;
+  label: string;
+  description: string;
+}>;
 
 type Listed = (typeof NOTIFICATION_SETTINGS)[number]["type"];
 function assertAllTypes(

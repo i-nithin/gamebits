@@ -2,7 +2,6 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { profiles } from "@/db/schema";
@@ -51,10 +50,12 @@ function optionalImage(raw: string): { url: string | null } | { error: string } 
   return { url: text };
 }
 
+type ProfileActionState = { error: string } | { saved: true } | null;
+
 export async function updateProfileAction(
-  _prev: { error: string } | null,
+  _prev: ProfileActionState,
   formData: FormData,
-): Promise<{ error: string } | null> {
+): Promise<ProfileActionState> {
   const userId = await getCurrentUserId();
   if (!userId) return { error: "Sign in to continue" };
 
@@ -128,10 +129,11 @@ export async function updateProfileAction(
     throw error;
   }
 
+  revalidatePath("/", "layout");
+  revalidatePath("/settings", "layout");
   if (existing.handle !== parsed.data.handle) {
     revalidatePath(`/u/${existing.handle}`);
   }
   revalidatePath(`/u/${parsed.data.handle}`);
-  revalidatePath(`/u/${parsed.data.handle}/edit`);
-  redirect(`/u/${parsed.data.handle}`);
+  return { saved: true };
 }

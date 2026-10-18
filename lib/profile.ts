@@ -163,7 +163,7 @@ function clerkEmail(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>) 
   return user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? null;
 }
 
-export async function ensureCurrentProfile() {
+export const ensureCurrentProfile = cache(async function ensureCurrentProfile() {
   if (!clerkEnabled || !hasDatabase()) return null;
   const userId = await getCurrentUserId();
   if (!userId) return null;
@@ -230,4 +230,4 @@ export async function ensureCurrentProfile() {
       .returning();
     return created;
   }
-}
+});
