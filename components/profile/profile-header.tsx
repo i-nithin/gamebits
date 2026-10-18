@@ -37,7 +37,7 @@ function ProfileAction({
         variant="outline"
         className="rounded-full border-white/15 bg-obsidian/70 px-4 backdrop-blur-sm hover:bg-graphite"
         nativeButton={false}
-        render={<Link href={`/u/${profile.handle}/edit`} />}
+        render={<Link href="/settings/profile" />}
       >
         Edit profile
       </Button>
