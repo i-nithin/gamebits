@@ -1,11 +1,15 @@
 "use server";
 
+import { currentUser } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { profiles } from "@/db/schema";
 import { getCurrentUserId } from "@/lib/auth-admin";
+import { clerkEnabled } from "@/lib/clerk-enabled";
+import { confirmNewR2Object } from "@/lib/cloudflare-r2";
+import { MAX_IMAGE_BYTES } from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { isCountryCode } from "@/lib/countries";
 import { HANDLE_RE, ensureCurrentProfile } from "@/lib/profile";
@@ -43,11 +47,16 @@ function isUniqueViolation(error: unknown): boolean {
   return false;
 }
 
-function optionalImage(raw: string): { url: string | null } | { error: string } {
+function optionalImage(
+  raw: string,
+  userId: string,
+  current: string | null,
+  clerkImageUrl: string | null,
+): { url: string | null } | { error: string } {
   const text = sanitizePlainText(raw, 500);
   if (!text) return { url: null };
-  if (!isProfileImageUrl(text)) return { error: "Use an uploaded image" };
-  return { url: text };
+  if (text === current || isProfileImageUrl(text, userId, clerkImageUrl)) return { url: text };
+  return { error: "Use an uploaded image" };
 }
 
 type ProfileActionState = { error: string } | { saved: true } | null;
@@ -80,10 +89,36 @@ export async function updateProfileAction(
     return { error: "Choose a country" };
   }
 
-  const image = optionalImage(String(formData.get("imageUrl") ?? ""));
+  const clerkUser = clerkEnabled ? await currentUser() : null;
+  const clerkImageUrl = clerkUser?.imageUrl ?? null;
+  const image = optionalImage(
+    String(formData.get("imageUrl") ?? ""),
+    userId,
+    existing.imageUrl,
+    clerkImageUrl,
+  );
   if ("error" in image) return { error: image.error };
-  const cover = optionalImage(String(formData.get("coverUrl") ?? ""));
+  const cover = optionalImage(
+    String(formData.get("coverUrl") ?? ""),
+    userId,
+    existing.coverUrl,
+    clerkImageUrl,
+  );
   if ("error" in cover) return { error: cover.error };
+  const keptImages = new Set([existing.imageUrl, existing.coverUrl].filter((url): url is string => Boolean(url)));
+  for (const url of [image.url, cover.url]) {
+    if (!url) continue;
+    if (
+      !(await confirmNewR2Object({
+        url,
+        userIds: [userId],
+        maxBytes: MAX_IMAGE_BYTES,
+        keptUrls: keptImages,
+      }))
+    ) {
+      return { error: "Use an uploaded image" };
+    }
+  }
 
   const links: Record<(typeof LINK_FIELDS)[number]["field"], string | null> = {
     websiteUrl: null,

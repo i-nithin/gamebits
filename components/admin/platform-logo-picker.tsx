@@ -8,7 +8,7 @@ import { PLATFORM_LOGO_TYPES } from "@/lib/constants";
 import { uploadImage } from "@/lib/image-upload";
 import { cn } from "@/lib/utils";
 
-const ACCEPT = [...PLATFORM_LOGO_TYPES, ".svg"].join(",");
+const ACCEPT = PLATFORM_LOGO_TYPES.join(",");
 
 export function PlatformLogoPicker({
   value,

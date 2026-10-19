@@ -59,8 +59,6 @@ export function GameReviews({
   slug,
   gameId,
   signedIn,
-  displayName,
-  imageUrl,
   initialReviews,
   nextCursor,
   average,
@@ -71,8 +69,6 @@ export function GameReviews({
   slug: string;
   gameId: string;
   signedIn: boolean;
-  displayName: string;
-  imageUrl: string | null;
   initialReviews: GameReviewItem[];
   nextCursor: string | null;
   average: number | null;
@@ -141,8 +137,6 @@ export function GameReviews({
               return;
             }
             formData.set("rating", String(rating));
-            formData.set("displayName", displayName);
-            if (imageUrl) formData.set("imageUrl", imageUrl);
             setError(null);
             startTransition(async () => {
               try {

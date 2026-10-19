@@ -169,10 +169,34 @@ export function parseVideoEmbed(raw: string): VideoEmbed | null {
   return null;
 }
 
-export function isProfileImageUrl(raw: string) {
-  if (isAllowedImageUrl(raw)) return true;
+export function isOwnedImageUrl(raw: string, userId: string) {
   const parsed = parseHttpsUrl(raw);
-  return parsed?.hostname.toLowerCase() === "img.clerk.com";
+  if (!parsed || !userId) return false;
+  const host = parsed.hostname.toLowerCase();
+  const r2Host = r2PublicHostname();
+  if (r2Host && host === r2Host) {
+    return parsed.pathname.split("/").filter(Boolean).includes(userId);
+  }
+  return IMAGE_HOSTS.has(host);
+}
+
+export function isProfileImageUrl(raw: string, userId: string, clerkImageUrl?: string | null) {
+  const parsed = parseHttpsUrl(raw);
+  if (!parsed) return false;
+  if (parsed.hostname.toLowerCase() === "img.clerk.com") {
+    const clerk = clerkImageUrl ? parseHttpsUrl(clerkImageUrl) : null;
+    if (!clerk || clerk.hostname.toLowerCase() !== "img.clerk.com") return false;
+    return clerk.origin === parsed.origin && clerk.pathname === parsed.pathname;
+  }
+  return isOwnedImageUrl(raw, userId);
+}
+
+export function isOwnedR2Url(raw: string, userId: string) {
+  const parsed = parseHttpsUrl(raw);
+  if (!parsed || !userId) return false;
+  const host = r2PublicHostname();
+  if (!host || parsed.hostname.toLowerCase() !== host) return false;
+  return parsed.pathname.split("/").filter(Boolean).includes(userId);
 }
 
 export function isR2PublicUrl(raw: string) {

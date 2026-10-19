@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -12,30 +12,37 @@ import {
   isAccountClosed,
   requireSignedIn,
 } from "@/lib/auth-admin";
+import { confirmNewR2Object } from "@/lib/cloudflare-r2";
 import {
   CATEGORY_CAP,
   GAME_LINK_KINDS,
   GAME_MEDIA_CAP,
   GAME_STATUSES,
   IARC_RATINGS,
+  MAX_CLIP_BYTES,
+  MAX_IMAGE_BYTES,
   PRIMARY_LINK_ORDER,
   type GameLinkKind,
   type IarcRating,
 } from "@/lib/constants";
-import { descriptionPlainText, sanitizeGameDescription } from "@/lib/description";
+import { descriptionMediaUrls, descriptionPlainText, sanitizeGameDescription } from "@/lib/description";
 import { getDb } from "@/lib/db";
 import { isPlatformId } from "@/lib/platform-catalog";
 import { ensureCurrentProfile, getProfileHandle, getProfileName } from "@/lib/profile";
 import { getGameById } from "@/lib/queries";
 import { isUuid, sanitizePlainText, slugify } from "@/lib/sanitize";
-import { isAllowedImageUrl, parseVideoEmbed, sanitizeGameLink, withVideosFirst } from "@/lib/urls";
+import { isOwnedImageUrl, parseVideoEmbed, sanitizeGameLink, withVideosFirst } from "@/lib/urls";
 
 const mediaItemSchema = z.object({
   kind: z.enum(["image", "video"]),
   url: z.string().min(1).max(500),
 });
 
-function parseMedia(raw: string) {
+function imageUrlAllowed(url: string, userId: string, keptUrls: ReadonlySet<string>) {
+  return keptUrls.has(url) || isOwnedImageUrl(url, userId);
+}
+
+function parseMedia(raw: string, userId: string, keptUrls: ReadonlySet<string>) {
   if (!raw.trim()) return [];
   let parsed: unknown;
   try {
@@ -46,7 +53,7 @@ function parseMedia(raw: string) {
   const items = withVideosFirst(z.array(mediaItemSchema).max(GAME_MEDIA_CAP).parse(parsed));
   return items.map((item, index) => {
     if (item.kind === "image") {
-      if (!isAllowedImageUrl(item.url)) {
+      if (!imageUrlAllowed(item.url, userId, keptUrls)) {
         throw new Error("Invalid image URL");
       }
       return { kind: "image" as const, url: item.url, sortOrder: index };
@@ -130,7 +137,11 @@ export async function upsertOwnedGameAction(
 
   const name = sanitizePlainText(String(formData.get("name") ?? ""), 120);
   const tagline = sanitizePlainText(String(formData.get("tagline") ?? ""), 160);
-  const sanitizedDescription = sanitizeGameDescription(String(formData.get("description") ?? ""));
+  const keptDescriptionUrls = descriptionMediaUrls(existing?.description ?? "");
+  const sanitizedDescription = sanitizeGameDescription(String(formData.get("description") ?? ""), {
+    userId,
+    keptUrls: keptDescriptionUrls,
+  });
   if (sanitizedDescription.error) return { error: sanitizedDescription.error };
   const description = sanitizedDescription.html;
   const developerNamePromise = existing
@@ -157,7 +168,30 @@ export async function upsertOwnedGameAction(
     return { error: "Invalid status" };
   }
   if (requestedIds.length < 1) return { error: "Select at least one platform" };
-  if (!isAllowedImageUrl(logoUrl)) return { error: "Upload a valid logo image" };
+
+  const keptImageUrls = new Set<string>();
+  if (existing) {
+    keptImageUrls.add(existing.logoUrl);
+    keptImageUrls.add(existing.coverUrl);
+    const mediaRows = await getDb()
+      .select({ url: gameMedia.url })
+      .from(gameMedia)
+      .where(and(eq(gameMedia.gameId, existing.id), eq(gameMedia.kind, "image")));
+    for (const row of mediaRows) keptImageUrls.add(row.url);
+  }
+  if (!imageUrlAllowed(logoUrl, userId, keptImageUrls)) {
+    return { error: "Upload a valid logo image" };
+  }
+  if (
+    !(await confirmNewR2Object({
+      url: logoUrl,
+      userIds: [userId],
+      maxBytes: MAX_IMAGE_BYTES,
+      keptUrls: keptImageUrls,
+    }))
+  ) {
+    return { error: "Upload a valid logo image" };
+  }
   const iarcRaw = String(formData.get("iarcRating") ?? "");
   if (!IARC_RATINGS.includes(iarcRaw as IarcRating)) {
     return { error: "Choose an IARC age rating" };
@@ -206,10 +240,36 @@ export async function upsertOwnedGameAction(
   let media;
   let links;
   try {
-    media = parseMedia(String(formData.get("media") ?? "[]"));
+    media = parseMedia(String(formData.get("media") ?? "[]"), userId, keptImageUrls);
     links = parseLinks(formData);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Invalid media or links" };
+  }
+  for (const item of media) {
+    if (item.kind !== "image") continue;
+    if (
+      !(await confirmNewR2Object({
+        url: item.url,
+        userIds: [userId],
+        maxBytes: MAX_IMAGE_BYTES,
+        keptUrls: keptImageUrls,
+      }))
+    ) {
+      return { error: "Invalid image URL" };
+    }
+  }
+  for (const url of descriptionMediaUrls(description)) {
+    const clip = /\.(mp4|webm)(?:$|\?)/i.test(url);
+    if (
+      !(await confirmNewR2Object({
+        url,
+        userIds: [userId],
+        maxBytes: clip ? MAX_CLIP_BYTES : MAX_IMAGE_BYTES,
+        keptUrls: keptDescriptionUrls,
+      }))
+    ) {
+      return { error: clip ? "Upload a valid clip" : "Upload a valid image" };
+    }
   }
   const firstImage = media.find((item) => item.kind === "image");
   const firstVideo = media.find((item) => item.kind === "video");
@@ -324,6 +384,9 @@ export async function upsertOwnedGameAction(
 
 export async function setGameArchivedAction(formData: FormData) {
   const userId = await requireSignedIn();
+  if (await isAccountClosed(userId)) {
+    throw new Error("This account is closed");
+  }
   const id = String(formData.get("id") ?? "");
   const archived = formData.get("archived") === "true";
   const game = await getGameById(id);

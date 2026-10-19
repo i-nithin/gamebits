@@ -9,20 +9,16 @@ import {
   MAX_CAROUSEL_IMAGE_BYTES,
   MAX_CAROUSEL_VIDEO_BYTES,
   MAX_CLIP_BYTES,
-  PLATFORM_LOGO_TYPES,
+  MAX_IMAGE_BYTES,
 } from "@/lib/constants";
 import { createPresignedUpload, r2Configured } from "@/lib/cloudflare-r2";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const bodySchema = z.discriminatedUnion("purpose", [
   z.object({
-    purpose: z.enum(["logo", "media", "avatar", "cover"]),
+    purpose: z.enum(["logo", "media", "avatar", "cover", "platform"]),
     contentType: z.enum(ACCEPTED_IMAGE_TYPES),
-    contentLength: z.number().int().positive().optional(),
-  }),
-  z.object({
-    purpose: z.literal("platform"),
-    contentType: z.enum(PLATFORM_LOGO_TYPES),
-    contentLength: z.number().int().positive().optional(),
+    contentLength: z.number().int().positive().max(MAX_IMAGE_BYTES),
   }),
   z.object({
     purpose: z.literal("ad"),
@@ -44,6 +40,8 @@ const bodySchema = z.discriminatedUnion("purpose", [
 export async function POST(request: Request) {
   try {
     const userId = await requireSignedIn();
+    const limit = await rateLimit("upload", userId);
+    if (limit !== "ok") return rateLimitResponse(limit);
     if (!r2Configured()) {
       return NextResponse.json(
         { error: "Cloudflare R2 is not configured" },
@@ -78,8 +76,10 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(upload);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unauthorized";
-    const status = message === "Unauthorized" ? 401 : 500;
-    return NextResponse.json({ error: message }, { status });
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    console.error("[uploads] presign failed", error);
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

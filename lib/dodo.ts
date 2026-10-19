@@ -12,13 +12,17 @@ let client: DodoPayments | null = null;
 export function getDodo() {
   if (!client) {
     const bearerToken = process.env.DODO_PAYMENTS_API_KEY;
+    const webhookKey = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
     if (!bearerToken) {
       throw new Error("DODO_PAYMENTS_API_KEY is not set");
+    }
+    if (!webhookKey) {
+      throw new Error("DODO_PAYMENTS_WEBHOOK_KEY is not set");
     }
     client = new DodoPayments({
       bearerToken,
       environment: dodoEnvironment,
-      webhookKey: process.env.DODO_PAYMENTS_WEBHOOK_KEY,
+      webhookKey,
     });
   }
   return client;
@@ -28,15 +32,21 @@ export type DodoWebhookEvent = ReturnType<
   InstanceType<typeof DodoPayments>["webhooks"]["unwrap"]
 >;
 
+function isLocalHost(host: string) {
+  const hostname = host.replace(/:\d+$/, "").replace(/^\[|\]$/g, "").toLowerCase();
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
 async function appOrigin() {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
   if (configured) return configured;
 
   const headerList = await headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
-  if (!host) throw new Error("Missing request host");
-  const proto =
-    headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const host = (headerList.get("x-forwarded-host") ?? headerList.get("host"))?.split(",")[0]?.trim();
+  if (!host || !isLocalHost(host)) {
+    throw new Error("NEXT_PUBLIC_APP_URL is not set");
+  }
+  const proto = headerList.get("x-forwarded-proto")?.split(",")[0]?.trim() ?? "http";
   return `${proto}://${host}`;
 }
 

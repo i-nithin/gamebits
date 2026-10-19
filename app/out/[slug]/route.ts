@@ -5,7 +5,9 @@ import { countryFromHeaders } from "@/lib/analytics/geo";
 import { recordLinkClick } from "@/lib/analytics/record";
 import { resolveOutboundDestination } from "@/lib/analytics/outbound";
 import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getGameBySlug } from "@/lib/queries";
+import { sanitizeHttpsUrl } from "@/lib/urls";
 
 export async function GET(
   request: Request,
@@ -24,11 +26,18 @@ export async function GET(
     primaryUrl: game.primaryUrl,
     kind,
   });
-  if (!destination) {
+  const safeDestination = destination ? sanitizeHttpsUrl(destination.url) : null;
+  if (!destination || !safeDestination) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
+  const limit = await rateLimit("click", clientIp(request.headers));
+  if (limit === "unavailable") {
+    return new Response("Service unavailable", { status: 503 });
+  }
+
   const shouldTrack =
+    limit === "ok" &&
     !(await getAdminAccess(userId)) &&
     !(userId && game.ownerClerkUserId && game.ownerClerkUserId === userId);
 
@@ -45,5 +54,5 @@ export async function GET(
     });
   }
 
-  return NextResponse.redirect(destination.url, 302);
+  return NextResponse.redirect(safeDestination, 302);
 }

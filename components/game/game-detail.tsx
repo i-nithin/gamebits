@@ -30,8 +30,6 @@ export function GameDetail({
   week,
   live,
   signedIn,
-  displayName,
-  imageUrl,
   highlightReviewId = null,
 }: {
   data: GamePageData;
@@ -39,8 +37,6 @@ export function GameDetail({
   week: number;
   live: boolean;
   signedIn: boolean;
-  displayName: string;
-  imageUrl: string | null;
   highlightReviewId?: string | null;
 }) {
   const { game } = data;
@@ -275,8 +271,6 @@ export function GameDetail({
             slug={game.slug}
             gameId={game.id}
             signedIn={signedIn}
-            displayName={displayName}
-            imageUrl={imageUrl}
             initialReviews={data.reviews}
             nextCursor={data.reviewsNextCursor}
             average={data.reviewAverage}

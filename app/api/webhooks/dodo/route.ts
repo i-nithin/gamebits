@@ -28,6 +28,10 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "DODO_PAYMENTS_WEBHOOK_KEY is not set") {
+      console.error("[dodo] webhook key missing");
+      return Response.json({ error: "Webhook is not configured" }, { status: 503 });
+    }
     console.error("[dodo] webhook verification failed", error);
     return Response.json({ error: "Invalid signature" }, { status: 401 });
   }

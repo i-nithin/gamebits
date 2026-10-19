@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 
 import { platforms } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth-admin";
+import { confirmNewR2Object } from "@/lib/cloudflare-r2";
+import { MAX_IMAGE_BYTES } from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { getPlatformById } from "@/lib/queries";
 import { sanitizePlainText, slugify } from "@/lib/sanitize";
@@ -36,7 +38,7 @@ export async function upsertPlatformAction(
   _prev: { error: string } | null,
   formData: FormData,
 ): Promise<{ error: string } | null> {
-  await requireAdmin();
+  const userId = await requireAdmin();
   const id = formData.get("id") ? String(formData.get("id")) : undefined;
   const name = sanitizePlainText(String(formData.get("name") ?? ""), 40);
   const requestedSlug = slugify(String(formData.get("slug") ?? "") || name);
@@ -51,6 +53,18 @@ export async function upsertPlatformAction(
   if (id) {
     existing = await getPlatformById(id);
     if (!existing) return { error: "Platform not found" };
+  }
+
+  const kept = new Set(existing?.logoUrl ? [existing.logoUrl] : []);
+  if (
+    !(await confirmNewR2Object({
+      url: logoUrl,
+      userIds: [userId],
+      maxBytes: MAX_IMAGE_BYTES,
+      keptUrls: kept,
+    }))
+  ) {
+    return { error: "Upload a valid platform logo" };
   }
 
   const slug = await uniquePlatformSlug(requestedSlug, existing?.id);

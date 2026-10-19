@@ -2,25 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BadgeCheckIcon,
-  BellIcon,
-  CodeXmlIcon,
-  CreditCardIcon,
-  ShieldIcon,
-  UserRoundIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { BellIcon, ShieldIcon, UserRoundIcon, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const TABS: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/settings/profile", label: "Profile", icon: UserRoundIcon },
   { href: "/settings/notifications", label: "Notifications", icon: BellIcon },
-  { href: "/settings/verification", label: "Verification", icon: BadgeCheckIcon },
-  { href: "/settings/developers", label: "Developers", icon: CodeXmlIcon },
   { href: "/settings/security", label: "Security", icon: ShieldIcon },
-  { href: "/settings/billing", label: "Billing", icon: CreditCardIcon },
 ];
 
 function tabClass(active: boolean, mobile: boolean) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { clientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { searchCatalog } from "@/lib/search";
 import type { SearchScope } from "@/lib/types";
 
@@ -15,6 +16,9 @@ const cacheHeaders = {
 };
 
 export async function GET(request: Request) {
+  const limit = await rateLimit("search", clientIp(request.headers));
+  if (limit !== "ok") return rateLimitResponse(limit);
+
   const url = new URL(request.url);
   const parsed = searchSchema.safeParse({
     q: url.searchParams.get("q") ?? "",
