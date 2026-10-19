@@ -1,7 +1,7 @@
 import sanitizeHtml from "sanitize-html";
 
 import { DESCRIPTION_HTML_MAX } from "@/lib/constants";
-import { isAllowedClipUrl, isR2PublicUrl } from "@/lib/urls";
+import { isAllowedClipUrl, isOwnedR2Url, isR2PublicUrl } from "@/lib/urls";
 
 const RICH_TAG = /<\/?[a-z][\s\S]*>/i;
 
@@ -43,12 +43,35 @@ export function descriptionPlainText(value: string) {
     .trim();
 }
 
+export function descriptionMediaUrls(html: string) {
+  const urls = new Set<string>();
+  for (const match of html.matchAll(/<(?:img|video)\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)) {
+    if (match[1]) urls.add(match[1]);
+  }
+  return urls;
+}
+
 export function sanitizeStoredDescription(value: string) {
   if (!isRichDescription(value)) return value;
   return sanitizeGameDescription(value).html;
 }
 
-export function sanitizeGameDescription(raw: string): { html: string; error?: string } {
+function savedMediaAllowed(
+  src: string,
+  kind: "image" | "clip",
+  opts?: { userId: string; keptUrls: ReadonlySet<string> },
+) {
+  if (!opts || opts.keptUrls.has(src)) {
+    return kind === "image" ? isR2PublicUrl(src) : isAllowedClipUrl(src);
+  }
+  if (!isOwnedR2Url(src, opts.userId)) return false;
+  return kind === "image" ? isR2PublicUrl(src) : isAllowedClipUrl(src);
+}
+
+export function sanitizeGameDescription(
+  raw: string,
+  opts?: { userId: string; keptUrls: ReadonlySet<string> },
+): { html: string; error?: string } {
   const html = sanitizeHtml(raw.slice(0, DESCRIPTION_HTML_MAX * 2), {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: {
@@ -84,8 +107,8 @@ export function sanitizeGameDescription(raw: string): { html: string; error?: st
       }),
     },
     exclusiveFilter: (frame) => {
-      if (frame.tag === "img") return !isR2PublicUrl(frame.attribs.src ?? "");
-      if (frame.tag === "video") return !isAllowedClipUrl(frame.attribs.src ?? "");
+      if (frame.tag === "img") return !savedMediaAllowed(frame.attribs.src ?? "", "image", opts);
+      if (frame.tag === "video") return !savedMediaAllowed(frame.attribs.src ?? "", "clip", opts);
       if (frame.tag === "a" && !frame.attribs.href) return "excludeTag";
       return false;
     },

@@ -4,7 +4,9 @@ import { NextResponse } from "next/server";
 import { getApprovedAdDestination, incrementAdClicks } from "@/lib/ads";
 import { orderPhase } from "@/lib/ads-month";
 import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { isUuid } from "@/lib/sanitize";
+import { sanitizeHttpsUrl } from "@/lib/urls";
 
 export async function GET(
   request: Request,
@@ -17,7 +19,8 @@ export async function GET(
   }
 
   const [ad, userId] = await Promise.all([getApprovedAdDestination(id), userPromise]);
-  if (!ad) {
+  const destination = ad ? sanitizeHttpsUrl(ad.destinationUrl) : null;
+  if (!ad || !destination) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
@@ -26,7 +29,13 @@ export async function GET(
     { year: ad.year, month: ad.month },
     Number(ad.active),
   );
+  const limit = await rateLimit("click", clientIp(request.headers));
+  if (limit === "unavailable") {
+    return new Response("Service unavailable", { status: 503 });
+  }
+
   const shouldTrack =
+    limit === "ok" &&
     phase === "live" &&
     userId !== ad.ownerClerkUserId &&
     !(await getAdminAccess(userId));
@@ -41,5 +50,5 @@ export async function GET(
     });
   }
 
-  return NextResponse.redirect(ad.destinationUrl, 302);
+  return NextResponse.redirect(destination, 302);
 }

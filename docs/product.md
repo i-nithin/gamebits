@@ -2,7 +2,7 @@
 
 Discovery platform for games: a weekly campaign board (ScrollLaunch’s mechanism, games-only). Not “what physically released this calendar week.”
 
-**Status:** Core weekly board is shipped. Signed-in users can now add/own games, archive them, and post star+comment reviews. Owner Launch is still a stub.
+**Status:** The weekly board is shipped. Signed-in users add and own games, archive them, launch them onto an ISO week, and post star-and-comment reviews. Follows, bookmarks, likes, Adbits, and analytics are shipped.
 
 ## Problem (MVP slice)
 
@@ -14,10 +14,10 @@ Players cannot find interesting games in one place. Developers cannot get a fair
 |------|---------|----------------|
 | Players | Yes | Browse the week, sign in, upvote, click out to the game |
 | You (admin / curator) | Yes | Seed ~20 games per ISO week |
-| Developers | Self-serve add | Signed-in users create a game they own; admin still assigns weekly launches |
+| Developers | Self-serve add | Signed-in users create a game they own and launch it onto an ISO week |
 | Creators | Browse only | Same as players |
 
-Cold start: **you seed and curate the first weeks.** Open developer submit, apply-to-launch, and Premium slot-skip are out of MVP.
+Cold start: seed and curate the first weeks. Owners can add a game and launch it. Apply-to-launch and Premium slot-skip are out of MVP.
 
 ## Core mechanism (copy ScrollLaunch, not Product Hunt)
 
@@ -40,7 +40,9 @@ A **GameBits Launch** is a **weekly campaign slot**.
 3. **`/games/[slug]`** — permanent game page (media gallery, details/launches/reviews).
 4. **`/games/new`** and **`/games/[slug]/edit`** — signed-in create/edit (owner or admin).
 
-Out of MVP: Today’s Hunts, Trending, New, Upcoming, Popular, Hidden Gems, Categories, Platforms as separate products, `/games` directory, follows, saves, streaks, personalized feeds, similar games, paid launch tiers, SEO badge/dofollow marketplace. Owner launch onto the board is stubbed.
+Also shipped: follows, bookmarks, likes, owner launch at `/games/[slug]/launch`, Adbits, and per-game analytics.
+
+Out of MVP: Today’s Hunts, Trending, New, Upcoming, Popular, Hidden Gems, Categories, Platforms as separate products, `/games` directory, streaks, personalized feeds, similar games, paid launch tiers, SEO badge/dofollow marketplace.
 
 ## Player loop
 
@@ -49,8 +51,9 @@ Out of MVP: Today’s Hunts, Trending, New, Upcoming, Popular, Hidden Gems, Cate
 3. Optional: opens `/games/[slug]`.
 4. Sign in (Clerk: Google + email) to upvote.
 5. Primary outbound click is tracked (redirect + counter). Destination is the game’s real site/store.
+6. After sign-in: review, follow, bookmark, and like.
 
-Later: comments, follows, saves, streaks, richer ranking.
+Later: streaks and richer ranking.
 
 ## Game profile (lean)
 
@@ -64,7 +67,7 @@ Not in MVP: price, system requirements, markdown essays, maker credits, related 
 
 - Signed-in users add games they own. Owners can edit and archive/unarchive.
 - Archived games are hidden from the board and search.
-- You (admin) still assign games to an ISO week (cap ~20 per week for scannability).
+- Owners launch a game onto an ISO week (cap 20). Admins can do the same.
 - Admin also curates the platforms catalog (name + logo). Game submitters pick from that list; they cannot invent platforms.
 - Admin = `profiles.super_admin`. The dashboard is `/4dm1n`; anyone else gets a 404.
 - Click counts are for admin insight; public ranking is votes only.
@@ -87,4 +90,4 @@ Not in MVP: price, system requirements, markdown essays, maker credits, related 
 
 ## Success for this slice
 
-A stranger can open the homepage, scan 20 interesting games, understand one, upvote if signed in, and leave to the store/site. You can fill next week in admin without a developer portal.
+A stranger can open the homepage, scan 20 interesting games, understand one, upvote if signed in, and leave to the store/site. An owner can launch their game onto a week from the game page.

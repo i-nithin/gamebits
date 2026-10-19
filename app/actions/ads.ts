@@ -24,7 +24,17 @@ import {
 import { monthKey, parseMonthKey } from "@/lib/ads-month";
 import { getCurrentUserId, isAccountClosed, requireAdmin } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
-import { AD_NAME_MAX, AD_SLOT_CAP, AD_TAGLINE_MAX, CAROUSEL_BADGES, type CarouselBadge } from "@/lib/constants";
+import { confirmNewR2Object } from "@/lib/cloudflare-r2";
+import {
+  AD_NAME_MAX,
+  AD_SLOT_CAP,
+  AD_TAGLINE_MAX,
+  CAROUSEL_BADGES,
+  MAX_AD_IMAGE_BYTES,
+  MAX_CAROUSEL_IMAGE_BYTES,
+  MAX_CAROUSEL_VIDEO_BYTES,
+  type CarouselBadge,
+} from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { createAdCheckoutSession } from "@/lib/dodo";
 import { isUuid, sanitizePlainText } from "@/lib/sanitize";
@@ -123,6 +133,20 @@ function imageAllowed(url: string, userIds: string[]) {
   return userIds.some((userId) => isAdImageUrl(url, userId));
 }
 
+function carouselMaxBytes(url: string) {
+  return /\.(mp4|webm)(?:$|\?)/i.test(url) ? MAX_CAROUSEL_VIDEO_BYTES : MAX_CAROUSEL_IMAGE_BYTES;
+}
+
+async function confirmAdFile(
+  url: string | null,
+  userIds: string[],
+  maxBytes: number,
+  keptUrls?: ReadonlySet<string>,
+) {
+  if (!url) return true;
+  return confirmNewR2Object({ url, userIds, maxBytes, keptUrls });
+}
+
 function normalizeCreative(
   input: z.infer<typeof creativeSchema>,
   userId: string | string[],
@@ -206,6 +230,10 @@ export async function bookAdFormAction(
   if (!parsed.success) return { error: "Check the ad details and try again" };
   const creative = normalizeCreative(parsed.data, booker.userId);
   if (!creative.ok) return { error: creative.error };
+  const creativeUrl = creative.creative.logoUrl ?? creative.creative.mediaUrl;
+  if (!(await confirmAdFile(creativeUrl, [booker.userId], MAX_AD_IMAGE_BYTES))) {
+    return { error: "Upload a valid image" };
+  }
 
   const created = await createAdOrder({
     ownerClerkUserId: booker.userId,
@@ -243,6 +271,10 @@ export async function placeAdminAdFormAction(
   if (!parsed.success) return { error: "Check the ad details and try again" };
   const creative = normalizeCreative(parsed.data, adminId);
   if (!creative.ok) return { error: creative.error };
+  const creativeUrl = creative.creative.logoUrl ?? creative.creative.mediaUrl;
+  if (!(await confirmAdFile(creativeUrl, [adminId], MAX_AD_IMAGE_BYTES))) {
+    return { error: "Upload a valid image" };
+  }
 
   const created = await createAdOrder({
     ownerClerkUserId: adminId,
@@ -286,6 +318,13 @@ async function saveAdCreative(
   if (!parsed.success) return { error: "Check the ad details and try again" };
   const creative = normalizeCreative(parsed.data, [order.ownerClerkUserId, actorId]);
   if (!creative.ok) return { error: creative.error };
+  const kept = new Set([order.logoUrl, order.mediaUrl].filter((url): url is string => Boolean(url)));
+  const creativeUrl = creative.creative.logoUrl ?? creative.creative.mediaUrl;
+  if (
+    !(await confirmAdFile(creativeUrl, [order.ownerClerkUserId, actorId], MAX_AD_IMAGE_BYTES, kept))
+  ) {
+    return { error: "Upload a valid image" };
+  }
 
   const updated = await updateAdCreative(orderId, creative.creative);
   if (!updated.ok) return { error: updated.error };
@@ -413,6 +452,7 @@ async function normalizeCarousel(
   actorId: string,
   imageOwners: string[],
   asAdmin: boolean,
+  keptUrls?: ReadonlySet<string>,
 ) {
   const destinationUrl = httpsDestination(input.destinationUrl);
   if (!destinationUrl) {
@@ -423,6 +463,16 @@ async function normalizeCarousel(
     return { ok: false as const, error: "Tagline is too long" };
   }
   if (!imageAllowed(input.mediaUrl, imageOwners)) {
+    return { ok: false as const, error: "Upload an image, GIF, or video" };
+  }
+  if (
+    !(await confirmAdFile(
+      input.mediaUrl,
+      imageOwners,
+      carouselMaxBytes(input.mediaUrl),
+      keptUrls,
+    ))
+  ) {
     return { ok: false as const, error: "Upload an image, GIF, or video" };
   }
 
@@ -550,7 +600,14 @@ async function saveCarouselCreative(
   if (!input) return { error: "Choose a month" };
   const parsed = carouselSchema.safeParse(input);
   if (!parsed.success) return { error: "Check the ad details and try again" };
-  const creative = await normalizeCarousel(parsed.data, actorId, [order.ownerClerkUserId, actorId], asAdmin);
+  const kept = new Set(order.mediaUrl ? [order.mediaUrl] : []);
+  const creative = await normalizeCarousel(
+    parsed.data,
+    actorId,
+    [order.ownerClerkUserId, actorId],
+    asAdmin,
+    kept,
+  );
   if (!creative.ok) return { error: creative.error };
 
   const updated = await updateCarouselCreative(orderId, creative.creative);

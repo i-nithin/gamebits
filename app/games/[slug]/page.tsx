@@ -1,12 +1,9 @@
 import { notFound } from "next/navigation";
-import { currentUser } from "@clerk/nextjs/server";
 
 import { RecordPageView } from "@/components/analytics/record-page-view";
 import { GameDetail } from "@/components/game/game-detail";
 import { getCurrentUserId } from "@/lib/auth-admin";
-import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getIsoWeekUtc } from "@/lib/iso-week";
-import { getViewer } from "@/lib/profile";
 import { getGamePageData } from "@/lib/queries";
 
 export default async function GamePage({
@@ -16,15 +13,10 @@ export default async function GamePage({
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ review?: string }>;
 }) {
-  const userIdPromise = getCurrentUserId();
-  const viewerPromise = getViewer();
-  const userPromise = clerkEnabled ? currentUser() : Promise.resolve(null);
-  const [{ slug }, query, userId, viewer, user] = await Promise.all([
+  const [{ slug }, query, userId] = await Promise.all([
     params,
     searchParams,
-    userIdPromise,
-    viewerPromise,
-    userPromise,
+    getCurrentUserId(),
   ]);
   const reviewId = query.review?.trim() || null;
   const data = await getGamePageData(slug, userId, reviewId);
@@ -44,8 +36,6 @@ export default async function GamePage({
         week={week}
         live={Boolean(liveLaunch)}
         signedIn={Boolean(userId)}
-        displayName={user?.fullName || user?.username || "Player"}
-        imageUrl={viewer?.imageUrl ?? null}
         highlightReviewId={reviewId && data.reviews.some((review) => review.id === reviewId) ? reviewId : null}
       />
     </>

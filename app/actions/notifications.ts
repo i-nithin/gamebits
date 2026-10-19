@@ -1,6 +1,6 @@
 "use server";
 
-import { getCurrentUserId } from "@/lib/auth-admin";
+import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
 import {
   getUnreadCount,
   listLatestUnread,
@@ -45,7 +45,9 @@ export async function markNotificationsReadAction(opts: {
   all?: boolean;
 }) {
   const userId = await getCurrentUserId();
-  if (!userId) return { ok: false as const, reason: "unauthenticated" as const };
+  if (!userId || (await isAccountClosed(userId))) {
+    return { ok: false as const, reason: "unauthenticated" as const };
+  }
   const result = await markNotificationsRead({
     userId,
     ids: opts.ids,
@@ -56,7 +58,9 @@ export async function markNotificationsReadAction(opts: {
 
 export async function markNotificationsUnreadAction(opts: { ids: string[] }) {
   const userId = await getCurrentUserId();
-  if (!userId) return { ok: false as const, reason: "unauthenticated" as const };
+  if (!userId || (await isAccountClosed(userId))) {
+    return { ok: false as const, reason: "unauthenticated" as const };
+  }
   const result = await markNotificationsUnread({
     userId,
     ids: opts.ids,

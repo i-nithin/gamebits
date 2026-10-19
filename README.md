@@ -38,7 +38,9 @@ cp .env.example .env.local
 | `DODO_PAYMENTS_API_KEY` | For ad checkout | Dodo API key (`dodo_test_…` or `dodo_live_…`) |
 | `DODO_PAYMENTS_WEBHOOK_KEY` | For ad checkout | Signing secret from the Dodo webhook endpoint |
 | `DODO_PAYMENTS_ENVIRONMENT` | For ad checkout | `test_mode` or `live_mode`. Anything else, including unset, stays in test mode |
-| `NEXT_PUBLIC_APP_URL` | Optional | Public site origin with no trailing slash. Checkout return URLs use this when set, otherwise the request host |
+| `NEXT_PUBLIC_APP_URL` | Production | Public site origin with no trailing slash. Checkout return URLs use this. Outside localhost the app refuses to build a return URL from the request host |
+| `UPSTASH_REDIS_REST_URL` | Production | Upstash Redis REST URL for rate limits on search, uploads, page views, and outbound clicks |
+| `UPSTASH_REDIS_REST_TOKEN` | Production | Upstash Redis REST token. Both Upstash variables are required together in production. Leave them unset locally to skip the limit |
 
 \*Without Clerk keys the app still boots, but sign-in, add-game, and votes are unavailable.
 
@@ -77,7 +79,7 @@ Then:
 1. Create a test-mode API key and set `DODO_PAYMENTS_API_KEY` to the `dodo_test_…` value.
 2. Leave `DODO_PAYMENTS_ENVIRONMENT` unset, or set it to `test_mode`. Set `live_mode` only for the production key (`dodo_live_…`). Test and live each need their own webhook endpoint and signing secret.
 3. Copy the endpoint’s signing secret into `DODO_PAYMENTS_WEBHOOK_KEY`.
-4. On Vercel, set `NEXT_PUBLIC_APP_URL` to the production origin, for example `https://YOUR_PRODUCTION_DOMAIN`, with no trailing slash.
+4. Set `NEXT_PUBLIC_APP_URL` to the public origin, for example `https://YOUR_PRODUCTION_DOMAIN`, with no trailing slash. This is required outside localhost.
 5. Run `npm run db:migrate` so `ad_orders` has the payment columns and `dodo_webhook_events` exists.
 
 Dodo cannot call `http://localhost:3000`. For a local webhook test, expose the dev server with an HTTPS tunnel and register `https://YOUR_TUNNEL_HOST/api/webhooks/dodo` on the **test** webhook endpoint. Use the test signing secret in `.env.local`.
@@ -86,7 +88,7 @@ Unpaid checkouts hold their slots for 24 hours. `vercel.json` calls `GET /api/cr
 
 ### Account deletion
 
-Settings includes **Delete account**. The profile is hidden immediately. The same Clerk login can sign back in and restore the account for 30 days. After that, a daily job deletes the Clerk user.
+Settings includes **Delete account**. The profile is hidden immediately. The same Clerk login can sign back in and restore the account for 30 days. After that, a daily job deletes the Clerk user and replaces the profile with a tombstone: the handle becomes `deleted_…`, the name becomes “Deleted user”, and the email, images, location, bio, and social links are cleared. Review text and ratings stay, with the display name and avatar cleared. Games and ad bookings stay on that tombstone.
 
 The job is `GET /api/cron/purge-accounts`, scheduled in `vercel.json` at 04:00 UTC. It accepts only `Authorization: Bearer $CRON_SECRET`.
 
@@ -126,7 +128,9 @@ Uploads use **presigned PUT URLs**: the browser uploads the file directly to R2;
 
 Without the five R2-related vars, `/api/uploads/r2` returns `503` and logo/media upload on Add Game will fail until they are set.
 
-Accepted upload types: JPEG, PNG, WebP, GIF · max 8 MB · up to 8 media items per game. Videos are YouTube/Vimeo links only (not file uploads).
+Accepted upload types: JPEG, PNG, WebP, GIF · max 8 MB · up to 8 media items per game. The upload route requires `contentLength` and rejects anything over the cap before it signs the PUT. After the file lands, the server reads the first bytes and deletes the object unless they match that type. Videos on a game page are YouTube/Vimeo links only. Adbits clips are a separate upload with their own size cap.
+
+Search is limited to 30 requests a minute per IP, uploads to 20 a minute per signed-in user, page views to 30 a minute per IP, and outbound click counting to 60 a minute per IP. Over the click limit the redirect still happens and the click is not counted. In production those limits fail closed when the Upstash variables are missing.
 
 Restart `next dev` after changing `R2_PUBLIC_URL` so `next.config` picks up the hostname for `next/image`.
 
@@ -191,12 +195,12 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Deploy (Vercel)
 
 1. Push the repo and import it in Vercel.
-2. Set the same env vars (including R2, `CRON_SECRET`, and the Dodo keys) in the Vercel project settings. There is no admin env var. Admin access stays the `profiles.super_admin` flag. Set `DODO_PAYMENTS_ENVIRONMENT=live_mode` only when `DODO_PAYMENTS_API_KEY` is a live key.
+2. Set the same env vars (including R2, `CRON_SECRET`, `NEXT_PUBLIC_APP_URL`, and the Dodo keys) in the Vercel project settings. There is no admin env var. Admin access stays the `profiles.super_admin` flag. Set `DODO_PAYMENTS_ENVIRONMENT=live_mode` only when `DODO_PAYMENTS_API_KEY` is a live key.
 3. Use Neon’s pooled URL for `DATABASE_URL` and the direct URL for `DATABASE_URL_UNPOOLED`.
 4. Add your production origin to the R2 bucket CORS `AllowedOrigins`.
 5. Run migrations against production (`npm run db:migrate` with production `DATABASE_URL_UNPOOLED`), or wire a migrate step into your deploy pipeline. On a new production database, sign in once, then promote your profile with the SQL in the Admin section above.
 6. Confirm the crons in the Vercel project. `vercel.json` calls `/api/cron/purge-accounts` once a day and `/api/cron/expire-ad-checkouts` every hour. Without `CRON_SECRET`, those requests are rejected: logins past the 30-day window stay open until the person signs in again, and unpaid ad slots stay held until the checkout row is cancelled.
-7. In the Dodo dashboard, register `https://YOUR_PRODUCTION_DOMAIN/api/webhooks/dodo` and put that endpoint’s signing secret in `DODO_PAYMENTS_WEBHOOK_KEY`. Without it, paid bookings stay pending and never go live.
+7. In the Dodo dashboard, register `https://YOUR_PRODUCTION_DOMAIN/api/webhooks/dodo` and put that endpoint’s signing secret in `DODO_PAYMENTS_WEBHOOK_KEY`. Checkout and the webhook route both refuse to run when that key is empty.
 
 ## Docs
 

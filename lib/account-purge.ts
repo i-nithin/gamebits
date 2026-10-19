@@ -1,11 +1,14 @@
+import { createHash } from "node:crypto";
+
 import { clerkClient } from "@clerk/nextjs/server";
 import { and, eq, isNotNull, isNull, lt } from "drizzle-orm";
 
-import { profiles } from "@/db/schema";
+import { gameReviews, profiles } from "@/db/schema";
 import { ACCOUNT_DELETION_GRACE_MS, deletionGraceEnded } from "@/lib/account-deletion";
 import { getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getDb, hasDatabase } from "@/lib/db";
+import { DELETED_PROFILE_NAME } from "@/lib/profile";
 
 const PURGE_BATCH = 100;
 
@@ -35,6 +38,11 @@ async function deleteClerkUser(userId: string) {
   }
 }
 
+function tombstoneHandle(clerkUserId: string) {
+  const digest = createHash("sha256").update(clerkUserId).digest("hex").slice(0, 20);
+  return `deleted_${digest}`;
+}
+
 export async function purgeAccount(clerkUserId: string) {
   if (!hasDatabase()) return false;
   const db = getDb();
@@ -46,10 +54,39 @@ export async function purgeAccount(clerkUserId: string) {
   if (!row?.deletedAt || row.purgedAt || !deletionGraceEnded(row.deletedAt)) return false;
 
   await deleteClerkUser(clerkUserId);
-  await db
-    .update(profiles)
-    .set({ purgedAt: new Date(), superAdmin: false, updatedAt: new Date() })
-    .where(and(eq(profiles.clerkUserId, clerkUserId), isNull(profiles.purgedAt)));
+  const now = new Date();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(profiles)
+      .set({
+        handle: tombstoneHandle(clerkUserId),
+        name: DELETED_PROFILE_NAME,
+        email: null,
+        imageUrl: null,
+        coverUrl: null,
+        city: null,
+        country: null,
+        headline: null,
+        bio: null,
+        websiteUrl: null,
+        xUrl: null,
+        githubUrl: null,
+        linkedinUrl: null,
+        redditUrl: null,
+        purgedAt: now,
+        superAdmin: false,
+        updatedAt: now,
+      })
+      .where(and(eq(profiles.clerkUserId, clerkUserId), isNull(profiles.purgedAt)));
+    await tx
+      .update(gameReviews)
+      .set({
+        displayName: DELETED_PROFILE_NAME,
+        imageUrl: null,
+        updatedAt: now,
+      })
+      .where(eq(gameReviews.clerkUserId, clerkUserId));
+  });
   return true;
 }
 

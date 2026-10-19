@@ -1,15 +1,19 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-const isGameWriteRoute = createRouteMatcher([
+const isProtectedRoute = createRouteMatcher([
   "/games/new",
   "/games/(.*)/edit",
   "/games/(.*)/launch",
+  "/settings(.*)",
+  "/adbits(.*)",
+  "/analytics(.*)",
+  "/api/uploads(.*)",
 ]);
 
 export default process.env.CLERK_SECRET_KEY
   ? clerkMiddleware(async (auth, req) => {
-      if (isGameWriteRoute(req)) {
+      if (isProtectedRoute(req)) {
         await auth.protect();
       }
     })

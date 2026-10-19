@@ -8,8 +8,8 @@ import { gameReviews, games } from "@/db/schema";
 import { isAccountClosed, requireSignedIn } from "@/lib/auth-admin";
 import { REVIEW_BODY_MAX } from "@/lib/constants";
 import { getDb } from "@/lib/db";
-import { getProfileHandle } from "@/lib/profile";
-import { sanitizeMultiline } from "@/lib/sanitize";
+import { ensureCurrentProfile, getProfileHandle } from "@/lib/profile";
+import { sanitizeMultiline, sanitizePlainText } from "@/lib/sanitize";
 
 const reviewSchema = z.object({
   gameId: z.string().uuid(),
@@ -47,23 +47,12 @@ export async function upsertReviewAction(formData: FormData) {
     throw new Error("Game not found");
   }
 
-  const displayName = sanitizeMultiline(
-    String(formData.get("displayName") ?? "Player"),
-    80,
-  ) || "Player";
-  const imageUrlRaw = String(formData.get("imageUrl") ?? "");
-  let imageUrl: string | null = null;
-  try {
-    const parsed = new URL(imageUrlRaw);
-    if (
-      parsed.protocol === "https:" &&
-      (parsed.hostname === "img.clerk.com" || parsed.hostname.endsWith(".clerk.com"))
-    ) {
-      imageUrl = parsed.toString().slice(0, 500);
-    }
-  } catch {
-    imageUrl = null;
+  const profile = await ensureCurrentProfile();
+  if (!profile || profile.clerkUserId !== userId || profile.deletedAt) {
+    throw new Error("Sign in to continue");
   }
+  const displayName = sanitizePlainText(profile.name, 80) || "Player";
+  const imageUrl = profile.imageUrl;
 
   const [existing] = await db
     .select({ id: gameReviews.id })

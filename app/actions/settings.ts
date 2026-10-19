@@ -86,7 +86,7 @@ export async function deleteAccountAction(confirmation: string) {
     if (!row) return { kind: "missing" as const };
     if (row.deletedAt) {
       if (row.purgedAt || deletionGraceEnded(row.deletedAt)) return { kind: "expired" as const };
-      return { kind: "ready" as const, handle: row.handle };
+      return { kind: "already" as const, handle: row.handle };
     }
     if (row.handle.toLowerCase() !== typed) return { kind: "handle" as const };
 
@@ -99,14 +99,12 @@ export async function deleteAccountAction(confirmation: string) {
       if (admins.length <= 1) return { kind: "last_admin" as const };
     }
 
-    await tx
-      .update(profiles)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(profiles.clerkUserId, userId), isNull(profiles.deletedAt)));
-
-    return { kind: "ready" as const, handle: row.handle };
+    return { kind: "pending" as const, handle: row.handle };
   });
 
+  if (prepared.kind === "missing") {
+    return { ok: false as const, error: "Sign in to continue", expired: false as const };
+  }
   if (prepared.kind === "handle") {
     return { ok: false as const, error: "Handle does not match", expired: false as const };
   }
@@ -133,8 +131,50 @@ export async function deleteAccountAction(confirmation: string) {
     };
   }
 
+  if (prepared.kind === "pending") {
+    const committed = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({
+          handle: profiles.handle,
+          superAdmin: profiles.superAdmin,
+          deletedAt: profiles.deletedAt,
+        })
+        .from(profiles)
+        .where(eq(profiles.clerkUserId, userId))
+        .limit(1)
+        .for("update");
+
+      if (!row || row.deletedAt) return { kind: "ready" as const, handle: row?.handle ?? prepared.handle };
+      if (row.superAdmin) {
+        const admins = await tx
+          .select({ clerkUserId: profiles.clerkUserId })
+          .from(profiles)
+          .where(and(eq(profiles.superAdmin, true), isNull(profiles.deletedAt)))
+          .for("update");
+        if (admins.length <= 1) return { kind: "last_admin" as const };
+      }
+
+      await tx
+        .update(profiles)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(profiles.clerkUserId, userId), isNull(profiles.deletedAt)));
+
+      return { kind: "ready" as const, handle: row.handle };
+    });
+
+    if (committed.kind === "last_admin") {
+      return {
+        ok: false as const,
+        error: "Add another admin before deleting this account",
+        expired: false as const,
+      };
+    }
+    revalidatePath(`/u/${committed.handle}`);
+  } else {
+    revalidatePath(`/u/${prepared.handle}`);
+  }
+
   revalidatePath("/", "layout");
-  if (prepared.kind === "ready") revalidatePath(`/u/${prepared.handle}`);
   revalidatePath("/4dm1n");
   return { ok: true as const };
 }

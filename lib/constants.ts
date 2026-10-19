@@ -116,7 +116,4 @@ export const ACCEPTED_IMAGE_TYPES = [
 
 export const ACCEPTED_CLIP_TYPES = ["video/mp4", "video/webm"] as const;
 
-export const PLATFORM_LOGO_TYPES = [
-  ...ACCEPTED_IMAGE_TYPES,
-  "image/svg+xml",
-] as const;
+export const PLATFORM_LOGO_TYPES = ACCEPTED_IMAGE_TYPES;
