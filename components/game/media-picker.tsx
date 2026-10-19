@@ -44,7 +44,7 @@ function DropzoneFrame({
   active,
   disabled,
   onClick,
-  onFile,
+  onFiles,
   ariaLabel,
 }: {
   children: React.ReactNode;
@@ -52,7 +52,7 @@ function DropzoneFrame({
   active?: boolean;
   disabled?: boolean;
   onClick?: () => void;
-  onFile?: (file: File) => void;
+  onFiles?: (files: File[]) => void;
   ariaLabel?: string;
 }) {
   const [over, setOver] = useState(false);
@@ -76,8 +76,8 @@ function DropzoneFrame({
         event.preventDefault();
         setOver(false);
         if (disabled) return;
-        const file = event.dataTransfer.files?.[0];
-        if (file && onFile) onFile(file);
+        const files = Array.from(event.dataTransfer.files ?? []);
+        if (files.length > 0 && onFiles) onFiles(files);
       }}
       className={cn(
         "relative flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-iron bg-graphite text-center transition-colors",
@@ -160,7 +160,10 @@ export function LogoPicker({
             ariaLabel="Upload logo"
             disabled={busy}
             onClick={() => inputRef.current?.click()}
-            onFile={handleFile}
+            onFiles={(files) => {
+              const file = files[0];
+              if (file) void handleFile(file);
+            }}
           >
             {busy ? (
               <Spinner className="size-5 text-fog" />
@@ -222,10 +225,17 @@ export function MediaPicker({
   const [videoUrl, setVideoUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(items[0]?.key ?? null);
   const full = items.length >= GAME_MEDIA_CAP;
   const selected = items.find((item) => item.key === selectedKey) ?? items[0];
+  const progressLabel =
+    uploadProgress && uploadProgress.total > 1
+      ? `Uploading ${Math.min(uploadProgress.done + 1, uploadProgress.total)}/${uploadProgress.total}…`
+      : "Uploading…";
 
   useEffect(() => {
     if (selectedKey && items.some((item) => item.key === selectedKey)) return;
@@ -281,7 +291,10 @@ export function MediaPicker({
   }
 
   async function handleFile(file: File, replaceKey?: string | null) {
-    if (!replaceKey && full) return;
+    if (!replaceKey && full) {
+      setError(`Only ${GAME_MEDIA_CAP} media items are allowed.`);
+      return;
+    }
     const fingerprint = fileFingerprint(file);
     const cached = getCachedUploadUrl(fingerprint);
     const duplicate = items.find((item) => item.kind === "image" && item.url === cached);
@@ -321,10 +334,119 @@ export function MediaPicker({
     }
   }
 
+  async function handleFiles(files: File[]) {
+    const remaining = GAME_MEDIA_CAP - items.length;
+    if (remaining <= 0) {
+      setError(`Only ${GAME_MEDIA_CAP} media items are allowed.`);
+      return;
+    }
+
+    const seenFingerprints = new Set<string>();
+    const galleryUrls = new Set(
+      items.filter((item) => item.kind === "image").map((item) => item.url),
+    );
+    const reservedUrls = new Set(galleryUrls);
+    const accepted: File[] = [];
+    let skippedDuplicate = false;
+    let skippedForCap = false;
+
+    for (const file of files) {
+      const fingerprint = fileFingerprint(file);
+      if (seenFingerprints.has(fingerprint)) {
+        skippedDuplicate = true;
+        continue;
+      }
+      const cached = getCachedUploadUrl(fingerprint);
+      if (cached && reservedUrls.has(cached)) {
+        skippedDuplicate = true;
+        seenFingerprints.add(fingerprint);
+        const duplicate = items.find((item) => item.kind === "image" && item.url === cached);
+        if (duplicate) setSelectedKey(duplicate.key);
+        continue;
+      }
+      if (accepted.length >= remaining) {
+        skippedForCap = true;
+        continue;
+      }
+      seenFingerprints.add(fingerprint);
+      if (cached) reservedUrls.add(cached);
+      accepted.push(file);
+    }
+
+    if (accepted.length === 0) {
+      setError(
+        skippedForCap
+          ? `Only ${GAME_MEDIA_CAP} media items are allowed. Extra files were skipped.`
+          : "This image is already added",
+      );
+      return;
+    }
+
+    setUploadBusy(true);
+    setError(null);
+    setUploadProgress({ done: 0, total: accepted.length });
+    try {
+      const results = await Promise.all(
+        accepted.map(async (file) => {
+          try {
+            const url = await uploadImage(file, "media");
+            return { url } as const;
+          } catch (err) {
+            return {
+              error: err instanceof Error ? err.message : "Upload failed",
+            } as const;
+          } finally {
+            setUploadProgress((current) =>
+              current ? { done: current.done + 1, total: current.total } : current,
+            );
+          }
+        }),
+      );
+
+      const added: DraftMedia[] = [];
+      const addedUrls = new Set(galleryUrls);
+      let firstError: string | null = null;
+      for (const result of results) {
+        if ("error" in result) {
+          firstError ??= result.error;
+          continue;
+        }
+        if (addedUrls.has(result.url)) {
+          skippedDuplicate = true;
+          continue;
+        }
+        addedUrls.add(result.url);
+        added.push({ key: crypto.randomUUID(), kind: "image", url: result.url });
+      }
+
+      if (added.length > 0) {
+        const hasVideo = items.some((item) => item.kind === "video");
+        commit([...items, ...added], hasVideo ? selected?.key : added[0]?.key);
+      }
+
+      const parts: string[] = [];
+      if (firstError) parts.push(firstError);
+      if (skippedForCap) {
+        parts.push(
+          `Only ${GAME_MEDIA_CAP} media items are allowed. Extra files were skipped.`,
+        );
+      }
+      if (skippedDuplicate) parts.push("This image is already added");
+      setError(parts.length > 0 ? parts.join(" ") : null);
+    } finally {
+      setUploadBusy(false);
+      setUploadProgress(null);
+      replaceKeyRef.current = null;
+    }
+  }
+
   function openFilePicker(replaceKey?: string) {
     if (busy) return;
     replaceKeyRef.current = replaceKey ?? null;
-    inputRef.current?.click();
+    const input = inputRef.current;
+    if (!input) return;
+    input.multiple = !replaceKey;
+    input.click();
   }
 
   return (
@@ -335,7 +457,7 @@ export function MediaPicker({
           <InfoTip text="Trailers stay first. Paste a YouTube or Vimeo URL, then add up to 8 screenshots." />
         </span>
         <span className="text-xs text-fog">
-          {busy ? "Uploading…" : `${items.length}/${GAME_MEDIA_CAP}`}
+          {busy ? progressLabel : `${items.length}/${GAME_MEDIA_CAP}`}
         </span>
       </div>
 
@@ -348,8 +470,13 @@ export function MediaPicker({
           onDrop={(event) => {
             event.preventDefault();
             if (busy) return;
-            const file = event.dataTransfer.files?.[0];
-            if (file) void handleFile(file, selected.kind === "image" ? selected.key : null);
+            const files = Array.from(event.dataTransfer.files ?? []);
+            if (files.length === 0) return;
+            if (files.length === 1) {
+              void handleFile(files[0], selected.kind === "image" ? selected.key : null);
+              return;
+            }
+            void handleFiles(files);
           }}
         >
           <MediaPreview item={selected} />
@@ -385,19 +512,19 @@ export function MediaPicker({
               <Trash2Icon className="size-3.5" />
             </button>
           </div>
-          <UploadOverlay visible={busy} />
+          <UploadOverlay visible={busy} label={progressLabel} />
         </div>
       ) : (
         <DropzoneFrame
           className="min-h-48 flex-1 p-6 sm:min-h-0"
           disabled={busy}
           onClick={() => openFilePicker()}
-          onFile={handleFile}
+          onFiles={(files) => void handleFiles(files)}
         >
           {busy ? (
             <>
               <Spinner className="mb-3 size-6 text-fog" />
-              <p className="text-sm text-paper-white">Uploading…</p>
+              <p className="text-sm text-paper-white">{progressLabel}</p>
             </>
           ) : (
             <>
@@ -473,7 +600,7 @@ export function MediaPicker({
               className="size-14 rounded-xl p-1 sm:size-16"
               disabled={busy}
               onClick={() => openFilePicker()}
-              onFile={handleFile}
+              onFiles={(files) => void handleFiles(files)}
             >
               {busy ? (
                 <Spinner className="size-4 text-fog" />
@@ -489,14 +616,19 @@ export function MediaPicker({
         ref={inputRef}
         type="file"
         accept={ACCEPTED_IMAGE_TYPES.join(",")}
+        multiple
         className="hidden"
         disabled={busy}
         onChange={async (event) => {
-          const file = event.target.files?.[0];
+          const files = Array.from(event.target.files ?? []);
           const replaceKey = replaceKeyRef.current;
           event.target.value = "";
-          if (!file || (!replaceKey && full)) return;
-          await handleFile(file, replaceKey);
+          if (files.length === 0) return;
+          if (replaceKey) {
+            await handleFile(files[0], replaceKey);
+            return;
+          }
+          await handleFiles(files);
         }}
       />
 
