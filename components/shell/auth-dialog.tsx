@@ -7,6 +7,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 import { clerkErrorCode, clerkMessage } from "@/components/shell/clerk-error";
 import { Dialog, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { cn } from "@/lib/utils";
 
@@ -379,7 +380,8 @@ function AuthForm({
           </label>
           {error ? <p className="text-sm text-error">{error}</p> : null}
           <button type="submit" disabled={pending || code.trim().length === 0} className={continueClass}>
-            {pending ? "Checking" : "Continue"}
+            {pending ? <Spinner className="mr-2" /> : null}
+            {pending ? "Checking…" : "Continue"}
           </button>
           <button
             type="button"
@@ -406,7 +408,8 @@ function AuthForm({
           </label>
           {error ? <p className="text-sm text-error">{error}</p> : null}
           <button type="submit" disabled={pending || code.trim().length === 0} className={continueClass}>
-            {pending ? "Checking" : "Continue"}
+            {pending ? <Spinner className="mr-2" /> : null}
+            {pending ? "Checking…" : "Continue"}
           </button>
         </form>
       ) : (
@@ -426,8 +429,8 @@ function AuthForm({
               lastMethod === "google" && "pr-24",
             )}
           >
-            <GoogleMark />
-            Continue with Google
+            {busy === "google" ? <Spinner /> : <GoogleMark />}
+            {busy === "google" ? "Continuing…" : "Continue with Google"}
             {lastMethod === "google" ? <LastUsedChip className="absolute top-1/2 right-3 -translate-y-1/2" /> : null}
           </button>
           <div className="flex items-center gap-3">
@@ -456,7 +459,8 @@ function AuthForm({
             disabled={!isLoaded || pending}
             className={cn(continueClass, "relative", lastMethod === "email" && !pending && "pr-24")}
           >
-            {busy === "email" ? "Sending code" : "Continue"}
+            {busy === "email" ? <Spinner className="mr-2" /> : null}
+            {busy === "email" ? "Sending code…" : "Continue"}
             {lastMethod === "email" && !pending ? (
               <LastUsedChip className="absolute top-1/2 right-3 -translate-y-1/2" />
             ) : null}

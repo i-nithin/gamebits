@@ -4,6 +4,7 @@ import { Geist_Mono, Inter } from "next/font/google";
 
 import { SignOutExpired } from "@/components/settings/sign-out-expired";
 import { AppShell } from "@/components/shell/app-shell";
+import { Toaster } from "@/components/ui/sonner";
 import { expireAccountIfNeeded } from "@/lib/account-purge";
 import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
@@ -48,7 +49,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`dark ${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-dvh">
+      <body className="min-h-dvh bg-page text-paper-white">
         {clerkEnabled ? (
           <ClerkProvider
             appearance={{
@@ -64,6 +65,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         ) : (
           shell
         )}
+        <Toaster />
       </body>
     </html>
   );

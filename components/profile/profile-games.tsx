@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import {
   BookmarkIcon,
@@ -31,10 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GAME_STATUS_LABELS } from "@/lib/constants";
+import { notifyError } from "@/lib/notify";
 import { profileTab, type ProfileTab } from "@/lib/profile-tab";
-import type { FollowProfile, ProfileReview, SavedGame } from "@/lib/types";
+import type { FollowProfile, ProfileFeedKey, ProfileReview, SavedGame } from "@/lib/types";
 
 type TabMeta = {
   id: ProfileTab;
@@ -79,33 +80,365 @@ const EMPTY_QUERIES: Record<ProfileTab, string> = {
   comments: "",
 };
 
-function normalize(value: string) {
-  return value.trim().toLocaleLowerCase();
+type FeedPage<T> = { items: T[]; nextCursor: string | null };
+
+function gameKey(game: SavedGame) {
+  return game.id;
 }
 
-function gameMatches(game: SavedGame, query: string) {
-  if (!query) return true;
-  const haystack = [
-    game.name,
-    game.tagline,
-    game.archived ? "Archived" : "",
-    GAME_STATUS_LABELS[game.status],
-    ...game.categories.map((category) => category.name),
-    ...game.platforms.map((platform) => platform.name),
-  ]
-    .join(" ")
-    .toLocaleLowerCase();
-  return haystack.includes(query);
+function personKey(person: FollowProfile) {
+  return person.clerkUserId;
 }
 
-function personMatches(person: FollowProfile, query: string) {
-  if (!query) return true;
-  return `${person.name} ${person.handle}`.toLocaleLowerCase().includes(query);
+function reviewKey(review: ProfileReview) {
+  return review.id;
 }
 
-function reviewMatches(review: ProfileReview, query: string) {
-  if (!query) return true;
-  return `${review.gameName} ${review.body}`.toLocaleLowerCase().includes(query);
+function feedUrl(handle: string, feed: ProfileFeedKey, cursor: string | null, query: string) {
+  const params = new URLSearchParams({ feed });
+  if (cursor) params.set("cursor", cursor);
+  if (query) params.set("q", query);
+  return `/api/profiles/${encodeURIComponent(handle)}/feed?${params}`;
+}
+
+function useDebounced(value: string) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), 200);
+    return () => clearTimeout(timer);
+  }, [value]);
+  return debounced;
+}
+
+function useProfileFeed<T>({
+  handle,
+  feed,
+  initial,
+  query,
+  active,
+  itemKey,
+}: {
+  handle: string;
+  feed: ProfileFeedKey;
+  initial: FeedPage<T>;
+  query: string;
+  active: boolean;
+  itemKey: (item: T) => string;
+}) {
+  const [items, setItems] = useState(initial.items);
+  const [cursor, setCursor] = useState(initial.nextCursor);
+  const [loadedQuery, setLoadedQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [seenKey, setSeenKey] = useState(`${handle}:${feed}`);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const cursorRef = useRef(initial.nextCursor);
+  const queryRef = useRef(query);
+  const loadingRef = useRef(false);
+  const generation = useRef(0);
+  const profileKey = `${handle}:${feed}`;
+
+  if (seenKey !== profileKey) {
+    setSeenKey(profileKey);
+    setItems(initial.items);
+    setCursor(initial.nextCursor);
+    setLoadedQuery("");
+  }
+
+  useEffect(() => {
+    cursorRef.current = cursor;
+  }, [cursor]);
+
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+
+  useEffect(() => {
+    if (!active || query === loadedQuery) return;
+    const request = ++generation.current;
+    loadingRef.current = true;
+    void fetch(feedUrl(handle, feed, null, query))
+      .then(async (response) => {
+        if (!response.ok) throw new Error("feed");
+        return response.json() as Promise<FeedPage<T>>;
+      })
+      .then((page) => {
+        if (request !== generation.current) return;
+        setItems(page.items);
+        setCursor(page.nextCursor);
+        setLoadedQuery(query);
+      })
+      .catch(() => {
+        if (request !== generation.current) return;
+        setItems([]);
+        setCursor(null);
+        setLoadedQuery(query);
+        notifyError("Couldn't load this list.", "Try again in a moment.");
+      })
+      .finally(() => {
+        if (request !== generation.current) return;
+        loadingRef.current = false;
+      });
+  }, [active, feed, handle, loadedQuery, query]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !active) return;
+    const observer = new IntersectionObserver((entries) => {
+      const next = cursorRef.current;
+      const requestQuery = queryRef.current;
+      if (!entries[0]?.isIntersecting || loadingRef.current || !next || requestQuery !== loadedQuery) {
+        return;
+      }
+      const request = ++generation.current;
+      loadingRef.current = true;
+      setLoading(true);
+      void fetch(feedUrl(handle, feed, next, requestQuery))
+        .then(async (response) => {
+          if (!response.ok) throw new Error("feed");
+          return response.json() as Promise<FeedPage<T>>;
+        })
+        .then((page) => {
+          if (request !== generation.current) return;
+          setItems((current) => {
+            const seen = new Set(current.map(itemKey));
+            return [...current, ...page.items.filter((item) => !seen.has(itemKey(item)))];
+          });
+          setCursor(page.nextCursor);
+        })
+        .catch(() => {
+          if (request !== generation.current) return;
+          notifyError("Couldn't load more.", "Try again in a moment.");
+        })
+        .finally(() => {
+          if (request !== generation.current) return;
+          loadingRef.current = false;
+          setLoading(false);
+        });
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [active, cursor, feed, handle, itemKey, items.length, loadedQuery]);
+
+  const updateItem = useCallback(
+    (next: T) => {
+      setItems((current) =>
+        current.map((item) => (itemKey(item) === itemKey(next) ? next : item)),
+      );
+    },
+    [itemKey],
+  );
+
+  const removeItem = useCallback(
+    (key: string) => {
+      setItems((current) => current.filter((item) => itemKey(item) !== key));
+    },
+    [itemKey],
+  );
+
+  return {
+    items,
+    cursor,
+    loading,
+    pending: active && query !== loadedQuery,
+    sentinelRef,
+    updateItem,
+    removeItem,
+  };
+}
+
+function FeedTail({
+  cursor,
+  loading,
+  sentinelRef,
+}: {
+  cursor: string | null;
+  loading: boolean;
+  sentinelRef: RefObject<HTMLDivElement | null>;
+}) {
+  if (!cursor) return null;
+  return (
+    <div ref={sentinelRef} className="flex h-12 items-center justify-center">
+      {loading ? <Spinner /> : null}
+    </div>
+  );
+}
+
+type FeedState<T> = {
+  items: T[];
+  cursor: string | null;
+  loading: boolean;
+  pending: boolean;
+  sentinelRef: RefObject<HTMLDivElement | null>;
+  updateItem: (next: T) => void;
+  removeItem: (key: string) => void;
+};
+
+function FeedPending() {
+  return (
+    <div className="flex justify-center py-10">
+      <Spinner />
+    </div>
+  );
+}
+
+function GamePanel({
+  feed,
+  query,
+  noResults,
+  empty,
+}: {
+  feed: FeedState<SavedGame>;
+  query: string;
+  noResults: ReactNode;
+  empty: ReactNode;
+}) {
+  if (feed.pending) return <FeedPending />;
+  if (feed.items.length === 0) return query ? noResults : empty;
+  return (
+    <>
+      <ProfileGameGrid games={feed.items} />
+      <FeedTail cursor={feed.cursor} loading={feed.loading} sentinelRef={feed.sentinelRef} />
+    </>
+  );
+}
+
+function PeoplePanel({
+  feed,
+  query,
+  noResults,
+  empty,
+}: {
+  feed: FeedState<FollowProfile>;
+  query: string;
+  noResults: ReactNode;
+  empty: ReactNode;
+}) {
+  if (feed.pending) return <FeedPending />;
+  if (feed.items.length === 0) return query ? noResults : empty;
+  return (
+    <>
+      <ProfilePeople people={feed.items} />
+      <FeedTail cursor={feed.cursor} loading={feed.loading} sentinelRef={feed.sentinelRef} />
+    </>
+  );
+}
+
+function CommentPanel({
+  feed,
+  query,
+  noResults,
+  empty,
+}: {
+  feed: FeedState<ProfileReview>;
+  query: string;
+  noResults: ReactNode;
+  empty: ReactNode;
+}) {
+  if (feed.pending) return <FeedPending />;
+  if (feed.items.length === 0) return query ? noResults : empty;
+  return (
+    <>
+      <ProfileComments
+        reviews={feed.items}
+        onUpdated={feed.updateItem}
+        onRemoved={feed.removeItem}
+      />
+      <FeedTail cursor={feed.cursor} loading={feed.loading} sentinelRef={feed.sentinelRef} />
+    </>
+  );
+}
+
+function GamesPanel({
+  view,
+  isOwner,
+  query,
+  publishedFeed,
+  archivedFeed,
+  noResults,
+}: {
+  view: GameView;
+  isOwner: boolean;
+  query: string;
+  publishedFeed: FeedState<SavedGame>;
+  archivedFeed: FeedState<SavedGame>;
+  noResults: ReactNode;
+}) {
+  if (view === "all") {
+    if (publishedFeed.pending || archivedFeed.pending) return <FeedPending />;
+    if (publishedFeed.items.length === 0 && archivedFeed.items.length === 0) {
+      return query ? (
+        noResults
+      ) : (
+        <EmptyState
+          icon={Gamepad2Icon}
+          title={isOwner ? "No published games yet" : "No games"}
+          description={
+            isOwner
+              ? "Games you publish will show up here."
+              : "Games this person publishes will show up here."
+          }
+        />
+      );
+    }
+    return (
+      <div className="flex flex-col gap-8">
+        {publishedFeed.items.length > 0 ? (
+          <GameSection
+            title="Published"
+            games={publishedFeed.items}
+            emptyDescription="Games you publish will show up here."
+            tail={
+              <FeedTail
+                cursor={publishedFeed.cursor}
+                loading={publishedFeed.loading}
+                sentinelRef={publishedFeed.sentinelRef}
+              />
+            }
+          />
+        ) : null}
+        {archivedFeed.items.length > 0 ? (
+          <GameSection
+            title="Archived"
+            games={archivedFeed.items}
+            emptyDescription="Games you archive will show up here."
+            tail={
+              <FeedTail
+                cursor={archivedFeed.cursor}
+                loading={archivedFeed.loading}
+                sentinelRef={archivedFeed.sentinelRef}
+              />
+            }
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  const selected = view === "archived" ? archivedFeed : publishedFeed;
+  if (selected.pending) return <FeedPending />;
+  if (selected.items.length === 0) {
+    return query ? (
+      noResults
+    ) : (
+      <EmptyState
+        icon={Gamepad2Icon}
+        title={view === "archived" ? "No archived games" : isOwner ? "No published games yet" : "No games"}
+        description={
+          view === "archived"
+            ? "Games you archive will show up here."
+            : isOwner
+              ? "Games you publish will show up here."
+              : "Games this person publishes will show up here."
+        }
+      />
+    );
+  }
+  return (
+    <>
+      <ProfileGameGrid games={selected.items} />
+      <FeedTail cursor={selected.cursor} loading={selected.loading} sentinelRef={selected.sentinelRef} />
+    </>
+  );
 }
 
 function EmptyState({
@@ -135,10 +468,12 @@ function GameSection({
   title,
   games,
   emptyDescription,
+  tail,
 }: {
   title: string;
   games: SavedGame[];
   emptyDescription: string;
+  tail?: ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-4">
@@ -151,6 +486,7 @@ function GameSection({
       ) : (
         <p className="py-8 text-sm text-fog">{emptyDescription}</p>
       )}
+      {tail}
     </section>
   );
 }
@@ -170,48 +506,90 @@ export function ProfileGames({
   handle: string;
   tab: ProfileTab;
   isOwner: boolean;
-  published: SavedGame[];
-  archived: SavedGame[];
-  saved: SavedGame[];
-  liked: SavedGame[];
-  comments: ProfileReview[];
-  followers: FollowProfile[];
-  following: FollowProfile[];
+  published: FeedPage<SavedGame>;
+  archived: FeedPage<SavedGame>;
+  saved: FeedPage<SavedGame>;
+  liked: FeedPage<SavedGame>;
+  comments: FeedPage<ProfileReview>;
+  followers: FeedPage<FollowProfile>;
+  following: FeedPage<FollowProfile>;
 }) {
   const router = useRouter();
   const [current, setCurrent] = useState(tab);
   const [gameView, setGameView] = useState<GameView>("published");
   const [queries, setQueries] = useState<Record<ProfileTab, string>>(EMPTY_QUERIES);
   const [seenTab, setSeenTab] = useState(tab);
+  const gamesQuery = useDebounced(queries.games.trim());
+  const followersQuery = useDebounced(queries.followers.trim());
+  const followingQuery = useDebounced(queries.following.trim());
+  const savedQuery = useDebounced(queries.saved.trim());
+  const likedQuery = useDebounced(queries.liked.trim());
+  const commentsQuery = useDebounced(queries.comments.trim());
   if (tab !== seenTab) {
     setSeenTab(tab);
     setCurrent(tab);
   }
 
+  const publishedFeed = useProfileFeed({
+    handle,
+    feed: "games:published",
+    initial: published,
+    query: gamesQuery,
+    active: current === "games" && gameView !== "archived",
+    itemKey: gameKey,
+  });
+  const archivedFeed = useProfileFeed({
+    handle,
+    feed: "games:archived",
+    initial: archived,
+    query: gamesQuery,
+    active: isOwner && current === "games" && gameView !== "published",
+    itemKey: gameKey,
+  });
+  const savedFeed = useProfileFeed({
+    handle,
+    feed: "saved",
+    initial: saved,
+    query: savedQuery,
+    active: isOwner && current === "saved",
+    itemKey: gameKey,
+  });
+  const likedFeed = useProfileFeed({
+    handle,
+    feed: "liked",
+    initial: liked,
+    query: likedQuery,
+    active: isOwner && current === "liked",
+    itemKey: gameKey,
+  });
+  const commentsFeed = useProfileFeed({
+    handle,
+    feed: "comments",
+    initial: comments,
+    query: commentsQuery,
+    active: isOwner && current === "comments",
+    itemKey: reviewKey,
+  });
+  const followersFeed = useProfileFeed({
+    handle,
+    feed: "followers",
+    initial: followers,
+    query: followersQuery,
+    active: current === "followers",
+    itemKey: personKey,
+  });
+  const followingFeed = useProfileFeed({
+    handle,
+    feed: "following",
+    initial: following,
+    query: followingQuery,
+    active: current === "following",
+    itemKey: personKey,
+  });
+
   const tabs = TABS.filter((item) => !item.ownerOnly || isOwner);
   const currentMeta = tabs.find((item) => item.id === current) ?? tabs[0];
   const query = queries[current];
-  const deferredQueries = useDeferredValue(queries);
-  const deferredQuery = normalize(deferredQueries[current]);
-  const filteredPublished = published.filter((game) => gameMatches(game, deferredQuery));
-  const filteredArchived = archived.filter((game) => gameMatches(game, deferredQuery));
-  const filteredSaved = saved.filter((game) => gameMatches(game, deferredQuery));
-  const filteredLiked = liked.filter((game) => gameMatches(game, deferredQuery));
-  const filteredComments = comments.filter((review) => reviewMatches(review, deferredQuery));
-  const filteredFollowers = followers.filter((person) => personMatches(person, deferredQuery));
-  const filteredFollowing = following.filter((person) => personMatches(person, deferredQuery));
-  const selectedGames =
-    gameView === "archived"
-      ? archived
-      : gameView === "all"
-        ? [...published, ...archived]
-        : published;
-  const filteredSelectedGames =
-    gameView === "archived"
-      ? filteredArchived
-      : gameView === "all"
-        ? [...filteredPublished, ...filteredArchived]
-        : filteredPublished;
 
   function clearSearch() {
     setQueries((previous) => ({ ...previous, [current]: "" }));
@@ -257,6 +635,30 @@ export function ProfileGames({
       </TabsList>
 
       <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-start">
+        <InputGroup className="h-10 w-full rounded-full border-white/15 bg-obsidian/30 px-1 sm:w-48 sm:flex-none">
+          <InputGroupAddon className="pl-3">
+            <SearchIcon className="size-5 text-paper-white" />
+          </InputGroupAddon>
+          <InputGroupInput
+            value={query}
+            onChange={(event) =>
+              setQueries((previous) => ({ ...previous, [current]: event.target.value }))
+            }
+            placeholder="Search"
+            aria-label={`Search ${currentMeta.searchLabel}`}
+            className="text-sm placeholder:text-fog"
+          />
+          {query ? (
+            <InputGroupButton
+              size="icon-xs"
+              aria-label={`Clear ${currentMeta.searchLabel} search`}
+              onClick={clearSearch}
+            >
+              <XIcon />
+            </InputGroupButton>
+          ) : null}
+        </InputGroup>
+
         {current === "games" && isOwner ? (
           <Select
             value={gameView}
@@ -298,151 +700,100 @@ export function ProfileGames({
             </SelectContent>
           </Select>
         ) : null}
-
-        <InputGroup className="h-10 w-full rounded-full border-white/15 bg-obsidian/30 px-1 sm:w-48 sm:flex-none">
-          <InputGroupAddon className="pl-3">
-            <SearchIcon className="size-5 text-paper-white" />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={query}
-            onChange={(event) =>
-              setQueries((previous) => ({ ...previous, [current]: event.target.value }))
-            }
-            placeholder="Search"
-            aria-label={`Search ${currentMeta.searchLabel}`}
-            className="text-sm placeholder:text-fog"
-          />
-          {query ? (
-            <InputGroupButton
-              size="icon-xs"
-              aria-label={`Clear ${currentMeta.searchLabel} search`}
-              onClick={clearSearch}
-            >
-              <XIcon />
-            </InputGroupButton>
-          ) : null}
-        </InputGroup>
       </div>
 
       <TabsContent value="games" className="py-6">
-        {deferredQuery && filteredSelectedGames.length === 0 ? (
-          noResults
-        ) : selectedGames.length === 0 ? (
-          <EmptyState
-            icon={Gamepad2Icon}
-            title={
-              gameView === "archived"
-                ? "No archived games"
-                : isOwner
-                  ? "No published games yet"
-                  : "No games"
-            }
-            description={
-              gameView === "archived"
-                ? "Games you archive will show up here."
-                : isOwner
-                  ? "Games you publish will show up here."
-                  : "Games this person publishes will show up here."
-            }
-          />
-        ) : isOwner && gameView === "all" ? (
-          <div className="flex flex-col gap-8">
-            {filteredPublished.length > 0 ? (
-              <GameSection
-                title="Published"
-                games={filteredPublished}
-                emptyDescription="Games you publish will show up here."
-              />
-            ) : null}
-            {filteredArchived.length > 0 ? (
-              <GameSection
-                title="Archived"
-                games={filteredArchived}
-                emptyDescription="Games you archive will show up here."
-              />
-            ) : null}
-          </div>
-        ) : (
-          <ProfileGameGrid games={filteredSelectedGames} />
-        )}
+        <GamesPanel
+          view={gameView}
+          isOwner={isOwner}
+          query={gamesQuery}
+          publishedFeed={publishedFeed}
+          archivedFeed={archivedFeed}
+          noResults={noResults}
+        />
       </TabsContent>
 
       <TabsContent value="followers" className="py-6">
-        {deferredQuery && filteredFollowers.length === 0 ? (
-          noResults
-        ) : followers.length === 0 ? (
-          <EmptyState
-            icon={UsersIcon}
-            title="No followers"
-            description={
-              isOwner ? "People who follow you will show up here." : "Followers will show up here."
-            }
-          />
-        ) : (
-          <ProfilePeople people={filteredFollowers} />
-        )}
+        <PeoplePanel
+          feed={followersFeed}
+          query={followersQuery}
+          noResults={noResults}
+          empty={
+            <EmptyState
+              icon={UsersIcon}
+              title="No followers"
+              description={
+                isOwner ? "People who follow you will show up here." : "Followers will show up here."
+              }
+            />
+          }
+        />
       </TabsContent>
 
       <TabsContent value="following" className="py-6">
-        {deferredQuery && filteredFollowing.length === 0 ? (
-          noResults
-        ) : following.length === 0 ? (
-          <EmptyState
-            icon={UserPlusIcon}
-            title="Not following anyone"
-            description={
-              isOwner
-                ? "People you follow will show up here."
-                : "People this person follows will show up here."
-            }
-          />
-        ) : (
-          <ProfilePeople people={filteredFollowing} />
-        )}
+        <PeoplePanel
+          feed={followingFeed}
+          query={followingQuery}
+          noResults={noResults}
+          empty={
+            <EmptyState
+              icon={UserPlusIcon}
+              title="Not following anyone"
+              description={
+                isOwner
+                  ? "People you follow will show up here."
+                  : "People this person follows will show up here."
+              }
+            />
+          }
+        />
       </TabsContent>
 
       {isOwner ? (
         <>
           <TabsContent value="saved" className="py-6">
-            {deferredQuery && filteredSaved.length === 0 ? (
-              noResults
-            ) : saved.length === 0 ? (
-              <EmptyState
-                icon={BookmarkIcon}
-                title="No bookmarks"
-                description="Games you save will show up here."
-              />
-            ) : (
-              <ProfileGameGrid games={filteredSaved} />
-            )}
+            <GamePanel
+              feed={savedFeed}
+              query={savedQuery}
+              noResults={noResults}
+              empty={
+                <EmptyState
+                  icon={BookmarkIcon}
+                  title="No bookmarks"
+                  description="Games you save will show up here."
+                />
+              }
+            />
           </TabsContent>
 
           <TabsContent value="liked" className="py-6">
-            {deferredQuery && filteredLiked.length === 0 ? (
-              noResults
-            ) : liked.length === 0 ? (
-              <EmptyState
-                icon={HeartIcon}
-                title="No liked games"
-                description="Games you like will show up here."
-              />
-            ) : (
-              <ProfileGameGrid games={filteredLiked} />
-            )}
+            <GamePanel
+              feed={likedFeed}
+              query={likedQuery}
+              noResults={noResults}
+              empty={
+                <EmptyState
+                  icon={HeartIcon}
+                  title="No liked games"
+                  description="Games you like will show up here."
+                />
+              }
+            />
           </TabsContent>
 
           <TabsContent value="comments" className="py-6">
-            {deferredQuery && filteredComments.length === 0 ? (
-              noResults
-            ) : comments.length === 0 ? (
-              <EmptyState
-                icon={MessageSquareIcon}
-                title="No comments"
-                description="Reviews you post on games will show up here."
-              />
-            ) : (
-              <ProfileComments reviews={filteredComments} />
-            )}
+            <CommentPanel
+              feed={commentsFeed}
+              query={commentsQuery}
+              noResults={noResults}
+              empty={
+                <EmptyState
+                  icon={MessageSquareIcon}
+                  title="No comments"
+                  description="Reviews you post on games will show up here."
+                />
+              }
+            />
           </TabsContent>
         </>
       ) : null}

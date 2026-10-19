@@ -9,7 +9,9 @@ import { HeartIcon } from "lucide-react";
 
 import { toggleLikeAction } from "@/app/actions/like";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { clerkEnabled } from "@/lib/clerk-enabled";
+import { notifyReason, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 export function LikeButton({
@@ -30,7 +32,12 @@ export function LikeButton({
     formData.set("gameId", gameId);
     startTransition(async () => {
       const result = await toggleLikeAction(formData);
-      if (result.ok) router.refresh();
+      if (!result.ok) {
+        notifyReason("Couldn't update that like.", result.reason);
+        return;
+      }
+      notifySuccess(liked ? "Like removed." : "Game liked.");
+      router.refresh();
     });
   }
 
@@ -41,7 +48,11 @@ export function LikeButton({
   const label = liked ? "Unlike game" : "Like game";
   const content = (
     <>
-      <HeartIcon className={cn("size-5", liked && "fill-current")} strokeWidth={1.5} />
+      {pending ? (
+        <Spinner />
+      ) : (
+        <HeartIcon className={cn("size-5", liked && "fill-current")} strokeWidth={1.5} />
+      )}
       <span className="stat-mono text-xs">{likeCount}</span>
     </>
   );

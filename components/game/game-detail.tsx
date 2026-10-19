@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { ArrowUpRightIcon, BadgeCheckIcon } from "lucide-react";
 
 import { BookmarkButton } from "@/components/game/bookmark-button";
@@ -9,6 +11,7 @@ import { IarcBadge } from "@/components/game/iarc-badge";
 import { LikeButton } from "@/components/game/like-button";
 import { GameGallery } from "@/components/game/game-gallery";
 import { GameItemToolbar } from "@/components/game/game-item-toolbar";
+import { LaunchGameDialog } from "@/components/game/launch-game-dialog";
 import { GameReviews } from "@/components/game/game-reviews";
 import { PlatformChipList } from "@/components/game/platform-chip";
 import { StoreIcon } from "@/components/game/store-icons";
@@ -30,17 +33,41 @@ export function GameDetail({
   week,
   live,
   signedIn,
+  viewerId = null,
   highlightReviewId = null,
+  launchRequested = false,
+  launchYear,
+  launchWeek,
 }: {
   data: GamePageData;
   year: number;
   week: number;
   live: boolean;
   signedIn: boolean;
+  viewerId?: string | null;
   highlightReviewId?: string | null;
+  launchRequested?: boolean;
+  launchYear: number;
+  launchWeek: number;
 }) {
+  const router = useRouter();
   const { game } = data;
   const canManage = data.isOwner || data.isAdmin;
+  const [launchOpen, setLaunchOpen] = useState(launchRequested);
+  const [seenLaunchRequest, setSeenLaunchRequest] = useState(launchRequested);
+  if (launchRequested !== seenLaunchRequest) {
+    setSeenLaunchRequest(launchRequested);
+    if (launchRequested) setLaunchOpen(true);
+  }
+
+  function closeLaunch() {
+    setLaunchOpen(false);
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("launch")) return;
+    params.delete("launch");
+    const next = params.toString();
+    router.replace(next ? `/games/${game.slug}?${next}` : `/games/${game.slug}`, { scroll: false });
+  }
   const ratingLabel =
     data.reviewCount > 0 && data.reviewAverage != null
       ? data.reviewAverage.toFixed(1)
@@ -86,7 +113,12 @@ export function GameDetail({
                 </p>
               </div>
             </div>
-            <GameItemToolbar slug={game.slug} links={data.links} canManage={canManage} />
+            <GameItemToolbar
+              slug={game.slug}
+              links={data.links}
+              canManage={canManage}
+              onLaunch={canManage ? () => setLaunchOpen(true) : undefined}
+            />
           </div>
 
           <p className="text-base leading-6 text-fog">{game.tagline}</p>
@@ -271,6 +303,7 @@ export function GameDetail({
             slug={game.slug}
             gameId={game.id}
             signedIn={signedIn}
+            viewerId={viewerId}
             initialReviews={data.reviews}
             nextCursor={data.reviewsNextCursor}
             average={data.reviewAverage}
@@ -280,6 +313,26 @@ export function GameDetail({
           />
         </TabsContent>
       </Tabs>
+      {canManage ? (
+        <LaunchGameDialog
+          open={launchOpen}
+          onOpenChange={(next) => {
+            if (next) setLaunchOpen(true);
+            else closeLaunch();
+          }}
+          game={{
+            id: game.id,
+            slug: game.slug,
+            name: game.name,
+            logoUrl: game.logoUrl,
+            coverUrl: game.coverUrl,
+            platforms: game.platforms,
+            developerName: game.developerName,
+          }}
+          defaultYear={launchYear}
+          defaultWeek={launchWeek}
+        />
+      ) : null}
     </article>
   );
 }

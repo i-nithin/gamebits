@@ -9,7 +9,9 @@ import { ChevronUpIcon } from "lucide-react";
 
 import { toggleVoteAction } from "@/app/actions/vote";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { clerkEnabled } from "@/lib/clerk-enabled";
+import { notifyReason, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 export function VoteButton({
@@ -44,7 +46,12 @@ export function VoteButton({
     formData.set("week", String(week));
     startTransition(async () => {
       const result = await toggleVoteAction(formData);
-      if (result.ok) router.refresh();
+      if (!result.ok) {
+        notifyReason("Couldn't record that vote.", result.reason);
+        return;
+      }
+      notifySuccess(voted ? "Vote removed." : "Vote recorded.");
+      router.refresh();
     });
   }
 
@@ -65,7 +72,7 @@ export function VoteButton({
       onClick={vote}
       className={classes}
     >
-      <ChevronUpIcon data-icon="inline-start" />
+      {pending ? <Spinner data-icon="inline-start" /> : <ChevronUpIcon data-icon="inline-start" />}
       {wide ? "Vote" : null}
       <span className="stat-mono text-xs">{voteCount}</span>
     </Button>

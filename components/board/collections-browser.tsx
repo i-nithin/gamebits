@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import {
   BadgeCheckIcon,
   BeakerIcon,
@@ -17,6 +18,7 @@ import {
   FlaskConicalIcon,
   Gamepad2Icon,
   LayoutGridIcon,
+  ListFilterIcon,
   SearchIcon,
   XIcon,
   type LucideIcon,
@@ -27,6 +29,8 @@ import { WeekFilter } from "@/components/board/week-filter";
 import { VoteButton } from "@/components/game/vote-button";
 import { PlatformChipList } from "@/components/game/platform-chip";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Empty,
   EmptyDescription,
@@ -51,6 +55,7 @@ import {
 } from "@/lib/constants";
 import { buildIsoWeekRange, compareIsoWeek, type IsoWeek } from "@/lib/iso-week";
 import type { GameCategoryItem, GamePlatformItem, RankedGame, WeekBoard } from "@/lib/types";
+import { notifyError } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 const STATUS_ICONS: Record<GameStatus, LucideIcon> = {
@@ -151,6 +156,7 @@ export function CollectionsBrowser({
     filters.sort,
     filters.dir,
   ].join("|");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col lg:flex-row lg:items-start">
@@ -158,32 +164,35 @@ export function CollectionsBrowser({
         filters={filters}
         categories={categories}
         platforms={platforms}
-        className="sticky top-14 hidden w-80 shrink-0 flex-col gap-5 border-r border-iron px-4 py-6 lg:flex"
+        className="sticky top-14 hidden h-[calc(100dvh-3.5rem-2.5rem)] w-80 shrink-0 flex-col gap-5 overflow-y-auto overscroll-y-contain border-r border-iron px-4 py-6 [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden"
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-col gap-4 px-4 pt-4 pb-4 sm:px-6 sm:pt-6">
-          <FilterRail
-            filters={filters}
-            categories={categories}
-            platforms={platforms}
-            className="flex gap-4 overflow-x-auto pb-1 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            compact
-          />
-          <div className="flex w-fit items-center gap-2">
-            <TabLink
-              href={collectionHref({ ...filters, view: "all" })}
-              active={filters.view === "all"}
-              icon={LayoutGridIcon}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex w-fit items-center gap-2">
+              <TabLink
+                href={collectionHref({ ...filters, view: "all" })}
+                active={filters.view === "all"}
+                icon={LayoutGridIcon}
+              >
+                All
+              </TabLink>
+              <TabLink
+                href={collectionHref({ ...filters, view: "weekly" })}
+                active={filters.view === "weekly"}
+                icon={CalendarIcon}
+              >
+                Weekly
+              </TabLink>
+            </div>
+            <button
+              type="button"
+              aria-label="Filters"
+              onClick={() => setFiltersOpen(true)}
+              className="flex size-9 items-center justify-center rounded-full border border-iron text-paper-white hover:bg-slate/50 lg:hidden"
             >
-              All
-            </TabLink>
-            <TabLink
-              href={collectionHref({ ...filters, view: "weekly" })}
-              active={filters.view === "weekly"}
-              icon={CalendarIcon}
-            >
-              Weekly
-            </TabLink>
+              <ListFilterIcon className="size-4" strokeWidth={1.5} />
+            </button>
           </div>
           {filters.view === "weekly" ? (
             <WeeklyPicker filters={filters} currentWeek={currentWeek} />
@@ -219,7 +228,81 @@ export function CollectionsBrowser({
         )}
         </div>
       </div>
+      <FilterSheet
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        filters={filters}
+        categories={categories}
+        platforms={platforms}
+      />
     </div>
+  );
+}
+
+function FilterSheet({
+  open,
+  onOpenChange,
+  filters,
+  categories,
+  platforms,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  filters: CollectionFilters;
+  categories: GameCategoryItem[];
+  platforms: GamePlatformItem[];
+}) {
+  const clearHref = collectionHref({
+    ...filters,
+    categories: [],
+    platforms: [],
+    statuses: [],
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogPortal>
+        <DialogOverlay className="bg-scrim backdrop-blur-none" />
+        <DialogPrimitive.Popup className="fixed inset-x-0 bottom-0 z-50 flex max-h-[min(40rem,calc(100dvh-1rem))] flex-col overflow-hidden rounded-t-3xl border border-iron bg-obsidian text-paper-white outline-none data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-4 data-closed:animate-out data-closed:fade-out-0">
+          <div className="flex items-center justify-between px-5 pt-5 pb-2">
+            <DialogTitle className="text-lg font-medium">Filters</DialogTitle>
+            <DialogDescription className="sr-only">
+              Filter games by category, platform, and status.
+            </DialogDescription>
+            <DialogPrimitive.Close
+              aria-label="Close filters"
+              className="flex size-8 items-center justify-center rounded-lg text-fog hover:bg-white/8 hover:text-paper-white"
+            >
+              <XIcon className="size-4" />
+            </DialogPrimitive.Close>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <FilterRail
+              filters={filters}
+              categories={categories}
+              platforms={platforms}
+              className="flex flex-col gap-5"
+            />
+          </div>
+          <div className="flex gap-3 border-t border-iron px-5 py-4">
+            <Link
+              href={clearHref}
+              onClick={() => onOpenChange(false)}
+              className="flex h-11 flex-1 items-center justify-center rounded-full border border-iron text-sm font-medium text-paper-white hover:bg-slate/50"
+            >
+              Clear all
+            </Link>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="flex h-11 flex-1 items-center justify-center rounded-full bg-ice-strong text-sm font-medium text-paper-white hover:bg-ice-strong/90"
+            >
+              Done
+            </button>
+          </div>
+        </DialogPrimitive.Popup>
+      </DialogPortal>
+    </Dialog>
   );
 }
 
@@ -424,12 +507,10 @@ function CatalogList({
   const [extra, setExtra] = useState<RankedGame[]>([]);
   const [cursor, setCursor] = useState(nextCursor);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function loadMore() {
     if (!cursor || pending) return;
     setPending(true);
-    setError(null);
     try {
       const page = await loadMoreCollectionGames({
         cursor,
@@ -442,7 +523,7 @@ function CatalogList({
       setExtra((current) => [...current, ...page.games]);
       setCursor(page.nextCursor);
     } catch {
-      setError("Couldn't load more games.");
+      notifyError("Couldn't load more games.", "Try again in a moment.");
     } finally {
       setPending(false);
     }
@@ -451,14 +532,14 @@ function CatalogList({
   return (
     <div className="flex flex-col gap-4">
       <CollectionsTable games={[...games, ...extra]} filters={filters} />
-      {error ? <p className="text-sm text-fog">{error}</p> : null}
       {cursor ? (
         <button
           type="button"
           onClick={loadMore}
           disabled={pending}
-          className="mx-auto inline-flex h-9 items-center rounded-full border border-iron px-4 text-sm text-paper-white hover:bg-slate/50 disabled:opacity-50"
+          className="mx-auto inline-flex h-9 items-center gap-2 rounded-full border border-iron px-4 text-sm text-paper-white hover:bg-slate/50 disabled:opacity-50"
         >
+          {pending ? <Spinner /> : null}
           {pending ? "Loading…" : "Load more"}
         </button>
       ) : null}
@@ -667,11 +748,13 @@ function SortHead({
   column,
   label,
   align = "left",
+  className,
 }: {
   filters: CollectionFilters;
   column: "name" | "status" | "votes";
   label: string;
   align?: "left" | "right";
+  className?: string;
 }) {
   const active = filters.sort === column;
   const Icon = active
@@ -682,7 +765,7 @@ function SortHead({
 
   return (
     <TableHead
-      className={cn(headClass, align === "right" && "text-right")}
+      className={cn(headClass, align === "right" && "text-right", className)}
       aria-sort={active ? (filters.dir === "asc" ? "ascending" : "descending") : "none"}
     >
       <Link
@@ -731,12 +814,13 @@ function CollectionsTable({
   filters: CollectionFilters;
   vote?: { year: number; week: number; live: boolean };
 }) {
+  const sticky = "sticky left-0 z-10 bg-page md:static md:bg-transparent";
+
   return (
-    <div className="overflow-x-auto">
-      <Table>
+    <Table className="min-w-[48rem] md:min-w-full">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <SortHead filters={filters} column="name" label="Game" />
+            <SortHead filters={filters} column="name" label="Game" className={sticky} />
             <TableHead className={headClass}>Categories</TableHead>
             <TableHead className={headClass}>Platforms</TableHead>
             <SortHead filters={filters} column="status" label="Status" />
@@ -745,8 +829,8 @@ function CollectionsTable({
         </TableHeader>
         <TableBody>
           {games.map((game) => (
-            <TableRow key={game.id} className="hover:bg-graphite">
-              <TableCell>
+            <TableRow key={game.id} className="group hover:bg-graphite">
+              <TableCell className={cn(sticky, "group-hover:bg-graphite")}>
                 <Link href={`/games/${game.slug}`} className="flex items-center gap-3">
                   <Image
                     src={game.logoUrl}
@@ -793,6 +877,5 @@ function CollectionsTable({
           ))}
         </TableBody>
       </Table>
-    </div>
   );
 }

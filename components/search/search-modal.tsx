@@ -1,7 +1,7 @@
 "use client";
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { CheckIcon, Gamepad2Icon, SearchIcon, UserIcon } from "lucide-react";
+import { CheckIcon, Gamepad2Icon, SearchIcon, UserIcon, XIcon } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -275,9 +275,9 @@ export function SearchModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogPortal>
-        <DialogOverlay className="bg-scrim backdrop-blur-none" />
+        <DialogOverlay className="bg-scrim backdrop-blur-none max-md:hidden" />
         <DialogPrimitive.Popup
-          className="fixed top-[10%] left-1/2 z-50 flex h-[min(32rem,calc(100dvh-4rem))] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-iron bg-obsidian text-paper-white outline-none sm:max-w-3xl data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+          className="fixed inset-0 z-50 flex h-dvh w-full max-w-none translate-none flex-col overflow-hidden rounded-none border-0 bg-page text-paper-white outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 md:inset-auto md:top-[10%] md:left-1/2 md:h-[min(32rem,calc(100dvh-4rem))] md:max-w-3xl md:-translate-x-1/2 md:rounded-xl md:border md:border-iron md:bg-obsidian md:data-open:zoom-in-95 md:data-closed:zoom-out-95"
           onKeyDown={onKeyDown}
         >
           <DialogTitle className="sr-only">Search GameBits</DialogTitle>
@@ -302,6 +302,12 @@ export function SearchModal() {
               spellCheck={false}
               className="h-full min-w-0 flex-1 bg-transparent text-base text-paper-white outline-none placeholder:text-fog"
             />
+            <DialogPrimitive.Close
+              aria-label="Close search"
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg text-fog hover:bg-white/8 hover:text-paper-white md:hidden"
+            >
+              <XIcon className="size-4" />
+            </DialogPrimitive.Close>
           </div>
           <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
             <ScopeNav

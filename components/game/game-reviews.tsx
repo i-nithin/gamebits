@@ -4,10 +4,13 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { StarIcon } from "lucide-react";
 
 import { upsertReviewAction } from "@/app/actions/reviews";
+import { CommentEditor, RemoveCommentButton } from "@/components/game/comment-editor";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Spinner } from "@/components/ui/spinner";
 import { REVIEW_BODY_MAX } from "@/lib/constants";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import type { GameReviewItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -59,6 +62,7 @@ export function GameReviews({
   slug,
   gameId,
   signedIn,
+  viewerId = null,
   initialReviews,
   nextCursor,
   average,
@@ -69,6 +73,7 @@ export function GameReviews({
   slug: string;
   gameId: string;
   signedIn: boolean;
+  viewerId?: string | null;
   initialReviews: GameReviewItem[];
   nextCursor: string | null;
   average: number | null;
@@ -83,11 +88,17 @@ export function GameReviews({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(Boolean(viewerReview));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [reviewCount, setReviewCount] = useState(count);
+  const [reviewAverage, setReviewAverage] = useState(average);
   const sentinel = useRef<HTMLDivElement>(null);
   const cursorRef = useRef(nextCursor);
   const loadingRef = useRef(false);
   const scrolledRef = useRef(false);
-  cursorRef.current = cursor;
+
+  useEffect(() => {
+    cursorRef.current = cursor;
+  }, [cursor]);
 
   useEffect(() => {
     const node = sentinel.current;
@@ -124,8 +135,8 @@ export function GameReviews({
   return (
     <div className="flex flex-col gap-5">
       <p className="text-sm text-fog">
-        {count > 0 && average != null
-          ? `${average.toFixed(1)} average · ${count} review${count === 1 ? "" : "s"}`
+        {reviewCount > 0 && reviewAverage != null
+          ? `${reviewAverage.toFixed(1)} average · ${reviewCount} review${reviewCount === 1 ? "" : "s"}`
           : "No reviews yet"}
       </p>
       {signedIn ? (
@@ -133,23 +144,42 @@ export function GameReviews({
           className="flex flex-col gap-3"
           action={(formData) => {
             if (rating < 1) {
-              setError("Choose a star rating");
+              setError("Choose a star rating.");
               return;
             }
             formData.set("rating", String(rating));
             setError(null);
+            const updating = saved;
             startTransition(async () => {
               try {
                 const result = await upsertReviewAction(formData);
                 if (result?.review) {
+                  const previous = reviews.find((item) => item.id === result.review.id)?.rating;
                   setSaved(true);
+                  notifySuccess(updating ? "Review updated." : "Review posted.");
                   setReviews((current) => {
                     const without = current.filter((item) => item.id !== result.review.id);
                     return [result.review, ...without];
                   });
+                  if (previous == null) {
+                    setReviewCount((current) => current + 1);
+                    setReviewAverage((current) => {
+                      if (reviewCount < 1 || current == null) return result.review.rating;
+                      return (current * reviewCount + result.review.rating) / (reviewCount + 1);
+                    });
+                  } else if (previous !== result.review.rating) {
+                    setReviewAverage((current) => {
+                      if (reviewCount < 1) return result.review.rating;
+                      const base = current ?? previous;
+                      return (base * reviewCount - previous + result.review.rating) / reviewCount;
+                    });
+                  }
                 }
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Could not save review");
+                notifyError(
+                  "Couldn't save that review.",
+                  err instanceof Error ? err.message : "Try again in a moment.",
+                );
               }
             });
           }}
@@ -167,6 +197,7 @@ export function GameReviews({
           />
           {error ? <p className="text-xs text-error">{error}</p> : null}
           <Button type="submit" disabled={pending} className="w-fit">
+            {pending ? <Spinner data-icon="inline-start" /> : null}
             {pending ? "Saving…" : saved ? "Update review" : "Post review"}
           </Button>
         </form>
@@ -190,9 +221,62 @@ export function GameReviews({
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex items-center gap-2">
                 <span className="truncate text-sm font-medium">{review.displayName}</span>
-                <Stars value={review.rating} />
+                {editingId === review.id ? null : <Stars value={review.rating} />}
+                {viewerId && review.clerkUserId === viewerId && editingId !== review.id ? (
+                  <span className="ml-auto flex shrink-0 gap-3">
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-fog hover:text-paper-white"
+                      onClick={() => setEditingId(review.id)}
+                    >
+                      Edit
+                    </button>
+                    <RemoveCommentButton
+                      reviewId={review.id}
+                      onRemoved={() => {
+                        setReviews((current) => current.filter((item) => item.id !== review.id));
+                        setEditingId(null);
+                        setSaved(false);
+                        setRating(0);
+                        setBody("");
+                        setReviewCount((current) => Math.max(0, current - 1));
+                        setReviewAverage((current) => {
+                          if (reviewCount <= 1) return null;
+                          const base = current ?? review.rating;
+                          return (base * reviewCount - review.rating) / (reviewCount - 1);
+                        });
+                      }}
+                    />
+                  </span>
+                ) : null}
               </div>
-              <p className="text-sm leading-6 text-fog">{review.body}</p>
+              {editingId === review.id ? (
+                <CommentEditor
+                  gameId={gameId}
+                  initialRating={review.rating}
+                  initialBody={review.body}
+                  onCancel={() => setEditingId(null)}
+                  onSaved={(savedReview) => {
+                    const previous = review.rating;
+                    setReviews((current) =>
+                      current.map((item) =>
+                        item.id === savedReview.id ? { ...item, ...savedReview } : item,
+                      ),
+                    );
+                    setRating(savedReview.rating);
+                    setBody(savedReview.body);
+                    setSaved(true);
+                    setEditingId(null);
+                    setReviewAverage((current) => {
+                      if (reviewCount < 1) return savedReview.rating;
+                      const base = current ?? previous;
+                      return (base * reviewCount - previous + savedReview.rating) / reviewCount;
+                    });
+                  }}
+                />
+              ) : (
+                <p className="text-sm leading-6 text-fog">{review.body}</p>
+              )}
             </div>
           </li>
         ))}

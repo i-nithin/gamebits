@@ -7,14 +7,14 @@ import { getCurrentUserId } from "@/lib/auth-admin";
 import { getProfileByHandle } from "@/lib/profile";
 import { profileTab } from "@/lib/profile-tab";
 import {
+  countPublishedGames,
   getFollowState,
-  listArchivedGames,
-  listBookmarks,
-  listFollowers,
-  listFollowing,
-  listLikes,
-  listProfileReviews,
-  listPublishedGames,
+  listProfileBookmarksPage,
+  listProfileFollowersPage,
+  listProfileFollowingPage,
+  listProfileGamesPage,
+  listProfileLikesPage,
+  listProfileReviewsPage,
 } from "@/lib/queries";
 
 export async function generateMetadata({
@@ -57,16 +57,19 @@ export default async function UserProfilePage({
     redirect(`/u/${profile.handle}${suffix}`);
   }
 
-  const [published, saved, liked, comments, followers, following, follow, archived] =
+  const userIdForLists = profile.clerkUserId;
+  const empty = Promise.resolve({ items: [], nextCursor: null });
+  const [published, saved, liked, comments, followers, following, follow, archived, gameCount] =
     await Promise.all([
-      listPublishedGames(profile.clerkUserId),
-      isOwner ? listBookmarks(profile.clerkUserId) : Promise.resolve([]),
-      isOwner ? listLikes(profile.clerkUserId) : Promise.resolve([]),
-      isOwner ? listProfileReviews(profile.clerkUserId) : Promise.resolve([]),
-      listFollowers(profile.clerkUserId),
-      listFollowing(profile.clerkUserId),
-      getFollowState(userId, profile.clerkUserId),
-      isOwner ? listArchivedGames(profile.clerkUserId) : Promise.resolve([]),
+      listProfileGamesPage({ userId: userIdForLists, view: "published" }),
+      isOwner ? listProfileBookmarksPage({ userId: userIdForLists }) : empty,
+      isOwner ? listProfileLikesPage({ userId: userIdForLists }) : empty,
+      isOwner ? listProfileReviewsPage({ userId: userIdForLists }) : empty,
+      listProfileFollowersPage({ userId: userIdForLists }),
+      listProfileFollowingPage({ userId: userIdForLists }),
+      getFollowState(userId, userIdForLists),
+      isOwner ? listProfileGamesPage({ userId: userIdForLists, view: "archived" }) : empty,
+      countPublishedGames(userIdForLists),
     ]);
 
   return (
@@ -74,7 +77,7 @@ export default async function UserProfilePage({
       profile={profile}
       isOwner={isOwner}
       follow={follow}
-      gameCount={published.length}
+      gameCount={gameCount}
     >
       <ProfileGames
         handle={profile.handle}
