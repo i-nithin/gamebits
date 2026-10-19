@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { SignInButton } from "@clerk/nextjs";
 
 import { BookmarkList } from "@/components/game/bookmark-list";
+import { OpenAuthButton } from "@/components/shell/open-auth-button";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -32,11 +32,7 @@ export default async function BookmarksPage() {
             </EmptyDescription>
           </EmptyHeader>
           {clerkEnabled ? (
-            <SignInButton mode="modal">
-              <Button variant="outline" className="rounded-full">
-                Sign in
-              </Button>
-            </SignInButton>
+            <OpenAuthButton className="rounded-full">Sign in</OpenAuthButton>
           ) : null}
         </Empty>
       ) : (

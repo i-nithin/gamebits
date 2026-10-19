@@ -35,12 +35,14 @@ export function LeftRail({
       label: "Add game",
       icon: PlusIcon,
       active: pathname === "/games/new",
+      requiresAuth: true,
     },
     {
       href: "/analytics",
       label: "Analytics",
       icon: ChartColumnIcon,
       active: pathname === "/analytics" || pathname.startsWith("/analytics/"),
+      requiresAuth: true,
     },
     {
       href: "/adbits",
@@ -54,6 +56,7 @@ export function LeftRail({
       label: "Settings",
       icon: SettingsIcon,
       active: pathname.startsWith("/settings"),
+      requiresAuth: true,
     },
     ...(showAdminNav
       ? [

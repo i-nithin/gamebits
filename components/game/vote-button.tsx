@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Show, SignInButton } from "@clerk/nextjs";
+import { Show } from "@clerk/nextjs";
+
+import { useAuthDialog } from "@/components/shell/auth-dialog";
 import { ChevronUpIcon } from "lucide-react";
 
 import { toggleVoteAction } from "@/app/actions/vote";
@@ -32,6 +34,7 @@ export function VoteButton({
   className?: string;
 }) {
   const router = useRouter();
+  const openAuth = useAuthDialog();
   const [pending, startTransition] = useTransition();
 
   function vote() {
@@ -77,18 +80,17 @@ export function VoteButton({
       <Show when="signed-in">{control}</Show>
       <Show when="signed-out">
         {live ? (
-          <SignInButton mode="modal">
-            <Button
-              type="button"
-              variant="outline"
-              size={compact ? "sm" : wide ? "lg" : "default"}
-              className={classes}
-            >
-              <ChevronUpIcon data-icon="inline-start" />
-              {wide ? "Vote" : null}
-              <span className="stat-mono text-xs">{voteCount}</span>
-            </Button>
-          </SignInButton>
+          <Button
+            type="button"
+            variant="outline"
+            size={compact ? "sm" : wide ? "lg" : "default"}
+            className={classes}
+            onClick={openAuth}
+          >
+            <ChevronUpIcon data-icon="inline-start" />
+            {wide ? "Vote" : null}
+            <span className="stat-mono text-xs">{voteCount}</span>
+          </Button>
         ) : (
           control
         )}

@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Show, SignInButton } from "@clerk/nextjs";
+import { Show } from "@clerk/nextjs";
+
+import { useAuthDialog } from "@/components/shell/auth-dialog";
 import { HeartIcon } from "lucide-react";
 
 import { toggleLikeAction } from "@/app/actions/like";
@@ -20,6 +22,7 @@ export function LikeButton({
   likeCount: number;
 }) {
   const router = useRouter();
+  const openAuth = useAuthDialog();
   const [pending, startTransition] = useTransition();
 
   function toggle() {
@@ -66,17 +69,16 @@ export function LikeButton({
     <>
       <Show when="signed-in">{control}</Show>
       <Show when="signed-out">
-        <SignInButton mode="modal">
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            aria-label="Sign in to like"
-            className={classes}
-          >
-            {content}
-          </Button>
-        </SignInButton>
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          aria-label="Sign in to like"
+          className={classes}
+          onClick={openAuth}
+        >
+          {content}
+        </Button>
       </Show>
     </>
   );
