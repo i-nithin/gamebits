@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useNotificationsOptional } from "@/components/notifications/notification-provider";
 import { useSearch } from "@/components/search/search-provider";
+import { AppMark } from "@/components/shell/app-mark";
 import { useAuthDialog } from "@/components/shell/auth-dialog";
 import { ProfileMenu } from "@/components/shell/profile-menu";
 import { ViewerMark } from "@/components/shell/viewer-mark";
@@ -139,7 +140,7 @@ export function TopBar({
 
   return (
     <>
-      <header className="fixed top-0 right-0 left-0 z-30 h-14 border-b border-white/10 bg-obsidian md:left-14">
+      <header className="fixed top-0 right-0 left-0 z-30 h-14 border-b border-white/10 bg-chrome md:left-14">
         <div className="flex h-full items-center gap-2 px-3 sm:gap-3 sm:px-4">
           <div className="flex shrink-0 items-center gap-1 md:hidden">
             <button
@@ -150,18 +151,26 @@ export function TopBar({
             >
               <MenuIcon className="size-5" strokeWidth={1.5} />
             </button>
-            <div className="size-8 rounded-full bg-[#0d85ed]" />
+            <AppMark />
           </div>
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/12 bg-[#1a1a1a] px-3 text-left text-sm text-white/45 hover:border-white/20 md:w-72 md:flex-none"
+            className="hidden h-9 min-w-0 items-center gap-2 rounded-lg border border-white/12 bg-[#1a1a1a] px-3 text-left text-sm text-white/45 hover:border-white/20 md:flex md:w-72 md:flex-none"
           >
             <SearchIcon className="size-4 shrink-0" />
             <span className="min-w-0 flex-1 truncate">Search GameBits</span>
-            <span className="hidden text-xs text-white/35 sm:inline">/</span>
+            <span className="text-xs text-white/35">/</span>
           </button>
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+          <button
+            type="button"
+            aria-label="Search GameBits"
+            onClick={() => setOpen(true)}
+            className="flex size-10 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white md:hidden"
+          >
+            <SearchIcon className="size-5" strokeWidth={1.5} />
+          </button>
           <NotificationsControl signedIn={Boolean(viewer)} />
           {viewer ? (
             <ProfileMenu viewer={viewer} />
@@ -180,11 +189,11 @@ export function TopBar({
       </header>
 
       {menuOpen ? (
-        <div className="fixed inset-0 z-50 flex flex-col bg-obsidian md:hidden">
-          <div className="flex h-14 items-center justify-between border-b border-white/10 px-4">
+        <div className="fixed inset-0 z-50 flex flex-col bg-chrome md:hidden">
+          <div className="flex h-14 items-center justify-between px-4">
             <div className="flex items-center gap-3">
-              <div className="size-8 shrink-0 rounded-full bg-[#0d85ed]" />
-              <span className="text-sm font-medium text-paper-white">GameBits</span>
+              <AppMark />
+              <span className="text-base font-bold text-paper-white">GameBits</span>
             </div>
             <button
               type="button"
@@ -200,7 +209,7 @@ export function TopBar({
               const Icon = item.icon;
               const active = item.active;
               const className = cn(
-                "flex h-12 items-center gap-3 rounded-xl px-3 text-white/80",
+                "flex h-12 items-center gap-3 rounded-full px-3 text-white/80",
                 active ? "bg-white/10 text-white" : "hover:bg-white/8 hover:text-white",
               );
               if (item.label === "Profile") {
@@ -258,7 +267,7 @@ export function TopBar({
           <div className="flex flex-col gap-2 px-4 py-4">
             <a
               href="mailto:hello@gamebits.app"
-              className="flex h-12 items-center gap-3 rounded-xl px-3 text-white/80 hover:bg-white/8 hover:text-white"
+              className="flex h-12 items-center gap-3 rounded-full px-3 text-white/80 hover:bg-white/8 hover:text-white"
             >
               <LifeBuoyIcon className="size-5 shrink-0" />
               <span className="text-sm font-medium">Support</span>

@@ -19,7 +19,7 @@ export function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky top-14 flex h-[calc(100dvh-3.5rem)] w-40 shrink-0 flex-col gap-1 border-r border-white/10 bg-obsidian p-2">
+    <nav className="sticky top-14 flex h-[calc(100dvh-3.5rem)] w-40 shrink-0 flex-col gap-1 border-r border-white/10 bg-chrome p-2">
       {ITEMS.map((item) => {
         const active =
           item.match === "exact" ? pathname === item.href : pathname.startsWith(item.href);

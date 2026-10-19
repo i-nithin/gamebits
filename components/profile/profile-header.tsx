@@ -1,26 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ArrowUpRightIcon,
-  CalendarIcon,
-  MapPinIcon,
-} from "lucide-react";
-import type { ReactNode } from "react";
+import { CalendarIcon, GlobeIcon, MapPinIcon, type LucideIcon } from "lucide-react";
+import type { ReactNode, SVGProps } from "react";
 
 import { FollowButton } from "@/components/profile/follow-button";
 import { ProfileBio } from "@/components/profile/profile-bio";
+import { GitHubMark, LinkedInMark, RedditMark, XMark } from "@/components/settings/brand-marks";
 import { Button } from "@/components/ui/button";
 import { countryFlag, countryName, isCountryCode } from "@/lib/countries";
 import { formatMemberSince } from "@/lib/profile";
 import type { FollowState, PublicProfile } from "@/lib/types";
 
-const SOCIALS = [
-  { key: "websiteUrl", label: "Site" },
-  { key: "xUrl", label: "X" },
-  { key: "githubUrl", label: "GitHub" },
-  { key: "linkedinUrl", label: "LinkedIn" },
-  { key: "redditUrl", label: "Reddit" },
-] as const;
+type SocialIcon = LucideIcon | ((props: SVGProps<SVGSVGElement>) => ReactNode);
+
+const SOCIALS: { key: keyof PublicProfile; label: string; Icon: SocialIcon }[] = [
+  { key: "websiteUrl", label: "Website", Icon: GlobeIcon },
+  { key: "xUrl", label: "X", Icon: XMark },
+  { key: "githubUrl", label: "GitHub", Icon: GitHubMark },
+  { key: "linkedinUrl", label: "LinkedIn", Icon: LinkedInMark },
+  { key: "redditUrl", label: "Reddit", Icon: RedditMark },
+];
 
 function ProfileAction({
   profile,
@@ -69,7 +68,7 @@ export function ProfileHeader({
   const initial = profile.name.trim().charAt(0).toUpperCase() || "?";
   const links = SOCIALS.flatMap((item) => {
     const href = profile[item.key];
-    return href ? [{ href, label: item.label }] : [];
+    return typeof href === "string" && href ? [{ href, label: item.label, Icon: item.Icon }] : [];
   });
 
   return (
@@ -120,21 +119,22 @@ export function ProfileHeader({
           </div>
 
           <div className="flex max-w-2xl flex-col gap-1">
-            <h1 className="truncate text-[1.75rem] font-semibold tracking-[-0.025em] text-paper-white sm:text-3xl">
-              {profile.name}
-            </h1>
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="min-w-0 truncate text-[1.75rem] font-semibold tracking-[-0.025em] text-paper-white sm:text-3xl">
+                {profile.name}
+              </h1>
+              {isOwner ? (
+                <div className="shrink-0">
+                  <ProfileAction profile={profile} isOwner={isOwner} follow={follow} />
+                </div>
+              ) : null}
+            </div>
             <p className="text-sm text-fog">@{profile.handle}</p>
             {profile.headline ? (
               <p className="mt-2 text-sm font-medium text-paper-white">{profile.headline}</p>
             ) : null}
             {profile.bio ? <ProfileBio bio={profile.bio} /> : null}
           </div>
-
-          {isOwner ? (
-            <div>
-              <ProfileAction profile={profile} isOwner={isOwner} follow={follow} />
-            </div>
-          ) : null}
 
           <div className="grid max-w-sm grid-cols-3 gap-2 py-1 text-center">
             <span className="flex min-w-0 flex-col items-center gap-0.5">
@@ -179,17 +179,17 @@ export function ProfileHeader({
           </div>
 
           {links.length > 0 ? (
-            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            <div className="flex w-full items-center justify-between">
               {links.map((link) => (
                 <a
                   key={link.label}
                   href={link.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-paper-white transition-colors hover:text-ice-signal focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-signal"
+                  aria-label={link.label}
+                  className="text-paper-white transition-colors hover:text-ice-signal focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-signal"
                 >
-                  {link.label}
-                  <ArrowUpRightIcon className="size-3.5" />
+                  <link.Icon className="size-4" />
                 </a>
               ))}
             </div>

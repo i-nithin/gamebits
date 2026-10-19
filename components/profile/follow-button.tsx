@@ -8,7 +8,9 @@ import { useAuthDialog } from "@/components/shell/auth-dialog";
 
 import { toggleFollowAction } from "@/app/actions/follow";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { clerkEnabled } from "@/lib/clerk-enabled";
+import { notifyReason, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 export function FollowButton({
@@ -27,7 +29,12 @@ export function FollowButton({
     formData.set("profileUserId", profileUserId);
     startTransition(async () => {
       const result = await toggleFollowAction(formData);
-      if (result.ok) router.refresh();
+      if (!result.ok) {
+        notifyReason("Couldn't update that follow.", result.reason);
+        return;
+      }
+      notifySuccess(following ? "Unfollowed." : "Following.");
+      router.refresh();
     });
   }
 
@@ -47,6 +54,7 @@ export function FollowButton({
       aria-pressed={following}
       className={classes}
     >
+      {pending ? <Spinner data-icon="inline-start" /> : null}
       {label}
     </Button>
   );

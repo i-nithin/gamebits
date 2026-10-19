@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChartColumnIcon, CompassIcon, LayoutGridIcon, LifeBuoyIcon, MegaphoneIcon, PlusIcon, SettingsIcon, ShieldIcon } from "lucide-react";
 
+import { AppMark } from "@/components/shell/app-mark";
 import { useAuthDialog } from "@/components/shell/auth-dialog";
 import { ViewerMark } from "@/components/shell/viewer-mark";
 import { clerkEnabled } from "@/lib/clerk-enabled";
@@ -77,10 +78,10 @@ export function LeftRail({
   ];
 
   return (
-    <aside className="group/rail fixed inset-y-0 left-0 z-40 hidden w-14 flex-col overflow-hidden border-r border-white/10 bg-obsidian transition-[width] duration-150 ease-out hover:w-60 md:flex">
-      <div className="flex h-14 items-center gap-3 border-b border-white/10 px-3">
-        <div className="size-8 shrink-0 rounded-full bg-[#0d85ed]" />
-        <span className="hidden truncate text-sm font-medium text-white group-hover/rail:inline">
+    <aside className="group/rail fixed inset-y-0 left-0 z-40 hidden w-14 flex-col overflow-hidden border-r border-white/10 bg-chrome transition-[width] duration-150 ease-out hover:w-60 md:flex">
+      <div className="flex h-14 items-center gap-3 px-3">
+        <AppMark />
+        <span className="hidden truncate text-base font-bold text-white group-hover/rail:inline">
           GameBits
         </span>
       </div>
@@ -89,7 +90,7 @@ export function LeftRail({
           const Icon = item.icon;
           const active = item.active;
           const className = cn(
-            "flex size-10 shrink-0 items-center justify-center gap-3 rounded-xl text-white/80 group-hover/rail:w-full group-hover/rail:justify-start group-hover/rail:px-2.5",
+            "flex size-10 shrink-0 items-center justify-center gap-3 rounded-full text-white/80 group-hover/rail:w-full group-hover/rail:justify-start group-hover/rail:px-2.5",
             active ? "bg-white/10 text-white" : "hover:bg-white/8 hover:text-white",
           );
           const label = (
@@ -136,7 +137,7 @@ export function LeftRail({
       <div className="flex flex-col items-center px-2 py-3 group-hover/rail:items-stretch">
         <a
           href="mailto:hello@gamebits.app"
-          className="flex size-10 items-center justify-center gap-3 rounded-xl text-white/80 hover:bg-white/8 hover:text-white group-hover/rail:w-full group-hover/rail:justify-start group-hover/rail:px-2.5"
+          className="flex size-10 items-center justify-center gap-3 rounded-full text-white/80 hover:bg-white/8 hover:text-white group-hover/rail:w-full group-hover/rail:justify-start group-hover/rail:px-2.5"
         >
           <LifeBuoyIcon className="size-5 shrink-0" />
           <span className="hidden truncate text-sm font-medium group-hover/rail:inline">

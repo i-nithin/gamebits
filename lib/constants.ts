@@ -42,6 +42,7 @@ export const MAX_CLIP_BYTES = 4 * 1024 * 1024;
 export const DESCRIPTION_HTML_MAX = 20_000;
 export const REVIEW_PAGE_SIZE = 10;
 export const COLLECTION_PAGE_SIZE = 24;
+export const PROFILE_PAGE_SIZE = 12;
 export const COLLECTION_SORTS = ["newest", "name", "status", "votes"] as const;
 export type CollectionSort = (typeof COLLECTION_SORTS)[number];
 export type SortDirection = "asc" | "desc";

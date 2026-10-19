@@ -7,6 +7,7 @@
 @theme inline {
   --color-void: var(--gb-void);
   --color-page: var(--gb-page);
+  --color-chrome: var(--gb-chrome);
   --color-obsidian: var(--gb-obsidian);
   --color-charcoal: var(--gb-charcoal);
   --color-graphite: var(--gb-graphite);
@@ -67,6 +68,7 @@
 :root {
   --gb-void: #080809;
   --gb-page: #101011;
+  --gb-chrome: #151515;
   --gb-obsidian: #141415;
   --gb-charcoal: #1b1d1f;
   --gb-graphite: #26272d;

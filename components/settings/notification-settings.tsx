@@ -12,6 +12,7 @@ import { useState } from "react";
 
 import { updateNotificationPreferenceAction } from "@/app/actions/settings";
 import { Switch } from "@/components/ui/switch";
+import { notifyError } from "@/lib/notify";
 import { NOTIFICATION_SETTINGS } from "@/lib/notifications/catalog";
 import type { NotificationPreferenceMap } from "@/lib/notifications/catalog";
 import type { NotificationType } from "@/lib/notifications/types";
@@ -40,16 +41,14 @@ export function NotificationSettings({
   preferences: NotificationPreferenceMap;
 }) {
   const [values, setValues] = useState(preferences);
-  const [error, setError] = useState<string | null>(null);
 
   async function toggle(type: NotificationType, enabled: boolean) {
     const previous = values[type];
     setValues((current) => ({ ...current, [type]: enabled }));
-    setError(null);
     const result = await updateNotificationPreferenceAction(type, enabled);
     if (!result.ok) {
       setValues((current) => ({ ...current, [type]: previous }));
-      setError(result.error);
+      notifyError("Couldn't update that preference.", result.error);
     }
   }
 
@@ -101,7 +100,6 @@ export function NotificationSettings({
           </div>
         ))}
       </div>
-      {error ? <p className="pt-4 text-sm text-error">{error}</p> : null}
     </section>
   );
 }

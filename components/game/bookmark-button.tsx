@@ -9,7 +9,9 @@ import { BookmarkIcon } from "lucide-react";
 
 import { toggleBookmarkAction } from "@/app/actions/bookmark";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { clerkEnabled } from "@/lib/clerk-enabled";
+import { notifyReason, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 export function BookmarkButton({
@@ -30,7 +32,12 @@ export function BookmarkButton({
     formData.set("gameId", gameId);
     startTransition(async () => {
       const result = await toggleBookmarkAction(formData);
-      if (result.ok) router.refresh();
+      if (!result.ok) {
+        notifyReason("Couldn't update that bookmark.", result.reason);
+        return;
+      }
+      notifySuccess(bookmarked ? "Bookmark removed." : "Game bookmarked.");
+      router.refresh();
     });
   }
 
@@ -41,7 +48,9 @@ export function BookmarkButton({
     bookmarked && "border-ice-signal bg-ice-soft text-ice-signal",
   );
   const label = bookmarked ? "Remove bookmark" : "Bookmark game";
-  const icon = (
+  const icon = pending ? (
+    <Spinner />
+  ) : (
     <BookmarkIcon
       className={cn(compact ? "size-4" : "size-5", bookmarked && "fill-current")}
       strokeWidth={1.5}

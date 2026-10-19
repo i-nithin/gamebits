@@ -3,7 +3,7 @@
 import { useClerk } from "@clerk/nextjs";
 import { MonitorIcon, SmartphoneIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   deleteAccountAction,
@@ -12,6 +12,7 @@ import {
 } from "@/app/actions/settings";
 import { GoogleMark, LinkedInMark, RedditMark, XMark } from "@/components/settings/brand-marks";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { formatDeletionDate } from "@/lib/account-deletion";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { clearGameDraft } from "@/lib/game-draft";
 import { formatRelativeTime } from "@/lib/notifications/format";
 import type { AccountSession, ClerkAccount } from "@/lib/settings/account";
@@ -61,32 +63,34 @@ export function AccountSettings({
   const router = useRouter();
   const [sessions, setSessions] = useState(account?.sessions ?? []);
   const [pending, setPending] = useState<AccountSession | null>(null);
-  const [revokeError, setRevokeError] = useState<string | null>(null);
   const [revokePending, setRevokePending] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmation, setConfirmation] = useState("");
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
-  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [restorePending, setRestorePending] = useState(false);
 
   const confirmationMatches = confirmation.trim().toLowerCase() === handle.toLowerCase();
   const scheduled = Boolean(deletionDeadline);
 
+  useEffect(() => {
+    if (accountError) notifyError("Couldn't load security settings.", accountError);
+  }, [accountError]);
+
   async function confirmRevoke() {
     if (!pending) return;
     setRevokePending(true);
-    setRevokeError(null);
     const result = await revokeSessionAction(pending.id);
     if (!result.ok) {
       setRevokePending(false);
-      setRevokeError(result.error);
+      notifyError("Couldn't sign out that session.", result.error);
       return;
     }
     if (result.current) {
+      notifySuccess("Signed out.");
       await signOut({ redirectUrl: "/" });
       return;
     }
+    notifySuccess("Session signed out.");
     setSessions((current) => current.filter((session) => session.id !== pending.id));
     setPending(null);
     setRevokePending(false);
@@ -95,7 +99,6 @@ export function AccountSettings({
   async function confirmDelete() {
     if (!confirmationMatches || deletePending) return;
     setDeletePending(true);
-    setDeleteError(null);
     const result = await deleteAccountAction(confirmation);
     if (!result.ok) {
       if (result.expired) {
@@ -104,9 +107,10 @@ export function AccountSettings({
         return;
       }
       setDeletePending(false);
-      setDeleteError(result.error);
+      notifyError("Couldn't delete this account.", result.error);
       return;
     }
+    notifySuccess("Account scheduled for deletion.");
     clearGameDraft();
     await signOut({ redirectUrl: "/" });
   }
@@ -114,7 +118,6 @@ export function AccountSettings({
   async function restoreAccount() {
     if (restorePending) return;
     setRestorePending(true);
-    setRestoreError(null);
     const result = await restoreAccountAction();
     if (!result.ok) {
       if (result.expired) {
@@ -122,9 +125,11 @@ export function AccountSettings({
         return;
       }
       setRestorePending(false);
-      setRestoreError(result.error);
+      notifyError("Couldn't restore this account.", result.error);
       return;
     }
+    notifySuccess("Account restored.");
+    setRestorePending(false);
     router.refresh();
   }
 
@@ -134,7 +139,6 @@ export function AccountSettings({
         <section className="flex flex-1 flex-col gap-6 rounded-xl border border-iron bg-obsidian px-5 py-5 sm:px-6">
           <div>
             <h1 className="text-xl font-medium text-paper-white">Security</h1>
-            {accountError ? <p className="mt-1 text-sm text-error">{accountError}</p> : null}
           </div>
 
           <div>
@@ -225,7 +229,6 @@ export function AccountSettings({
                           size="sm"
                           className="rounded-full border-iron"
                           onClick={() => {
-                            setRevokeError(null);
                             setPending(session);
                           }}
                         >
@@ -244,7 +247,6 @@ export function AccountSettings({
             onOpenChange={(open) => {
               if (!open && !revokePending) {
                 setPending(null);
-                setRevokeError(null);
               }
             }}
           >
@@ -259,7 +261,6 @@ export function AccountSettings({
                     : "That device will be signed out of GameBits."}
                 </DialogDescription>
               </DialogHeader>
-              {revokeError ? <p className="text-sm text-error">{revokeError}</p> : null}
               <div className="flex justify-end gap-2">
                 <Button
                   type="button"
@@ -268,7 +269,6 @@ export function AccountSettings({
                   disabled={revokePending}
                   onClick={() => {
                     setPending(null);
-                    setRevokeError(null);
                   }}
                 >
                   Cancel
@@ -282,7 +282,8 @@ export function AccountSettings({
                     void confirmRevoke();
                   }}
                 >
-                  {revokePending ? "Working" : pending?.current ? "Sign out" : "Revoke"}
+                  {revokePending ? <Spinner data-icon="inline-start" /> : null}
+                  {revokePending ? "Working…" : pending?.current ? "Sign out" : "Revoke"}
                 </Button>
               </div>
             </DialogContent>
@@ -309,9 +310,9 @@ export function AccountSettings({
                 void restoreAccount();
               }}
             >
-              {restorePending ? "Restoring" : "Restore account"}
+              {restorePending ? <Spinner data-icon="inline-start" /> : null}
+              {restorePending ? "Restoring…" : "Restore account"}
             </Button>
-            {restoreError ? <p className="text-sm text-error">{restoreError}</p> : null}
           </div>
         </section>
       ) : (
@@ -331,7 +332,6 @@ export function AccountSettings({
               variant="destructive"
               className="rounded-full"
               onClick={() => {
-                setDeleteError(null);
                 setConfirmation("");
                 setDeleteOpen(true);
               }}
@@ -347,7 +347,6 @@ export function AccountSettings({
         onOpenChange={(open) => {
           if (!open && !deletePending) {
             setDeleteOpen(false);
-            setDeleteError(null);
             setConfirmation("");
           }
         }}
@@ -373,7 +372,6 @@ export function AccountSettings({
               onChange={(event) => setConfirmation(event.target.value)}
             />
           </label>
-          {deleteError ? <p className="text-sm text-error">{deleteError}</p> : null}
           <div className="flex justify-end gap-2">
             <Button
               type="button"
@@ -382,8 +380,7 @@ export function AccountSettings({
               disabled={deletePending}
               onClick={() => {
                 setDeleteOpen(false);
-                setDeleteError(null);
-                setConfirmation("");
+setConfirmation("");
               }}
             >
               Cancel
@@ -397,7 +394,8 @@ export function AccountSettings({
                 void confirmDelete();
               }}
             >
-              {deletePending ? "Deleting" : "Delete account"}
+              {deletePending ? <Spinner data-icon="inline-start" /> : null}
+              {deletePending ? "Deleting…" : "Delete account"}
             </Button>
           </div>
         </DialogContent>

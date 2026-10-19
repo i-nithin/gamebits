@@ -2,7 +2,6 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { weekListings } from "@/db/schema";
 import { WEEK_LISTING_CAP } from "@/lib/constants";
@@ -11,9 +10,9 @@ import { getDb } from "@/lib/db";
 import { countWeekListings, getGameById } from "@/lib/queries";
 
 export async function launchGameAction(
-  _prev: { error: string } | null,
+  _prev: { error: string } | { ok: true } | null,
   formData: FormData,
-): Promise<{ error: string } | null> {
+): Promise<{ error: string } | { ok: true } | null> {
   const userId = await getCurrentUserId();
   if (!userId || (await isAccountClosed(userId))) return { error: "Sign in to continue" };
 
@@ -93,5 +92,5 @@ export async function launchGameAction(
   revalidatePath(`/week/${year}/${week}`);
   revalidatePath(`/games/${game.slug}`);
   revalidatePath("/4dm1n");
-  redirect(`/games/${game.slug}`);
+  return { ok: true };
 }

@@ -115,6 +115,7 @@ export type PublicProfile = {
 
 export type ProfileReview = {
   id: string;
+  gameId: string;
   rating: number;
   body: string;
   createdAt: string;
@@ -135,6 +136,16 @@ export type SavedGame = {
   platforms: GamePlatformItem[];
   archived?: boolean;
 };
+
+export type ProfileFeedKey =
+  | "games:published"
+  | "games:archived"
+  | "games:all"
+  | "followers"
+  | "following"
+  | "saved"
+  | "liked"
+  | "comments";
 
 export type FollowProfile = {
   clerkUserId: string;

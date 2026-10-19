@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, exists, gt, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gt, inArray, isNotNull, isNull, lt, or, sql, type AnyColumn } from "drizzle-orm";
 import { cache } from "react";
 
 import { bookmarks, categories, follows, gameCategories, gameLinks, gameMedia, gamePlatforms, gameReviews, games, likes, platforms, profiles, votes, weekListings } from "@/db/schema";
@@ -7,6 +7,7 @@ import { DELETED_PROFILE_NAME } from "@/lib/profile";
 import {
   COLLECTION_PAGE_SIZE,
   GAME_STATUSES,
+  PROFILE_PAGE_SIZE,
   REVIEW_PAGE_SIZE,
   type CollectionSort,
   type GameStatus,
@@ -782,6 +783,16 @@ export async function listLikes(userId: string): Promise<SavedGame[]> {
   return toSavedGames(rows);
 }
 
+export async function countPublishedGames(userId: string) {
+  if (!hasDatabase()) return 0;
+  const db = getDb();
+  const [row] = await db
+    .select({ value: count() })
+    .from(games)
+    .where(and(eq(games.ownerClerkUserId, userId), isNull(games.archivedAt)));
+  return row?.value ?? 0;
+}
+
 export async function listPublishedGames(userId: string): Promise<SavedGame[]> {
   if (!hasDatabase()) return [];
   const db = getDb();
@@ -912,6 +923,7 @@ export async function listProfileReviews(userId: string): Promise<ProfileReview[
   const rows = await db
     .select({
       id: gameReviews.id,
+      gameId: games.id,
       rating: gameReviews.rating,
       body: gameReviews.body,
       createdAt: gameReviews.createdAt,
@@ -926,6 +938,7 @@ export async function listProfileReviews(userId: string): Promise<ProfileReview[
 
   return rows.map((row) => ({
     id: row.id,
+    gameId: row.gameId,
     rating: row.rating,
     body: row.body,
     createdAt: row.createdAt.toISOString(),
@@ -933,6 +946,271 @@ export async function listProfileReviews(userId: string): Promise<ProfileReview[
     gameName: row.gameName,
     gameLogoUrl: row.gameLogoUrl,
   }));
+}
+
+type ProfileCursor = { createdAt: Date; id: string };
+
+function textContains(column: AnyColumn, raw: string) {
+  const pattern = `%${raw.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+  return sql`${column} ilike ${pattern} escape '\\'`;
+}
+
+function olderThan(stamp: AnyColumn, id: AnyColumn, cursor: ProfileCursor | null) {
+  if (!cursor) return undefined;
+  return or(lt(stamp, cursor.createdAt), and(eq(stamp, cursor.createdAt), lt(id, cursor.id)));
+}
+
+function decodeProfileCursor(cursor: string | null | undefined) {
+  const parsed = decodeReviewCursor(cursor ?? null);
+  if (!parsed || !isUuid(parsed.id)) return null;
+  return parsed;
+}
+
+function sliceProfilePage<T extends { id: string }>(
+  rows: T[],
+  limit: number,
+  at: (row: T) => Date,
+) {
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page.at(-1);
+  return {
+    page,
+    nextCursor: hasMore && last ? encodeReviewCursor(at(last), last.id) : null,
+  };
+}
+
+function profileQuery(query: string | null | undefined) {
+  const trimmed = query?.trim() ?? "";
+  return trimmed ? trimmed : null;
+}
+
+export async function listProfileGamesPage(opts: {
+  userId: string;
+  view: "published" | "archived" | "all";
+  cursor?: string | null;
+  query?: string | null;
+  limit?: number;
+}): Promise<{ items: SavedGame[]; nextCursor: string | null }> {
+  if (!hasDatabase()) return { items: [], nextCursor: null };
+  const db = getDb();
+  const limit = opts.limit ?? PROFILE_PAGE_SIZE;
+  const cursor = decodeProfileCursor(opts.cursor);
+  const search = profileQuery(opts.query);
+  const stamp = opts.view === "archived" ? games.archivedAt : games.createdAt;
+  const rows = await db
+    .select({
+      ...savedGameColumns,
+      createdAt: games.createdAt,
+      archivedAt: games.archivedAt,
+    })
+    .from(games)
+    .where(
+      and(
+        eq(games.ownerClerkUserId, opts.userId),
+        opts.view === "published" ? isNull(games.archivedAt) : undefined,
+        opts.view === "archived" ? isNotNull(games.archivedAt) : undefined,
+        search ? or(textContains(games.name, search), textContains(games.tagline, search)) : undefined,
+        olderThan(stamp, games.id, cursor),
+      ),
+    )
+    .orderBy(desc(stamp), desc(games.id))
+    .limit(limit + 1);
+  const { page, nextCursor } = sliceProfilePage(rows, limit, (row) =>
+    opts.view === "archived" ? row.archivedAt ?? row.createdAt : row.createdAt,
+  );
+  const items = await toSavedGames(page);
+  return {
+    items: items.map((game, index) =>
+      page[index]?.archivedAt ? { ...game, archived: true } : game,
+    ),
+    nextCursor,
+  };
+}
+
+export async function listProfileFollowersPage(opts: {
+  userId: string;
+  cursor?: string | null;
+  query?: string | null;
+  limit?: number;
+}) {
+  return listProfilePeoplePage({ ...opts, direction: "followers" });
+}
+
+export async function listProfileFollowingPage(opts: {
+  userId: string;
+  cursor?: string | null;
+  query?: string | null;
+  limit?: number;
+}) {
+  return listProfilePeoplePage({ ...opts, direction: "following" });
+}
+
+async function listProfilePeoplePage(opts: {
+  userId: string;
+  direction: "followers" | "following";
+  cursor?: string | null;
+  query?: string | null;
+  limit?: number;
+}): Promise<{ items: FollowProfile[]; nextCursor: string | null }> {
+  if (!hasDatabase()) return { items: [], nextCursor: null };
+  const db = getDb();
+  const limit = opts.limit ?? PROFILE_PAGE_SIZE;
+  const cursor = decodeProfileCursor(opts.cursor);
+  const search = profileQuery(opts.query);
+  const person =
+    opts.direction === "followers" ? follows.followerClerkUserId : follows.followingClerkUserId;
+  const owner =
+    opts.direction === "followers" ? follows.followingClerkUserId : follows.followerClerkUserId;
+  const rows = await db
+    .select({
+      id: follows.id,
+      createdAt: follows.createdAt,
+      ...followProfileColumns,
+    })
+    .from(follows)
+    .innerJoin(profiles, eq(profiles.clerkUserId, person))
+    .where(
+      and(
+        eq(owner, opts.userId),
+        isNull(profiles.deletedAt),
+        search ? or(textContains(profiles.name, search), textContains(profiles.handle, search)) : undefined,
+        olderThan(follows.createdAt, follows.id, cursor),
+      ),
+    )
+    .orderBy(desc(follows.createdAt), desc(follows.id))
+    .limit(limit + 1);
+  const { page, nextCursor } = sliceProfilePage(rows, limit, (row) => row.createdAt);
+  return {
+    items: page.map((row) => ({
+      clerkUserId: row.clerkUserId,
+      handle: row.handle,
+      name: row.name,
+      imageUrl: row.imageUrl,
+    })),
+    nextCursor,
+  };
+}
+
+async function listProfileSavedPage(
+  table: typeof bookmarks | typeof likes,
+  opts: {
+    userId: string;
+    cursor?: string | null;
+    query?: string | null;
+    limit?: number;
+  },
+): Promise<{ items: SavedGame[]; nextCursor: string | null }> {
+  if (!hasDatabase()) return { items: [], nextCursor: null };
+  const db = getDb();
+  const limit = opts.limit ?? PROFILE_PAGE_SIZE;
+  const cursor = decodeProfileCursor(opts.cursor);
+  const search = profileQuery(opts.query);
+  const rows = await db
+    .select({
+      id: table.id,
+      createdAt: table.createdAt,
+      gameId: games.id,
+      slug: games.slug,
+      name: games.name,
+      tagline: games.tagline,
+      coverUrl: games.coverUrl,
+      logoUrl: games.logoUrl,
+      status: games.status,
+    })
+    .from(table)
+    .innerJoin(games, eq(table.gameId, games.id))
+    .where(
+      and(
+        eq(table.clerkUserId, opts.userId),
+        isNull(games.archivedAt),
+        search ? or(textContains(games.name, search), textContains(games.tagline, search)) : undefined,
+        olderThan(table.createdAt, table.id, cursor),
+      ),
+    )
+    .orderBy(desc(table.createdAt), desc(table.id))
+    .limit(limit + 1);
+  const { page, nextCursor } = sliceProfilePage(rows, limit, (row) => row.createdAt);
+  const items = await toSavedGames(
+    page.map((row) => ({
+      id: row.gameId,
+      slug: row.slug,
+      name: row.name,
+      tagline: row.tagline,
+      coverUrl: row.coverUrl,
+      logoUrl: row.logoUrl,
+      status: row.status,
+    })),
+  );
+  return { items, nextCursor };
+}
+
+export function listProfileBookmarksPage(opts: {
+  userId: string;
+  cursor?: string | null;
+  query?: string | null;
+  limit?: number;
+}) {
+  return listProfileSavedPage(bookmarks, opts);
+}
+
+export function listProfileLikesPage(opts: {
+  userId: string;
+  cursor?: string | null;
+  query?: string | null;
+  limit?: number;
+}) {
+  return listProfileSavedPage(likes, opts);
+}
+
+export async function listProfileReviewsPage(opts: {
+  userId: string;
+  cursor?: string | null;
+  query?: string | null;
+  limit?: number;
+}): Promise<{ items: ProfileReview[]; nextCursor: string | null }> {
+  if (!hasDatabase()) return { items: [], nextCursor: null };
+  const db = getDb();
+  const limit = opts.limit ?? PROFILE_PAGE_SIZE;
+  const cursor = decodeProfileCursor(opts.cursor);
+  const search = profileQuery(opts.query);
+  const rows = await db
+    .select({
+      id: gameReviews.id,
+      gameId: games.id,
+      rating: gameReviews.rating,
+      body: gameReviews.body,
+      createdAt: gameReviews.createdAt,
+      gameSlug: games.slug,
+      gameName: games.name,
+      gameLogoUrl: games.logoUrl,
+    })
+    .from(gameReviews)
+    .innerJoin(games, eq(gameReviews.gameId, games.id))
+    .where(
+      and(
+        eq(gameReviews.clerkUserId, opts.userId),
+        isNull(games.archivedAt),
+        search ? or(textContains(gameReviews.body, search), textContains(games.name, search)) : undefined,
+        olderThan(gameReviews.createdAt, gameReviews.id, cursor),
+      ),
+    )
+    .orderBy(desc(gameReviews.createdAt), desc(gameReviews.id))
+    .limit(limit + 1);
+  const { page, nextCursor } = sliceProfilePage(rows, limit, (row) => row.createdAt);
+  return {
+    items: page.map((row) => ({
+      id: row.id,
+      gameId: row.gameId,
+      rating: row.rating,
+      body: row.body,
+      createdAt: row.createdAt.toISOString(),
+      gameSlug: row.gameSlug,
+      gameName: row.gameName,
+      gameLogoUrl: row.gameLogoUrl,
+    })),
+    nextCursor,
+  };
 }
 
 function toPublicReview(row: {

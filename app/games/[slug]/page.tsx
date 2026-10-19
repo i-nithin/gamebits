@@ -11,7 +11,7 @@ export default async function GamePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ review?: string }>;
+  searchParams: Promise<{ review?: string; launch?: string }>;
 }) {
   const [{ slug }, query, userId] = await Promise.all([
     params,
@@ -36,7 +36,11 @@ export default async function GamePage({
         week={week}
         live={Boolean(liveLaunch)}
         signedIn={Boolean(userId)}
+        viewerId={userId}
         highlightReviewId={reviewId && data.reviews.some((review) => review.id === reviewId) ? reviewId : null}
+        launchRequested={query.launch === "1" && (data.isOwner || data.isAdmin)}
+        launchYear={current.year}
+        launchWeek={current.week}
       />
     </>
   );

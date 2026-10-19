@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { gameReviews, games } from "@/db/schema";
-import { isAccountClosed, requireSignedIn } from "@/lib/auth-admin";
+import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
 import { REVIEW_BODY_MAX } from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { ensureCurrentProfile, getProfileHandle } from "@/lib/profile";
@@ -18,7 +18,8 @@ const reviewSchema = z.object({
 });
 
 export async function upsertReviewAction(formData: FormData) {
-  const userId = await requireSignedIn();
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error("Sign in to continue");
   if (await isAccountClosed(userId)) {
     throw new Error("This account is closed");
   }
@@ -102,4 +103,30 @@ export async function upsertReviewAction(formData: FormData) {
       clerkUserId: userId,
     },
   };
+}
+
+export async function deleteReviewAction(
+  reviewId: string,
+): Promise<{ error: string } | { ok: true }> {
+  const userId = await getCurrentUserId();
+  if (!userId) return { error: "Sign in to continue." };
+  if (await isAccountClosed(userId)) return { error: "This account is closed." };
+  if (!z.string().uuid().safeParse(reviewId).success) {
+    return { error: "Comment not found." };
+  }
+
+  const db = getDb();
+  const [existing] = await db
+    .select({ id: gameReviews.id, slug: games.slug })
+    .from(gameReviews)
+    .innerJoin(games, eq(gameReviews.gameId, games.id))
+    .where(and(eq(gameReviews.id, reviewId), eq(gameReviews.clerkUserId, userId)))
+    .limit(1);
+  if (!existing) return { error: "Comment not found." };
+
+  await db.delete(gameReviews).where(eq(gameReviews.id, existing.id));
+  revalidatePath(`/games/${existing.slug}`);
+  const handle = await getProfileHandle(userId);
+  if (handle) revalidatePath(`/u/${handle}`);
+  return { ok: true };
 }

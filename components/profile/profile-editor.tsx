@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { GlobeIcon, ImageUpIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
 import { updateProfileAction } from "@/app/actions/profile";
@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { uploadImage } from "@/lib/image-upload";
 import { cn } from "@/lib/utils";
 
@@ -216,6 +217,7 @@ function FormLabel({ htmlFor, children }: { htmlFor?: string; children: React.Re
 
 export function ProfileEditor({ profile }: { profile: ProfileFormValues }) {
   const [state, action, pending] = useActionState(updateProfileAction, null);
+  const seen = useRef(state);
   const [imageUrl, setImageUrl] = useState(profile.imageUrl);
   const [coverUrl, setCoverUrl] = useState(profile.coverUrl);
   const [handle, setHandle] = useState(profile.handle);
@@ -225,6 +227,17 @@ export function ProfileEditor({ profile }: { profile: ProfileFormValues }) {
   function onBusyChange(busy: boolean) {
     setUploading((count) => count + (busy ? 1 : -1));
   }
+
+  useEffect(() => {
+    if (state === seen.current) return;
+    seen.current = state;
+    if (!state) return;
+    if ("error" in state) {
+      notifyError("Couldn't save your profile.", state.error);
+      return;
+    }
+    if ("saved" in state) notifySuccess("Profile saved.");
+  }, [state]);
 
   return (
       <form
@@ -424,14 +437,13 @@ export function ProfileEditor({ profile }: { profile: ProfileFormValues }) {
             </FieldGroup>
           </div>
           <div className="flex items-center justify-end gap-3 border-t border-iron px-5 py-4 sm:px-6">
-              {state && "error" in state ? <p className="text-sm text-error">{state.error}</p> : null}
-              {state && "saved" in state ? <p className="text-sm text-fog">Saved</p> : null}
               <Button
                 type="submit"
                 disabled={pending || uploading > 0}
                 className="rounded-full bg-ice-strong px-5 text-white hover:bg-ice-strong/90"
               >
-                {pending ? "Saving" : "Save"}
+                {pending ? <Spinner data-icon="inline-start" /> : null}
+                {pending ? "Saving…" : "Save"}
               </Button>
           </div>
         </section>

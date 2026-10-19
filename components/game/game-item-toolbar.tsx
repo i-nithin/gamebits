@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { trackedOutboundHref } from "@/lib/analytics/links";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import type { GameLinkItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -33,10 +34,12 @@ export function GameItemToolbar({
   slug,
   links,
   canManage,
+  onLaunch,
 }: {
   slug: string;
   links: GameLinkItem[];
   canManage: boolean;
+  onLaunch?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const web = links.find((link) => link.kind === "web")?.url;
@@ -84,9 +87,11 @@ export function GameItemToolbar({
           try {
             await navigator.clipboard.writeText(window.location.href);
             setCopied(true);
+            notifySuccess("Link copied.");
             window.setTimeout(() => setCopied(false), 1500);
           } catch {
             setCopied(false);
+            notifyError("Couldn't copy that link.", "Copy the address from the browser instead.");
           }
         }}
       >
@@ -101,13 +106,16 @@ export function GameItemToolbar({
           >
             <PencilIcon className="size-4" strokeWidth={1.5} />
           </Link>
-          <Link
-            href={`/games/${slug}/launch`}
-            aria-label="Launch game"
-            className="flex size-9 items-center justify-center rounded-lg text-paper-white hover:bg-slate"
-          >
-            <RocketIcon className="size-4" strokeWidth={1.5} />
-          </Link>
+          {onLaunch ? (
+            <button
+              type="button"
+              aria-label="Launch game"
+              onClick={onLaunch}
+              className="flex size-9 items-center justify-center rounded-lg text-paper-white hover:bg-slate"
+            >
+              <RocketIcon className="size-4" strokeWidth={1.5} />
+            </button>
+          ) : null}
         </>
       ) : null}
     </div>

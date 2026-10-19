@@ -12,71 +12,69 @@ import {
   removeAdSlotAction,
 } from "@/app/actions/ads";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { notifyError, notifySuccess } from "@/lib/notify";
 
-function useOrderAction(action: (id: string) => Promise<{ ok: boolean; error?: string }>) {
+function useOrderAction(
+  action: (id: string) => Promise<{ ok: boolean; error?: string }>,
+  success: string,
+) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
 
   function run(id: string) {
-    setError(null);
     startTransition(async () => {
       const result = await action(id);
       if (!result.ok) {
-        setError(result.error ?? "Could not update that booking");
+        notifyError("Couldn't update that booking.", result.error ?? "Try again in a moment.");
         return;
       }
+      notifySuccess(success);
       router.refresh();
     });
   }
 
-  return { pending, error, run };
+  return { pending, run };
 }
 
 export function ContinueCheckoutButton({ orderId }: { orderId: string }) {
-  const { pending, error, run } = useOrderAction(continueAdCheckoutAction);
+  const { pending, run } = useOrderAction(continueAdCheckoutAction, "Opening checkout.");
   return (
-    <div className="flex flex-col items-start gap-1">
-      <Button
-        type="button"
-        className="h-9 rounded-full px-5"
-        disabled={pending}
-        onClick={() => run(orderId)}
-      >
-        {pending ? "Opening checkout" : "Pay"}
-      </Button>
-      {error ? <p className="text-xs text-error">{error}</p> : null}
-    </div>
+    <Button
+      type="button"
+      className="h-9 rounded-full px-5"
+      disabled={pending}
+      onClick={() => run(orderId)}
+    >
+      {pending ? <Spinner data-icon="inline-start" /> : null}
+      {pending ? "Opening checkout…" : "Pay"}
+    </Button>
   );
 }
 
 export function CancelOrderButton({ orderId }: { orderId: string }) {
-  const { pending, error, run } = useOrderAction(cancelAdOrderAction);
+  const { pending, run } = useOrderAction(cancelAdOrderAction, "Booking cancelled.");
   return (
-    <div className="flex flex-col items-start gap-1">
-      <Button
-        type="button"
-        variant="outline"
-        className="h-9 rounded-full border-iron px-5"
-        disabled={pending}
-        onClick={() => run(orderId)}
-      >
-        Cancel
-      </Button>
-      {error ? <p className="text-xs text-error">{error}</p> : null}
-    </div>
+    <Button
+      type="button"
+      variant="outline"
+      className="h-9 rounded-full border-iron px-5"
+      disabled={pending}
+      onClick={() => run(orderId)}
+    >
+      {pending ? <Spinner data-icon="inline-start" /> : null}
+      {pending ? "Cancelling…" : "Cancel"}
+    </Button>
   );
 }
 
 export function RemoveSlotButton({ slotId, label }: { slotId: string; label: string }) {
-  const { pending, error, run } = useOrderAction(removeAdSlotAction);
+  const { pending, run } = useOrderAction(removeAdSlotAction, "Slot removed.");
   return (
-    <div className="flex items-center gap-2">
-      <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(slotId)}>
-        {label}
-      </Button>
-      {error ? <span className="text-xs text-error">{error}</span> : null}
-    </div>
+    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(slotId)}>
+      {pending ? <Spinner data-icon="inline-start" /> : null}
+      {label}
+    </Button>
   );
 }
 
@@ -91,16 +89,23 @@ export function AdminOrderButtons({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
 
-  function run(action: (id: string) => Promise<{ ok: boolean; error?: string }>, id: string) {
-    setError(null);
+  function run(
+    action: (id: string) => Promise<{ ok: boolean; error?: string }>,
+    id: string,
+    success: string,
+    key: string,
+  ) {
+    setPendingKey(key);
     startTransition(async () => {
       const result = await action(id);
+      setPendingKey(null);
       if (!result.ok) {
-        setError(result.error ?? "Could not update that booking");
+        notifyError("Couldn't update that booking.", result.error ?? "Try again in a moment.");
         return;
       }
+      notifySuccess(success);
       router.refresh();
     });
   }
@@ -110,7 +115,8 @@ export function AdminOrderButtons({
       <div className="flex flex-wrap gap-1.5">
         {pendingReview ? (
           <>
-            <Button type="button" size="sm" disabled={pending} onClick={() => run(approveAdOrderAction, orderId)}>
+            <Button type="button" size="sm" disabled={pending} onClick={() => run(approveAdOrderAction, orderId, "Booking approved.", "approve")}>
+              {pendingKey === "approve" ? <Spinner data-icon="inline-start" /> : null}
               Approve
             </Button>
             <Button
@@ -118,8 +124,9 @@ export function AdminOrderButtons({
               size="sm"
               variant="outline"
               disabled={pending}
-              onClick={() => run(rejectAdOrderAction, orderId)}
+              onClick={() => run(rejectAdOrderAction, orderId, "Booking rejected.", "reject")}
             >
+              {pendingKey === "reject" ? <Spinner data-icon="inline-start" /> : null}
               Reject
             </Button>
           </>
@@ -130,13 +137,13 @@ export function AdminOrderButtons({
             size="sm"
             variant="destructive"
             disabled={pending}
-            onClick={() => run(removeAdOrderAction, orderId)}
+            onClick={() => run(removeAdOrderAction, orderId, "Booking removed.", "remove")}
           >
+            {pendingKey === "remove" ? <Spinner data-icon="inline-start" /> : null}
             Remove order
           </Button>
         ) : null}
       </div>
-      {error ? <p className="text-xs text-error">{error}</p> : null}
     </div>
   );
 }

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { ArrowLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { notifyError } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 export type FormBreadcrumb = {
@@ -43,6 +45,18 @@ export function GameFormShell({
   children?: React.ReactNode;
   className?: string;
 }) {
+  const wasPending = useRef(false);
+
+  useEffect(() => {
+    if (pending) {
+      wasPending.current = true;
+      return;
+    }
+    if (!wasPending.current) return;
+    wasPending.current = false;
+    if (error) notifyError("Couldn't save.", error);
+  }, [pending, error]);
+
   return (
     <TooltipProvider delay={200}>
       <form
@@ -98,7 +112,6 @@ export function GameFormShell({
 
       <div className="sticky bottom-10 z-20 shrink-0 border-t border-iron bg-obsidian/95 backdrop-blur sm:static sm:bottom-auto">
         <div className="flex w-full flex-col gap-2 px-4 py-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 lg:px-10">
-          {error ? <p className="text-sm text-error sm:mr-auto">{error}</p> : null}
           <div className="flex items-center justify-end gap-2">
             <Link href={cancelHref}>
               <Button type="button" variant="outline" className="h-9 rounded-full border-iron px-5">
