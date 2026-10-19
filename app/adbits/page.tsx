@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { SignInButton } from "@clerk/nextjs";
+
+import { OpenAuthButton } from "@/components/shell/open-auth-button";
 
 import { AdCard } from "@/components/ads/ad-card";
 import { AdPaymentLine } from "@/components/ads/ad-payment-line";
@@ -45,11 +46,7 @@ export default async function AdbitsPage({
             </EmptyDescription>
           </EmptyHeader>
           {!closed && clerkEnabled ? (
-            <SignInButton mode="modal">
-              <Button variant="outline" className="rounded-full">
-                Sign in
-              </Button>
-            </SignInButton>
+            <OpenAuthButton className="rounded-full">Sign in</OpenAuthButton>
           ) : null}
         </Empty>
       </div>

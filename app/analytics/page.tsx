@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { SignInButton } from "@clerk/nextjs";
+
+import { OpenAuthButton } from "@/components/shell/open-auth-button";
 
 import { AnalyticsBreadcrumbs } from "@/components/analytics/breadcrumbs";
 import { AnalyticsCountriesPanel } from "@/components/analytics/countries-panel";
@@ -46,11 +47,7 @@ export default async function AnalyticsPage({
             </EmptyDescription>
           </EmptyHeader>
           {clerkEnabled ? (
-            <SignInButton mode="modal">
-              <Button variant="outline" className="rounded-full">
-                Sign in
-              </Button>
-            </SignInButton>
+            <OpenAuthButton className="rounded-full">Sign in</OpenAuthButton>
           ) : null}
         </Empty>
       </div>

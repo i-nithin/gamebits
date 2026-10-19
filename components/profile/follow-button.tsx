@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Show, SignInButton } from "@clerk/nextjs";
+import { Show } from "@clerk/nextjs";
+
+import { useAuthDialog } from "@/components/shell/auth-dialog";
 
 import { toggleFollowAction } from "@/app/actions/follow";
 import { Button } from "@/components/ui/button";
@@ -17,6 +19,7 @@ export function FollowButton({
   following: boolean;
 }) {
   const router = useRouter();
+  const openAuth = useAuthDialog();
   const [pending, startTransition] = useTransition();
 
   function toggle() {
@@ -56,11 +59,15 @@ export function FollowButton({
     <>
       <Show when="signed-in">{control}</Show>
       <Show when="signed-out">
-        <SignInButton mode="modal">
-          <Button type="button" variant="outline" aria-label="Sign in to follow" className="rounded-full">
-            Follow
-          </Button>
-        </SignInButton>
+        <Button
+          type="button"
+          variant="outline"
+          aria-label="Sign in to follow"
+          className="rounded-full"
+          onClick={openAuth}
+        >
+          Follow
+        </Button>
       </Show>
     </>
   );

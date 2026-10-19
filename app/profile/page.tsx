@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { SignInButton } from "@clerk/nextjs";
 
+import { OpenAuthButton } from "@/components/shell/open-auth-button";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -30,11 +30,7 @@ export default async function ProfileIndexPage() {
             </EmptyDescription>
           </EmptyHeader>
           {clerkEnabled ? (
-            <SignInButton mode="modal">
-              <Button variant="outline" className="rounded-full">
-                Sign in
-              </Button>
-            </SignInButton>
+            <OpenAuthButton className="rounded-full">Sign in</OpenAuthButton>
           ) : null}
         </Empty>
       </div>

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { SignInButton } from "@clerk/nextjs";
 
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { SignOutExpired } from "@/components/settings/sign-out-expired";
+import { OpenAuthButton } from "@/components/shell/open-auth-button";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -31,11 +31,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
             </EmptyDescription>
           </EmptyHeader>
           {clerkEnabled ? (
-            <SignInButton mode="modal">
-              <Button variant="outline" className="rounded-full">
-                Sign in
-              </Button>
-            </SignInButton>
+            <OpenAuthButton className="rounded-full">Sign in</OpenAuthButton>
           ) : null}
         </Empty>
       </div>

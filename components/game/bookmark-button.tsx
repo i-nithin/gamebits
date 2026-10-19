@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Show, SignInButton } from "@clerk/nextjs";
+import { Show } from "@clerk/nextjs";
+
+import { useAuthDialog } from "@/components/shell/auth-dialog";
 import { BookmarkIcon } from "lucide-react";
 
 import { toggleBookmarkAction } from "@/app/actions/bookmark";
@@ -20,6 +22,7 @@ export function BookmarkButton({
   compact?: boolean;
 }) {
   const router = useRouter();
+  const openAuth = useAuthDialog();
   const [pending, startTransition] = useTransition();
 
   function toggle() {
@@ -68,17 +71,16 @@ export function BookmarkButton({
     <>
       <Show when="signed-in">{control}</Show>
       <Show when="signed-out">
-        <SignInButton mode="modal">
-          <Button
-            type="button"
-            variant="outline"
-            size={compact ? "icon" : "icon-lg"}
-            aria-label="Sign in to bookmark"
-            className={classes}
-          >
-            {icon}
-          </Button>
-        </SignInButton>
+        <Button
+          type="button"
+          variant="outline"
+          size={compact ? "icon" : "icon-lg"}
+          aria-label="Sign in to bookmark"
+          className={classes}
+          onClick={openAuth}
+        >
+          {icon}
+        </Button>
       </Show>
     </>
   );

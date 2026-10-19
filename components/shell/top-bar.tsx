@@ -96,12 +96,14 @@ export function TopBar({
       label: "Add game",
       icon: PlusIcon,
       active: pathname === "/games/new",
+      requiresAuth: true,
     },
     {
       href: "/analytics",
       label: "Analytics",
       icon: ChartColumnIcon,
       active: pathname === "/analytics" || pathname.startsWith("/analytics/"),
+      requiresAuth: true,
     },
     {
       href: "/adbits",
@@ -115,6 +117,7 @@ export function TopBar({
       label: "Settings",
       icon: SettingsIcon,
       active: pathname.startsWith("/settings"),
+      requiresAuth: true,
     },
     ...(showAdminNav
       ? [
@@ -209,7 +212,15 @@ export function TopBar({
                 );
                 if (!viewer && clerkEnabled) {
                   return (
-                    <button key={item.label} type="button" onClick={openAuth} className={className}>
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        openAuth();
+                      }}
+                      className={className}
+                    >
                       {mark}
                     </button>
                   );
