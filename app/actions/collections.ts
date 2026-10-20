@@ -2,6 +2,8 @@
 
 import { GAME_STATUSES, type CollectionSort, type GameStatus, type SortDirection } from "@/lib/constants";
 import { listCollectionGamesPage, type CollectionPage } from "@/lib/queries";
+import { isTrendRange } from "@/lib/trending/periods";
+import { listTrendingGamesPage } from "@/lib/trending/queries";
 
 export async function loadMoreCollectionGames(input: {
   cursor: string;
@@ -23,6 +25,26 @@ export async function loadMoreCollectionGames(input: {
     statuses,
     sort,
     dir,
+    cursor: input.cursor,
+  });
+}
+
+export async function loadMoreTrendingGames(input: {
+  cursor: string;
+  range: string;
+  categories: string[];
+  platforms: string[];
+  statuses: string[];
+}): Promise<CollectionPage> {
+  if (!input.cursor) return { games: [], nextCursor: null };
+  const statuses = input.statuses.filter((status): status is GameStatus =>
+    GAME_STATUSES.includes(status as GameStatus),
+  );
+  return listTrendingGamesPage({
+    range: isTrendRange(input.range) ? input.range : "today",
+    categories: input.categories,
+    platforms: input.platforms,
+    statuses,
     cursor: input.cursor,
   });
 }

@@ -19,18 +19,20 @@ import {
 import { compareIsoWeek, type IsoWeek } from "@/lib/iso-week";
 import { cn } from "@/lib/utils";
 import { isCarouselVideo, type CarouselAd, type SidebarAd } from "@/lib/ads-types";
-import type { WeekBoard } from "@/lib/types";
+import type { RankedGame, WeekBoard } from "@/lib/types";
 
 export function HomeBoard({
   weekBoards,
   currentWeek,
   ads,
   carouselAds,
+  trending,
 }: {
   weekBoards: WeekBoard[];
   currentWeek: IsoWeek;
   ads: SidebarAd[];
   carouselAds: CarouselAd[];
+  trending: RankedGame[];
 }) {
   const weeks = useMemo(
     () => weekBoards.map((board) => ({ year: board.year, week: board.week })),
@@ -50,11 +52,6 @@ export function HomeBoard({
     if (compareIsoWeek(week, currentWeek) > 0) return;
     setSelectedWeek(week);
   }
-
-  const currentWeekBoard =
-    weekBoards.find(
-      (item) => item.year === currentWeek.year && item.week === currentWeek.week,
-    ) ?? weekBoards[0];
 
   const board =
     weekBoards.find(
@@ -201,7 +198,7 @@ export function HomeBoard({
             )}
           </section>
         </div>
-        <RankRail games={currentWeekBoard?.games ?? []} ads={ads} />
+        <RankRail games={trending} ads={ads} />
       </div>
       {ads.length > 0 ? <MobileAdBar ads={ads} /> : null}
     </div>
