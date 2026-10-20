@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AdBookingForm } from "@/components/ads/ad-booking-form";
 import { getOwnedAdCreative, listMonthOptions } from "@/lib/ads";
-import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
+import { getCurrentUserId, isAccountRestricted } from "@/lib/auth-admin";
 import { isUuid } from "@/lib/sanitize";
 
 export default async function NewAdbitsBookingPage({
@@ -11,7 +11,7 @@ export default async function NewAdbitsBookingPage({
   searchParams: Promise<{ again?: string }>;
 }) {
   const userId = await getCurrentUserId();
-  if (!userId || (await isAccountClosed(userId))) redirect("/adbits");
+  if (!userId || (await isAccountRestricted(userId))) redirect("/adbits");
 
   const { again } = await searchParams;
   const [months, prefill] = await Promise.all([

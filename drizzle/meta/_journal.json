@@ -183,6 +183,13 @@
       "when": 1791774570626,
       "tag": "0025_stale_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792445740623,
+      "tag": "0026_dry_cerebro",
+      "breakpoints": true
     }
   ]
 }

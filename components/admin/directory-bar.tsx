@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
-import { ADMIN_PAGE_SIZES, adminListHref, type CatalogView } from "@/lib/admin/params";
+import { ADMIN_PAGE_SIZES, adminListHref, type CatalogView, type ReportQueueStatus } from "@/lib/admin/params";
 import { cn } from "@/lib/utils";
 
 const SEARCH_DELAY_MS = 300;
@@ -19,12 +19,14 @@ export function AdminListShell({
   pageSize,
   placeholder,
   view,
+  status,
   children,
 }: {
   query: string;
   pageSize: number;
   placeholder: string;
   view?: CatalogView;
+  status?: ReportQueueStatus;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -78,6 +80,14 @@ export function AdminListShell({
   }
 
   const showSpinner = waiting || isPending;
+  const statuses = status
+    ? ([
+        { id: "open", label: "Open" },
+        { id: "actioned", label: "Actioned" },
+        { id: "dismissed", label: "Dismissed" },
+        { id: "all", label: "All" },
+      ] as const)
+    : [];
   const views = view
     ? ([
         { id: "all", label: "All" },
@@ -120,6 +130,21 @@ export function AdminListShell({
               ))}
             </NativeSelect>
           </label>
+          {statuses.length > 0 ? (
+            <div className="flex items-center gap-2">
+              {statuses.map((item) => (
+                <Button
+                  key={item.id}
+                  type="button"
+                  size="sm"
+                  variant={status === item.id ? "secondary" : "outline"}
+                  onClick={() => replace({ status: item.id === "open" ? null : item.id, page: null })}
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </div>
+          ) : null}
           {views.length > 0 ? (
             <div className="flex items-center gap-2">
               {views.map((item) => (
@@ -156,6 +181,7 @@ export function DirectoryPager({
   pageSize,
   total,
   view = "all",
+  status,
 }: {
   pathname: string;
   query: string;
@@ -163,6 +189,7 @@ export function DirectoryPager({
   pageSize: number;
   total: number;
   view?: CatalogView;
+  status?: ReportQueueStatus;
 }) {
   const navigate = useContext(AdminNavigateContext);
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
@@ -170,7 +197,7 @@ export function DirectoryPager({
   const to = Math.min(total, page * pageSize);
 
   function go(nextPage: number) {
-    navigate?.(adminListHref(pathname, { query, pageSize, page: nextPage, view }));
+    navigate?.(adminListHref(pathname, { query, pageSize, page: nextPage, view, status }));
   }
 
   return (

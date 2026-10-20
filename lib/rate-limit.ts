@@ -1,13 +1,14 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-export type RateLimitName = "search" | "upload" | "pageview" | "click";
+export type RateLimitName = "search" | "upload" | "pageview" | "click" | "report";
 
 const WINDOWS: Record<RateLimitName, [number, `${number} s`]> = {
   search: [30, "60 s"],
   upload: [20, "60 s"],
   pageview: [30, "60 s"],
   click: [60, "60 s"],
+  report: [8, "600 s"],
 };
 
 let redis: Redis | null = null;

@@ -13,6 +13,14 @@ export function notifyReason(title: string, reason: string) {
     notifyError(title, "Sign in to continue.");
     return;
   }
+  if (reason === "banned") {
+    notifyError(title, "This account is banned.");
+    return;
+  }
+  if (reason === "closed") {
+    notifyError(title, "This account is closed.");
+    return;
+  }
   if (reason === "frozen") {
     notifyError(title, "Voting is closed for this week.");
     return;

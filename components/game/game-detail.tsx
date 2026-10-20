@@ -118,6 +118,12 @@ export function GameDetail({
               links={data.links}
               canManage={canManage}
               onLaunch={canManage ? () => setLaunchOpen(true) : undefined}
+              signedIn={signedIn}
+              reportGame={{
+                id: game.id,
+                name: game.name,
+                logoUrl: game.logoUrl || game.coverUrl,
+              }}
             />
           </div>
 

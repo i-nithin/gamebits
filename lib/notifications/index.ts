@@ -3,6 +3,7 @@ export {
   enqueueFollowerFanout,
   processNotificationJob,
 } from "@/lib/notifications/emit";
+export { emitAccountBanned, emitContentRemoved, emitContentReported } from "@/lib/notifications/notices";
 export {
   formatNotificationMessage,
   formatRelativeTime,

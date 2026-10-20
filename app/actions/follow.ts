@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getCurrentUserId } from "@/lib/auth-admin";
+import { accountBlockReason, getCurrentUserId } from "@/lib/auth-admin";
 import { ensureCurrentProfile } from "@/lib/profile";
 import {
   emitDirectNotification,
@@ -12,9 +12,8 @@ import { toggleFollow } from "@/lib/queries";
 
 export async function toggleFollowAction(formData: FormData) {
   const userId = await getCurrentUserId();
-  if (!userId) {
-    return { ok: false as const, reason: "unauthenticated" as const };
-  }
+  const blocked = await accountBlockReason(userId);
+  if (blocked) return { ok: false as const, reason: blocked };
 
   const profileUserId = String(formData.get("profileUserId") ?? "");
   if (!profileUserId || profileUserId === userId) {
@@ -22,7 +21,7 @@ export async function toggleFollowAction(formData: FormData) {
   }
 
   const follower = await ensureCurrentProfile();
-  if (!follower || follower.deletedAt || follower.clerkUserId !== userId) {
+  if (!follower || follower.deletedAt || follower.bannedAt || follower.clerkUserId !== userId) {
     return { ok: false as const, reason: "unauthenticated" as const };
   }
 

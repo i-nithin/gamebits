@@ -93,6 +93,8 @@ export type Viewer = {
   handle: string;
   imageUrl: string | null;
   deletionDeadline: string | null;
+  banned: boolean;
+  banReason: string | null;
 };
 
 export type PublicProfile = {

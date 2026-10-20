@@ -17,7 +17,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { listMonthOptions, listUserAdOrders } from "@/lib/ads";
-import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
+import { getCurrentUserId, isAccountRestricted } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import type { AdOrderRecord, AdPlacement, MonthOption } from "@/lib/ads-types";
 import { CAROUSEL_BADGE_LABELS } from "@/lib/constants";
@@ -28,7 +28,7 @@ export default async function AdbitsPage({
   searchParams: Promise<{ placement?: string; checkout?: string }>;
 }) {
   const userId = await getCurrentUserId();
-  const closed = userId ? await isAccountClosed(userId) : false;
+  const closed = userId ? await isAccountRestricted(userId) : false;
 
   if (!userId || closed) {
     return (

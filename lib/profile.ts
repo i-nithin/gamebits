@@ -120,11 +120,32 @@ export const getViewer = cache(async function getViewer(): Promise<Viewer | null
       imageUrl: profiles.imageUrl,
       deletedAt: profiles.deletedAt,
       purgedAt: profiles.purgedAt,
+      bannedAt: profiles.bannedAt,
+      banReason: profiles.banReason,
     })
     .from(profiles)
     .where(eq(profiles.clerkUserId, userId))
     .limit(1);
-  if (!row) return { name: "", handle: "", imageUrl: null, deletionDeadline: null };
+  if (!row) {
+    return {
+      name: "",
+      handle: "",
+      imageUrl: null,
+      deletionDeadline: null,
+      banned: false,
+      banReason: null,
+    };
+  }
+  if (row.bannedAt) {
+    return {
+      name: row.name,
+      handle: row.handle,
+      imageUrl: row.imageUrl,
+      deletionDeadline: null,
+      banned: true,
+      banReason: row.banReason,
+    };
+  }
   if (row.deletedAt) {
     if (row.purgedAt || deletionGraceEnded(row.deletedAt)) return null;
     return {
@@ -132,9 +153,18 @@ export const getViewer = cache(async function getViewer(): Promise<Viewer | null
       handle: row.handle,
       imageUrl: row.imageUrl,
       deletionDeadline: deletionDeadline(row.deletedAt).toISOString(),
+      banned: false,
+      banReason: null,
     };
   }
-  return { name: row.name, handle: row.handle, imageUrl: row.imageUrl, deletionDeadline: null };
+  return {
+    name: row.name,
+    handle: row.handle,
+    imageUrl: row.imageUrl,
+    deletionDeadline: null,
+    banned: false,
+    banReason: null,
+  };
 });
 
 export async function getProfileHandle(clerkUserId: string) {

@@ -17,18 +17,24 @@ export const getProfileAccess = cache(async function getProfileAccess(
   userId: string | null | undefined,
 ) {
   if (!userId || !hasDatabase()) {
-    return { superAdmin: false, deleted: false };
+    return { superAdmin: false, deleted: false, banned: false };
   }
   const db = getDb();
   const [row] = await db
-    .select({ superAdmin: profiles.superAdmin, deletedAt: profiles.deletedAt })
+    .select({
+      superAdmin: profiles.superAdmin,
+      deletedAt: profiles.deletedAt,
+      bannedAt: profiles.bannedAt,
+    })
     .from(profiles)
     .where(eq(profiles.clerkUserId, userId))
     .limit(1);
   const deleted = Boolean(row?.deletedAt);
+  const banned = Boolean(row?.bannedAt);
   return {
-    superAdmin: row?.superAdmin === true && !deleted,
+    superAdmin: row?.superAdmin === true && !deleted && !banned,
     deleted,
+    banned,
   };
 });
 
@@ -40,6 +46,27 @@ export const getAdminAccess = cache(async function getAdminAccess(
 
 export async function isAccountClosed(userId: string | null | undefined) {
   return (await getProfileAccess(userId)).deleted;
+}
+
+export async function isAccountRestricted(userId: string | null | undefined) {
+  const access = await getProfileAccess(userId);
+  return access.deleted || access.banned;
+}
+
+export async function accountAccessError(userId: string | null | undefined) {
+  if (!userId) return "Sign in to continue";
+  const access = await getProfileAccess(userId);
+  if (access.banned) return "This account is banned";
+  if (access.deleted) return "This account is closed";
+  return null;
+}
+
+export async function accountBlockReason(userId: string | null | undefined) {
+  if (!userId) return "unauthenticated" as const;
+  const access = await getProfileAccess(userId);
+  if (access.banned) return "banned" as const;
+  if (access.deleted) return "closed" as const;
+  return null;
 }
 
 export async function enforceAdminPage() {
@@ -70,6 +97,6 @@ export async function canManageGame(
   if (!userId) return false;
   const access = await getProfileAccess(userId);
   if (access.superAdmin) return true;
-  if (access.deleted) return false;
+  if (access.deleted || access.banned) return false;
   return Boolean(ownerClerkUserId && ownerClerkUserId === userId);
 }

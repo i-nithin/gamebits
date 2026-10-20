@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { profiles } from "@/db/schema";
 import { deletionGraceEnded } from "@/lib/account-deletion";
 import { purgeAccount, revokeUserSessions } from "@/lib/account-purge";
-import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
+import { accountAccessError, getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getDb } from "@/lib/db";
 import { isNotificationType } from "@/lib/notifications/catalog";
@@ -16,9 +16,8 @@ import { HANDLE_RE } from "@/lib/profile";
 
 export async function updateNotificationPreferenceAction(type: string, enabled: boolean) {
   const userId = await getCurrentUserId();
-  if (!userId || (await isAccountClosed(userId))) {
-    return { ok: false as const, error: "Sign in to continue" };
-  }
+  const blocked = await accountAccessError(userId);
+  if (!userId || blocked) return { ok: false as const, error: blocked ?? "Sign in to continue" };
   if (!isNotificationType(type) || typeof enabled !== "boolean") {
     return { ok: false as const, error: "That notification setting is not available" };
   }
@@ -62,7 +61,10 @@ export async function deleteAccountAction(confirmation: string) {
   }
 
   const userId = await getCurrentUserId();
-  if (!userId) return { ok: false as const, error: "Sign in to continue", expired: false as const };
+  const blocked = await accountAccessError(userId);
+  if (!userId || blocked) {
+    return { ok: false as const, error: blocked ?? "Sign in to continue", expired: false as const };
+  }
 
   const typed = confirmation.trim().toLowerCase();
   if (!HANDLE_RE.test(typed)) {

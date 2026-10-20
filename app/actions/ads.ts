@@ -22,7 +22,7 @@ import {
   updateCarouselCreative,
 } from "@/lib/ads";
 import { monthKey, parseMonthKey } from "@/lib/ads-month";
-import { getCurrentUserId, isAccountClosed, requireAdmin } from "@/lib/auth-admin";
+import { accountAccessError, getCurrentUserId, requireAdmin } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { confirmNewR2Object } from "@/lib/cloudflare-r2";
 import {
@@ -114,9 +114,8 @@ function httpsDestination(value: string) {
 
 async function requireBooker() {
   const userId = await getCurrentUserId();
-  if (!userId || (await isAccountClosed(userId))) {
-    return { ok: false as const, error: "Sign in to book an ad" };
-  }
+  const blocked = await accountAccessError(userId);
+  if (!userId || blocked) return { ok: false as const, error: blocked ?? "Sign in to book an ad" };
   const db = getDb();
   const [profile] = await db
     .select({ clerkUserId: profiles.clerkUserId })

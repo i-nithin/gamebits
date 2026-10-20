@@ -1,4 +1,5 @@
 import { setSuperAdminAction } from "@/app/actions/admin";
+import { unbanUserAction } from "@/app/actions/moderation";
 import { AdminListShell, DirectoryPager } from "@/components/admin/directory-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -87,6 +88,7 @@ export default async function AdminUsersPage({
                           {user.name}
                           {scheduled ? <Badge variant="outline">Scheduled</Badge> : null}
                           {purged ? <Badge variant="outline">Deleted</Badge> : null}
+                          {user.bannedAt ? <Badge variant="outline">Banned</Badge> : null}
                         </span>
                         {scheduled && user.deletedAt ? (
                           <span className="mt-1 block text-xs text-fog">
@@ -106,7 +108,14 @@ export default async function AdminUsersPage({
                         {user.superAdmin ? <Badge variant="secondary">Admin</Badge> : "—"}
                       </TableCell>
                       <TableCell>
-                        {lastAdmin || user.deletedAt ? null : (
+                        {user.bannedAt ? (
+                          <form action={unbanUserAction}>
+                            <input type="hidden" name="clerkUserId" value={user.clerkUserId} />
+                            <Button type="submit" variant="outline" size="sm">
+                              Unban
+                            </Button>
+                          </form>
+                        ) : lastAdmin || user.deletedAt ? null : (
                           <form action={setSuperAdminAction}>
                             <input type="hidden" name="clerkUserId" value={user.clerkUserId} />
                             <input
