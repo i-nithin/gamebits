@@ -15,6 +15,7 @@ import {
   ChevronsUpDownIcon,
   CircleDashedIcon,
   ClockIcon,
+  FlameIcon,
   FlaskConicalIcon,
   Gamepad2Icon,
   LayoutGridIcon,
@@ -24,7 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { loadMoreCollectionGames } from "@/app/actions/collections";
+import { loadMoreCollectionGames, loadMoreTrendingGames } from "@/app/actions/collections";
 import { WeekFilter } from "@/components/board/week-filter";
 import { VoteButton } from "@/components/game/vote-button";
 import { PlatformChipList } from "@/components/game/platform-chip";
@@ -54,6 +55,7 @@ import {
   type SortDirection,
 } from "@/lib/constants";
 import { buildIsoWeekRange, compareIsoWeek, type IsoWeek } from "@/lib/iso-week";
+import { TREND_RANGES, trendRangeLabel, type TrendRange } from "@/lib/trending/periods";
 import type { GameCategoryItem, GamePlatformItem, RankedGame, WeekBoard } from "@/lib/types";
 import { notifyError } from "@/lib/notify";
 import { cn } from "@/lib/utils";
@@ -68,7 +70,7 @@ const STATUS_ICONS: Record<GameStatus, LucideIcon> = {
 };
 
 export type CollectionFilters = {
-  view: "all" | "weekly";
+  view: "all" | "weekly" | "trending";
   categories: string[];
   platforms: string[];
   statuses: GameStatus[];
@@ -76,9 +78,11 @@ export type CollectionFilters = {
   week: number;
   sort: CollectionSort;
   dir: SortDirection;
+  range: TrendRange;
 };
 
 function isDefaultSort(filters: CollectionFilters) {
+  if (filters.view === "trending") return true;
   return filters.view === "weekly"
     ? filters.sort === "votes" && filters.dir === "desc"
     : filters.sort === "newest" && filters.dir === "desc";
@@ -90,17 +94,22 @@ function collectionHref(filters: CollectionFilters) {
       ? { ...filters, sort: "newest" as const, dir: "desc" as const }
       : filters.view === "weekly" && filters.sort === "newest"
         ? { ...filters, sort: "votes" as const, dir: "desc" as const }
-        : filters;
+        : filters.view === "trending"
+          ? { ...filters, sort: "newest" as const, dir: "desc" as const }
+          : filters;
   const params = new URLSearchParams();
   if (resolved.view === "weekly") {
     params.set("view", "weekly");
     params.set("year", String(resolved.year));
     params.set("week", String(resolved.week));
+  } else if (resolved.view === "trending") {
+    params.set("view", "trending");
+    params.set("range", resolved.range);
   }
   for (const category of resolved.categories) params.append("category", category);
   for (const platform of resolved.platforms) params.append("platform", platform);
   for (const status of resolved.statuses) params.append("status", status);
-  if (!isDefaultSort(resolved)) {
+  if (resolved.view !== "trending" && !isDefaultSort(resolved)) {
     params.set("sort", resolved.sort);
     params.set("dir", resolved.dir);
   }
@@ -150,11 +159,13 @@ export function CollectionsBrowser({
       )
     : [];
   const catalogKey = [
+    filters.view,
     filters.categories.join(","),
     filters.platforms.join(","),
     filters.statuses.join(","),
     filters.sort,
     filters.dir,
+    filters.range,
   ].join("|");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -168,7 +179,7 @@ export function CollectionsBrowser({
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-col gap-4 px-4 pt-4 pb-4 sm:px-6 sm:pt-6">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex w-fit items-center gap-2">
               <TabLink
                 href={collectionHref({ ...filters, view: "all" })}
@@ -184,15 +195,25 @@ export function CollectionsBrowser({
               >
                 Weekly
               </TabLink>
+              <TabLink
+                href={collectionHref({ ...filters, view: "trending" })}
+                active={filters.view === "trending"}
+                icon={FlameIcon}
+              >
+                Trending
+              </TabLink>
             </div>
-            <button
-              type="button"
-              aria-label="Filters"
-              onClick={() => setFiltersOpen(true)}
-              className="flex size-9 items-center justify-center rounded-full border border-iron text-paper-white hover:bg-slate/50 lg:hidden"
-            >
-              <ListFilterIcon className="size-4" strokeWidth={1.5} />
-            </button>
+            <div className="flex items-center gap-2">
+              {filters.view === "trending" ? <TrendRangePills filters={filters} /> : null}
+              <button
+                type="button"
+                aria-label="Filters"
+                onClick={() => setFiltersOpen(true)}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-iron text-paper-white hover:bg-slate/50 lg:hidden"
+              >
+                <ListFilterIcon className="size-4" strokeWidth={1.5} />
+              </button>
+            </div>
           </div>
           {filters.view === "weekly" ? (
             <WeeklyPicker filters={filters} currentWeek={currentWeek} />
@@ -217,7 +238,7 @@ export function CollectionsBrowser({
             />
           )
         ) : games.length === 0 ? (
-          <CollectionEmpty filtering={filtering} view="all" filters={filters} />
+          <CollectionEmpty filtering={filtering} view={filters.view} filters={filters} />
         ) : (
           <CatalogList
             key={catalogKey}
@@ -463,17 +484,23 @@ function CollectionEmpty({
   filters,
 }: {
   filtering: boolean;
-  view: "all" | "weekly";
+  view: CollectionFilters["view"];
   filters: CollectionFilters;
 }) {
   return (
     <Empty className="border border-dashed border-iron">
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <LayoutGridIcon />
+          {view === "trending" ? <FlameIcon /> : <LayoutGridIcon />}
         </EmptyMedia>
         <EmptyTitle>
-          {filtering ? "No matching games" : view === "weekly" ? "No games this week" : "No games yet"}
+          {filtering
+            ? "No matching games"
+            : view === "weekly"
+              ? "No games this week"
+              : view === "trending"
+                ? "Nothing is trending yet"
+                : "No games yet"}
         </EmptyTitle>
         <EmptyDescription>
           {filtering
@@ -512,14 +539,23 @@ function CatalogList({
     if (!cursor || pending) return;
     setPending(true);
     try {
-      const page = await loadMoreCollectionGames({
-        cursor,
-        categories: filters.categories,
-        platforms: filters.platforms,
-        statuses: filters.statuses,
-        sort: filters.sort,
-        dir: filters.dir,
-      });
+      const page =
+        filters.view === "trending"
+          ? await loadMoreTrendingGames({
+              cursor,
+              range: filters.range,
+              categories: filters.categories,
+              platforms: filters.platforms,
+              statuses: filters.statuses,
+            })
+          : await loadMoreCollectionGames({
+              cursor,
+              categories: filters.categories,
+              platforms: filters.platforms,
+              statuses: filters.statuses,
+              sort: filters.sort,
+              dir: filters.dir,
+            });
       setExtra((current) => [...current, ...page.games]);
       setCursor(page.nextCursor);
     } catch {
@@ -531,7 +567,7 @@ function CatalogList({
 
   return (
     <div className="flex flex-col gap-4">
-      <CollectionsTable games={[...games, ...extra]} filters={filters} />
+      <CollectionsTable games={[...games, ...extra]} filters={filters} sortable={filters.view !== "trending"} />
       {cursor ? (
         <button
           type="button"
@@ -713,6 +749,31 @@ function FilterChip({
   );
 }
 
+function TrendRangePills({ filters }: { filters: CollectionFilters }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {TREND_RANGES.map((range) => {
+        const active = filters.range === range;
+        return (
+          <Link
+            key={range}
+            href={collectionHref({ ...filters, view: "trending", range })}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "inline-flex h-8 items-center rounded-full border border-iron px-3 text-sm",
+              active
+                ? "border-transparent bg-graphite text-paper-white"
+                : "text-fog hover:bg-slate/50 hover:text-paper-white",
+            )}
+          >
+            {trendRangeLabel(range)}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 function TabLink({
   href,
   active,
@@ -809,10 +870,12 @@ function CollectionsTable({
   games,
   filters,
   vote,
+  sortable = true,
 }: {
   games: RankedGame[];
   filters: CollectionFilters;
   vote?: { year: number; week: number; live: boolean };
+  sortable?: boolean;
 }) {
   const sticky = "sticky left-0 z-10 bg-page md:static md:bg-transparent";
 
@@ -820,10 +883,18 @@ function CollectionsTable({
     <Table className="min-w-[48rem] md:min-w-full">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <SortHead filters={filters} column="name" label="Game" className={sticky} />
+            {sortable ? (
+              <SortHead filters={filters} column="name" label="Game" className={sticky} />
+            ) : (
+              <TableHead className={cn(headClass, sticky)}>Game</TableHead>
+            )}
             <TableHead className={headClass}>Categories</TableHead>
             <TableHead className={headClass}>Platforms</TableHead>
-            <SortHead filters={filters} column="status" label="Status" />
+            {sortable ? (
+              <SortHead filters={filters} column="status" label="Status" />
+            ) : (
+              <TableHead className={headClass}>Status</TableHead>
+            )}
             {vote ? <SortHead filters={filters} column="votes" label="Votes" align="right" /> : null}
           </TableRow>
         </TableHeader>

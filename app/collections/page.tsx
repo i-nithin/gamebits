@@ -16,6 +16,8 @@ import {
   listActivePlatforms,
   listCollectionGamesPage,
 } from "@/lib/queries";
+import { isTrendRange } from "@/lib/trending/periods";
+import { listTrendingGamesPage } from "@/lib/trending/queries";
 
 function normalizeCollectionSort(
   view: "all" | "weekly",
@@ -52,6 +54,7 @@ export default async function CollectionsPage({
 }: {
   searchParams: Promise<{
     view?: string;
+    range?: string;
     year?: string;
     week?: string;
     category?: string | string[];
@@ -67,11 +70,15 @@ export default async function CollectionsPage({
     params.year && params.week ? parseWeekParams(params.year, params.week) : null;
   const selected =
     requested && compareIsoWeek(requested, current) <= 0 ? requested : current;
-  const view = params.view === "weekly" ? "weekly" : "all";
+  const view =
+    params.view === "weekly" ? "weekly" : params.view === "trending" ? "trending" : "all";
   const requestedSort = COLLECTION_SORTS.find((sort) => sort === params.sort);
   const requestedDir: SortDirection | undefined =
     params.dir === "asc" || params.dir === "desc" ? params.dir : undefined;
-  const sort = normalizeCollectionSort(view, requestedSort, requestedDir);
+  const sort =
+    view === "trending"
+      ? { sort: "newest" as const, dir: "desc" as const }
+      : normalizeCollectionSort(view, requestedSort, requestedDir);
   const filters: CollectionFilters = {
     view,
     categories: many(params.category).filter(Boolean),
@@ -83,6 +90,7 @@ export default async function CollectionsPage({
     week: selected.week,
     sort: sort.sort,
     dir: sort.dir,
+    range: isTrendRange(params.range) ? params.range : "today",
   };
   if (
     view === "weekly" &&
@@ -113,22 +121,33 @@ export default async function CollectionsPage({
           dir: filters.dir,
         })
       : Promise.resolve({ games: [], nextCursor: null });
+  const trendingPromise =
+    view === "trending"
+      ? listTrendingGamesPage({
+          range: filters.range,
+          categories: filters.categories,
+          platforms: filters.platforms,
+          statuses: filters.statuses,
+        })
+      : Promise.resolve({ games: [], nextCursor: null });
   const categoriesPromise = listActiveCategories();
   const platformsPromise = listActivePlatforms();
   const userId = view === "weekly" ? await getCurrentUserId() : null;
-  const [catalog, weekBoard, categories, platforms] = await Promise.all([
+  const [catalog, trending, weekBoard, categories, platforms] = await Promise.all([
     catalogPromise,
+    trendingPromise,
     view === "weekly"
       ? getWeekBoard(selected.year, selected.week, userId)
       : Promise.resolve(null),
     categoriesPromise,
     platformsPromise,
   ]);
+  const page = view === "trending" ? trending : catalog;
 
   return (
     <CollectionsBrowser
-      games={catalog.games}
-      nextCursor={catalog.nextCursor}
+      games={page.games}
+      nextCursor={page.nextCursor}
       weekBoard={weekBoard}
       currentWeek={current}
       categories={categories}

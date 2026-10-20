@@ -205,5 +205,6 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Docs
 
 - Product scope: [`docs/product.md`](docs/product.md)
+- Trending score: [`docs/trending.md`](docs/trending.md)
 - Visual system: [`docs/design-system.md`](docs/design-system.md)
 - Living architecture notes: [`openmemory.md`](openmemory.md)

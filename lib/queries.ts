@@ -53,6 +53,15 @@ function toRanked(
   }));
 }
 
+export function asCatalogGame(game: typeof games.$inferSelect, rank: number): RankedGame {
+  return rankedGame(game, {
+    featured: false,
+    voteCount: 0,
+    voted: false,
+    rank,
+  });
+}
+
 function rankedGame(
   game: typeof games.$inferSelect,
   extras: { featured: boolean; voteCount: number; voted: boolean; rank: number },
@@ -158,7 +167,7 @@ async function categoriesByGameIds(gameIds: string[]): Promise<Map<string, GameC
   return map;
 }
 
-async function withCatalog(items: RankedGame[]): Promise<RankedGame[]> {
+export async function withCatalog(items: RankedGame[]): Promise<RankedGame[]> {
   const ids = items.map((game) => game.id);
   const [platformMap, categoryMap] = await Promise.all([
     platformsByGameIds(ids),

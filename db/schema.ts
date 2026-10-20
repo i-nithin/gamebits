@@ -4,6 +4,7 @@ import {
   check,
   customType,
   date,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -700,6 +701,76 @@ export const dodoWebhookEvents = pgTable("dodo_webhook_events", {
   eventType: text("event_type").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const trendRegimeEnum = pgEnum("trend_regime", ["sparse", "growing", "mature"]);
+
+export const gameTrendScores = pgTable(
+  "game_trend_scores",
+  {
+    gameId: uuid("game_id")
+      .primaryKey()
+      .references(() => games.id, { onDelete: "cascade" }),
+    score: doublePrecision("score").notNull(),
+    rank: integer("rank").notNull(),
+    hot: doublePrecision("hot").notNull(),
+    baseline: doublePrecision("baseline").notNull(),
+    velocity: doublePrecision("velocity").notNull(),
+    computedAt: timestamp("computed_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("game_trend_scores_rank_idx").on(table.rank)],
+);
+
+export const trendState = pgTable("trend_state", {
+  id: text("id").primaryKey(),
+  regime: trendRegimeEnum("regime").notNull(),
+  previousRegime: trendRegimeEnum("previous_regime"),
+  gameCount: integer("game_count").notNull(),
+  eventMass: doublePrecision("event_mass").notNull(),
+  windowDays: integer("window_days").notNull(),
+  halfLifeHours: integer("half_life_hours").notNull(),
+  priorStrength: doublePrecision("prior_strength").notNull(),
+  computedAt: timestamp("computed_at", { withTimezone: true }).notNull(),
+});
+
+export const trendPeriodKindEnum = pgEnum("trend_period_kind", ["day", "week", "month"]);
+
+export const trendSnapshots = pgTable(
+  "trend_snapshots",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    kind: trendPeriodKindEnum("kind").notNull(),
+    periodKey: text("period_key").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    sealedAt: timestamp("sealed_at", { withTimezone: true }),
+    gameCount: integer("game_count").notNull(),
+    eventMass: doublePrecision("event_mass").notNull(),
+    regime: trendRegimeEnum("regime").notNull(),
+    computedAt: timestamp("computed_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [uniqueIndex("trend_snapshots_period_idx").on(table.kind, table.periodKey)],
+);
+
+export const trendSnapshotRanks = pgTable(
+  "trend_snapshot_ranks",
+  {
+    snapshotId: uuid("snapshot_id")
+      .notNull()
+      .references(() => trendSnapshots.id, { onDelete: "cascade" }),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    rank: integer("rank").notNull(),
+    score: doublePrecision("score").notNull(),
+    hot: doublePrecision("hot").notNull(),
+    baseline: doublePrecision("baseline").notNull(),
+    velocity: doublePrecision("velocity").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.snapshotId, table.gameId] }),
+    index("trend_snapshot_ranks_rank_idx").on(table.snapshotId, table.rank),
+  ],
+);
 
 export const notificationJobs = pgTable(
   "notification_jobs",
