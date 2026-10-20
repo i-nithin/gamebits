@@ -1,4 +1,4 @@
-import type { NotificationType } from "@/lib/notifications/types";
+import type { NotificationType, SystemNotificationType } from "@/lib/notifications/types";
 
 export const NOTIFICATION_SETTINGS = [
   {
@@ -33,15 +33,17 @@ export const NOTIFICATION_SETTINGS = [
 }>;
 
 type Listed = (typeof NOTIFICATION_SETTINGS)[number]["type"];
+type PreferenceType = Exclude<NotificationType, SystemNotificationType>;
 function assertAllTypes(
   settings: ReadonlyArray<{ type: Listed }> &
-    (NotificationType extends Listed ? unknown : never),
+    (PreferenceType extends Listed ? unknown : never) &
+    (Listed extends PreferenceType ? unknown : never),
 ) {
   return settings;
 }
 assertAllTypes(NOTIFICATION_SETTINGS);
 
-export type NotificationPreferenceMap = Record<NotificationType, boolean>;
+export type NotificationPreferenceMap = Record<PreferenceType, boolean>;
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferenceMap = {
   follow: true,
@@ -51,6 +53,6 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferenceMap = {
   followee_launch: true,
 };
 
-export function isNotificationType(value: string): value is NotificationType {
+export function isNotificationType(value: string): value is PreferenceType {
   return NOTIFICATION_SETTINGS.some((item) => item.type === value);
 }

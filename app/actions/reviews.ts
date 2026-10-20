@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { gameReviews, games } from "@/db/schema";
-import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
+import { accountAccessError, getCurrentUserId } from "@/lib/auth-admin";
 import { REVIEW_BODY_MAX } from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { ensureCurrentProfile, getProfileHandle } from "@/lib/profile";
@@ -19,10 +19,8 @@ const reviewSchema = z.object({
 
 export async function upsertReviewAction(formData: FormData) {
   const userId = await getCurrentUserId();
-  if (!userId) throw new Error("Sign in to continue");
-  if (await isAccountClosed(userId)) {
-    throw new Error("This account is closed");
-  }
+  const blocked = await accountAccessError(userId);
+  if (!userId || blocked) throw new Error(blocked ?? "Sign in to continue");
   const parsed = reviewSchema.parse({
     gameId: String(formData.get("gameId") ?? ""),
     rating: String(formData.get("rating") ?? ""),
@@ -56,10 +54,11 @@ export async function upsertReviewAction(formData: FormData) {
   const imageUrl = profile.imageUrl;
 
   const [existing] = await db
-    .select({ id: gameReviews.id })
+    .select({ id: gameReviews.id, removedAt: gameReviews.removedAt })
     .from(gameReviews)
     .where(and(eq(gameReviews.gameId, game.id), eq(gameReviews.clerkUserId, userId)))
     .limit(1);
+  if (existing?.removedAt) throw new Error("This comment was removed");
 
   const now = new Date();
   let reviewId = existing?.id;
@@ -109,8 +108,8 @@ export async function deleteReviewAction(
   reviewId: string,
 ): Promise<{ error: string } | { ok: true }> {
   const userId = await getCurrentUserId();
-  if (!userId) return { error: "Sign in to continue." };
-  if (await isAccountClosed(userId)) return { error: "This account is closed." };
+  const blocked = await accountAccessError(userId);
+  if (!userId || blocked) return { error: blocked ?? "Sign in to continue." };
   if (!z.string().uuid().safeParse(reviewId).success) {
     return { error: "Comment not found." };
   }

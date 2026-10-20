@@ -1,6 +1,7 @@
 export const ADMIN_PAGE_SIZES = [10, 25, 50] as const;
 export type AdminPageSize = (typeof ADMIN_PAGE_SIZES)[number];
 export type CatalogView = "all" | "live" | "archived";
+export type ReportQueueStatus = "open" | "actioned" | "dismissed" | "all";
 
 export function parseAdminListParams(raw: {
   q?: string;
@@ -21,13 +22,20 @@ export function parseAdminListParams(raw: {
 
 export function adminListHref(
   base: string,
-  opts: { query: string; page: number; pageSize: number; view?: CatalogView },
+  opts: {
+    query: string;
+    page: number;
+    pageSize: number;
+    view?: CatalogView;
+    status?: ReportQueueStatus;
+  },
 ) {
   const params = new URLSearchParams();
   if (opts.query) params.set("q", opts.query);
   params.set("pageSize", String(opts.pageSize));
   if (opts.page > 1) params.set("page", String(opts.page));
   if (opts.view && opts.view !== "all") params.set("view", opts.view);
+  if (opts.status && opts.status !== "open") params.set("status", opts.status);
   const search = params.toString();
   return search ? `${base}?${search}` : base;
 }

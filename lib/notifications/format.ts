@@ -35,6 +35,17 @@ export function formatNotificationMessage(
       return `${actor} published ${game}`;
     case "followee_launch":
       return `${actor} launched ${game}`;
+    case "content_reported": {
+      const times = actorCount > 1 ? ` ${actorCount} times` : "";
+      if (payload.subjectKind === "review") return `Your comment on ${game} was reported${times}`;
+      return `Your game ${game} was reported${times}`;
+    }
+    case "content_removed":
+      return payload.subjectKind === "review"
+        ? `Your comment on ${game} was removed`
+        : `Your game ${game} was taken down`;
+    case "account_banned":
+      return "Your account was banned";
     default:
       return "New notification";
   }
@@ -57,6 +68,14 @@ export function notificationHref(
         return `/week/${payload.isoYear}/${payload.isoWeek}`;
       }
       return payload.gameSlug ? `/games/${payload.gameSlug}` : "/";
+    case "content_reported":
+    case "content_removed":
+      if (payload.subjectKind === "review" && payload.gameSlug && payload.reviewId) {
+        return `/games/${payload.gameSlug}?review=${payload.reviewId}`;
+      }
+      return payload.gameSlug ? `/games/${payload.gameSlug}` : "/";
+    case "account_banned":
+      return "/";
     default:
       return entityId ? `/games/${entityId}` : "/";
   }

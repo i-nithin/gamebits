@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, sql, type SQL } from "drizzle-orm";
 
 import {
   bookmarks,
@@ -362,7 +362,7 @@ async function reviewStatsForGames(gameIds: string[], window: AnalyticsWindow) {
     };
   }
   const db = getDb();
-  const conditions: SQL[] = [inArray(gameReviews.gameId, gameIds)];
+  const conditions: SQL[] = [inArray(gameReviews.gameId, gameIds), isNull(gameReviews.removedAt)];
   if (window.start && window.end) {
     conditions.push(
       and(

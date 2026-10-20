@@ -14,7 +14,7 @@ import {
   isNotificationEnabled,
   notificationPreferenceColumn,
 } from "@/lib/notifications/preferences";
-import type { NotificationType } from "@/lib/notifications/types";
+import { isSystemNotificationType, type NotificationType } from "@/lib/notifications/types";
 
 const FANOUT_BATCH = 250;
 
@@ -62,10 +62,16 @@ export async function emitDirectNotification(opts: {
   groupKey: string;
   payload: NotificationPayload;
   aggregate?: boolean;
+  countEach?: boolean;
 }) {
   if (!hasDatabase()) return;
   if (opts.recipientId === opts.actorId) return;
-  if (!(await isNotificationEnabled(opts.recipientId, opts.type))) return;
+  if (
+    !isSystemNotificationType(opts.type) &&
+    !(await isNotificationEnabled(opts.recipientId, opts.type))
+  ) {
+    return;
+  }
 
   const db = getDb();
   const now = new Date();
@@ -88,12 +94,11 @@ export async function emitDirectNotification(opts: {
       .limit(1);
 
     if (existing) {
-      const sameActor = existing.actorClerkUserId === opts.actorId;
       await db
         .update(notifications)
         .set({
           actorClerkUserId: opts.actorId,
-          actorCount: sameActor ? existing.actorCount : existing.actorCount + 1,
+          actorCount: nextActorCount(existing, opts.actorId, opts.countEach),
           payload: opts.payload,
           updatedAt: now,
         })
@@ -134,17 +139,25 @@ export async function emitDirectNotification(opts: {
       )
       .limit(1);
     if (!existing) throw error;
-    const sameActor = existing.actorClerkUserId === opts.actorId;
     await db
       .update(notifications)
       .set({
         actorClerkUserId: opts.actorId,
-        actorCount: sameActor ? existing.actorCount : existing.actorCount + 1,
+        actorCount: nextActorCount(existing, opts.actorId, opts.countEach),
         payload: opts.payload,
         updatedAt: now,
       })
       .where(eq(notifications.id, existing.id));
   }
+}
+
+function nextActorCount(
+  existing: { actorClerkUserId: string; actorCount: number },
+  actorId: string,
+  countEach: boolean | undefined,
+) {
+  if (countEach || existing.actorClerkUserId !== actorId) return existing.actorCount + 1;
+  return existing.actorCount;
 }
 
 export async function enqueueFollowerFanout(opts: {

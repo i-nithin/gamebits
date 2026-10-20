@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { CarouselBookingForm } from "@/components/ads/carousel-booking-form";
 import { getAdOrderForEdit, listCarouselGameChoices } from "@/lib/ads";
 import { monthKey } from "@/lib/ads-month";
-import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
+import { getCurrentUserId, isAccountRestricted } from "@/lib/auth-admin";
 import { isUuid } from "@/lib/sanitize";
 
 export default async function EditCarouselAdPage({
@@ -12,7 +12,7 @@ export default async function EditCarouselAdPage({
   params: Promise<{ id: string }>;
 }) {
   const userId = await getCurrentUserId();
-  if (!userId || (await isAccountClosed(userId))) redirect("/adbits");
+  if (!userId || (await isAccountRestricted(userId))) redirect("/adbits");
 
   const { id } = await params;
   if (!isUuid(id)) redirect("/adbits?placement=carousel");

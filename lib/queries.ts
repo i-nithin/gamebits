@@ -933,7 +933,13 @@ export async function listProfileReviews(userId: string): Promise<ProfileReview[
     })
     .from(gameReviews)
     .innerJoin(games, eq(gameReviews.gameId, games.id))
-    .where(and(eq(gameReviews.clerkUserId, userId), isNull(games.archivedAt)))
+    .where(
+      and(
+        eq(gameReviews.clerkUserId, userId),
+        isNull(gameReviews.removedAt),
+        isNull(games.archivedAt),
+      ),
+    )
     .orderBy(desc(gameReviews.createdAt));
 
   return rows.map((row) => ({
@@ -1190,6 +1196,7 @@ export async function listProfileReviewsPage(opts: {
     .where(
       and(
         eq(gameReviews.clerkUserId, opts.userId),
+        isNull(gameReviews.removedAt),
         isNull(games.archivedAt),
         search ? or(textContains(gameReviews.body, search), textContains(games.name, search)) : undefined,
         olderThan(gameReviews.createdAt, gameReviews.id, cursor),
@@ -1277,15 +1284,16 @@ export async function listGameReviews(opts: {
     .from(gameReviews)
     .leftJoin(profiles, eq(profiles.clerkUserId, gameReviews.clerkUserId))
     .where(
-      parsed
-        ? and(
-            eq(gameReviews.gameId, opts.gameId),
-            or(
+      and(
+        eq(gameReviews.gameId, opts.gameId),
+        isNull(gameReviews.removedAt),
+        parsed
+          ? or(
               lt(gameReviews.createdAt, parsed.createdAt),
               and(eq(gameReviews.createdAt, parsed.createdAt), lt(gameReviews.id, parsed.id)),
-            ),
-          )
-        : eq(gameReviews.gameId, opts.gameId),
+            )
+          : undefined,
+      ),
     )
     .orderBy(desc(gameReviews.createdAt), desc(gameReviews.id))
     .limit(limit + 1);
@@ -1339,12 +1347,18 @@ export async function getGamePageData(
           average: sql<number | null>`avg(${gameReviews.rating})`,
         })
         .from(gameReviews)
-        .where(eq(gameReviews.gameId, gameRow.id)),
+        .where(and(eq(gameReviews.gameId, gameRow.id), isNull(gameReviews.removedAt))),
       userId
         ? db
             .select({ rating: gameReviews.rating, body: gameReviews.body })
             .from(gameReviews)
-            .where(and(eq(gameReviews.gameId, gameRow.id), eq(gameReviews.clerkUserId, userId)))
+            .where(
+              and(
+                eq(gameReviews.gameId, gameRow.id),
+                eq(gameReviews.clerkUserId, userId),
+                isNull(gameReviews.removedAt),
+              ),
+            )
             .limit(1)
         : Promise.resolve([]),
       listGameReviews({ gameId: gameRow.id }),
@@ -1417,7 +1431,13 @@ export async function getGamePageData(
       })
       .from(gameReviews)
       .leftJoin(profiles, eq(profiles.clerkUserId, gameReviews.clerkUserId))
-      .where(and(eq(gameReviews.id, reviewId), eq(gameReviews.gameId, gameRow.id)))
+      .where(
+        and(
+          eq(gameReviews.id, reviewId),
+          eq(gameReviews.gameId, gameRow.id),
+          isNull(gameReviews.removedAt),
+        ),
+      )
       .limit(1);
     if (row) {
       reviews = [...reviews, toPublicReview(row)];

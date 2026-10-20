@@ -9,7 +9,7 @@ import { categories, gameCategories, gameLinks, gameMedia, gamePlatforms, games,
 import {
   canManageGame,
   getCurrentUserId,
-  isAccountClosed,
+  accountAccessError,
   requireSignedIn,
 } from "@/lib/auth-admin";
 import { confirmNewR2Object } from "@/lib/cloudflare-r2";
@@ -123,7 +123,8 @@ export async function upsertOwnedGameAction(
   formData: FormData,
 ): Promise<{ error: string } | null> {
   const userId = await getCurrentUserId();
-  if (!userId || (await isAccountClosed(userId))) return { error: "Sign in to continue" };
+  const blocked = await accountAccessError(userId);
+  if (!userId || blocked) return { error: blocked ?? "Sign in to continue" };
   const id = formData.get("id") ? String(formData.get("id")) : undefined;
 
   let existing = null;
@@ -277,6 +278,9 @@ export async function upsertOwnedGameAction(
   const primaryUrl = derivePrimaryUrl(links);
   const trailerUrl = firstVideo?.url ?? null;
   const archived = formData.get("archived") === "on";
+  if (existing?.takenDownAt && !archived) {
+    return { error: "This game was taken down and can't be published" };
+  }
   const slug = await uniqueSlug(requestedSlug, existing?.id);
 
   const values = {
@@ -384,15 +388,17 @@ export async function upsertOwnedGameAction(
 
 export async function setGameArchivedAction(formData: FormData) {
   const userId = await requireSignedIn();
-  if (await isAccountClosed(userId)) {
-    throw new Error("This account is closed");
-  }
+  const blocked = await accountAccessError(userId);
+  if (blocked) throw new Error(blocked);
   const id = String(formData.get("id") ?? "");
   const archived = formData.get("archived") === "true";
   const game = await getGameById(id);
   if (!game) throw new Error("Game not found");
   if (!(await canManageGame(userId, game.ownerClerkUserId))) {
     throw new Error("Unauthorized");
+  }
+  if (!archived && game.takenDownAt) {
+    throw new Error("This game was taken down and can't be published");
   }
 
   const db = getDb();

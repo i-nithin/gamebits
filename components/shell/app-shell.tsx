@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { BanScreen } from "@/components/reports/ban-screen";
 import { Footer } from "@/components/shell/footer";
 import { LeftRail } from "@/components/shell/left-rail";
 import { TopBar } from "@/components/shell/top-bar";
@@ -21,6 +22,10 @@ export function AppShell({
   showAdminNav: boolean;
   children: React.ReactNode;
 }) {
+  if (viewer?.banned) {
+    return <BanScreen reason={viewer.banReason} />;
+  }
+
   const shell = (
     <>
       <div className="min-h-dvh bg-page">

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { CarouselBookingForm } from "@/components/ads/carousel-booking-form";
 import { getAdOrderForEdit, listCarouselGameChoices, listMonthOptions } from "@/lib/ads";
-import { getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
+import { getCurrentUserId, isAccountRestricted } from "@/lib/auth-admin";
 import { isUuid } from "@/lib/sanitize";
 
 export default async function NewCarouselAdPage({
@@ -11,7 +11,7 @@ export default async function NewCarouselAdPage({
   searchParams: Promise<{ game?: string; again?: string }>;
 }) {
   const userId = await getCurrentUserId();
-  if (!userId || (await isAccountClosed(userId))) redirect("/adbits");
+  if (!userId || (await isAccountRestricted(userId))) redirect("/adbits");
 
   const { game, again } = await searchParams;
   const [months, games, againOrder] = await Promise.all([

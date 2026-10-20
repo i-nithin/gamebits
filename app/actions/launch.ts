@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { weekListings } from "@/db/schema";
 import { WEEK_LISTING_CAP } from "@/lib/constants";
-import { canManageGame, getCurrentUserId, isAccountClosed } from "@/lib/auth-admin";
+import { accountAccessError, canManageGame, getCurrentUserId } from "@/lib/auth-admin";
 import { getDb } from "@/lib/db";
 import { countWeekListings, getGameById } from "@/lib/queries";
 
@@ -14,7 +14,8 @@ export async function launchGameAction(
   formData: FormData,
 ): Promise<{ error: string } | { ok: true } | null> {
   const userId = await getCurrentUserId();
-  if (!userId || (await isAccountClosed(userId))) return { error: "Sign in to continue" };
+  const blocked = await accountAccessError(userId);
+  if (!userId || blocked) return { error: blocked ?? "Sign in to continue" };
 
   const gameId = String(formData.get("gameId") ?? "");
   const year = Number(formData.get("year"));

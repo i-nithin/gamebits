@@ -10,6 +10,7 @@ import {
   RocketIcon,
 } from "lucide-react";
 
+import { ReportGameButton } from "@/components/reports/report-game-dialog";
 import { trackedOutboundHref } from "@/lib/analytics/links";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import type { GameLinkItem } from "@/lib/types";
@@ -35,11 +36,15 @@ export function GameItemToolbar({
   links,
   canManage,
   onLaunch,
+  reportGame = null,
+  signedIn = false,
 }: {
   slug: string;
   links: GameLinkItem[];
   canManage: boolean;
   onLaunch?: () => void;
+  reportGame?: { id: string; name: string; logoUrl: string } | null;
+  signedIn?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const web = links.find((link) => link.kind === "web")?.url;
@@ -97,6 +102,7 @@ export function GameItemToolbar({
       >
         <CopyIcon className={cn("size-4", copied && "text-ice-signal")} strokeWidth={1.5} />
       </IconBtn>
+      <ReportGameButton game={canManage ? null : reportGame} signedIn={signedIn} />
       {canManage ? (
         <>
           <Link

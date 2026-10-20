@@ -15,9 +15,10 @@ import { Switch } from "@/components/ui/switch";
 import { notifyError } from "@/lib/notify";
 import { NOTIFICATION_SETTINGS } from "@/lib/notifications/catalog";
 import type { NotificationPreferenceMap } from "@/lib/notifications/catalog";
-import type { NotificationType } from "@/lib/notifications/types";
 
-const ICONS: Record<NotificationType, LucideIcon> = {
+type PreferenceType = (typeof NOTIFICATION_SETTINGS)[number]["type"];
+
+const ICONS: Record<PreferenceType, LucideIcon> = {
   follow: UserPlusIcon,
   game_like: HeartIcon,
   game_upvote: ArrowBigUpIcon,
@@ -25,7 +26,7 @@ const ICONS: Record<NotificationType, LucideIcon> = {
   followee_launch: RocketIcon,
 };
 
-const GROUPS: Array<{ label: string; types: NotificationType[] }> = [
+const GROUPS: Array<{ label: string; types: PreferenceType[] }> = [
   {
     label: "Activity",
     types: ["game_like", "game_upvote", "followee_publish", "followee_launch"],
@@ -42,7 +43,7 @@ export function NotificationSettings({
 }) {
   const [values, setValues] = useState(preferences);
 
-  async function toggle(type: NotificationType, enabled: boolean) {
+  async function toggle(type: PreferenceType, enabled: boolean) {
     const previous = values[type];
     setValues((current) => ({ ...current, [type]: enabled }));
     const result = await updateNotificationPreferenceAction(type, enabled);

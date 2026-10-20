@@ -68,6 +68,9 @@ export const games = pgTable(
     iarcRating: iarcRatingEnum("iarc_rating"),
     ownerClerkUserId: text("owner_clerk_user_id"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    takenDownAt: timestamp("taken_down_at", { withTimezone: true }),
+    hiddenByBan: boolean("hidden_by_ban").notNull().default(false),
+    moderationArchive: boolean("moderation_archive").notNull().default(false),
     pageViews: integer("page_views").notNull().default(0),
     outboundClicks: integer("outbound_clicks").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -215,6 +218,8 @@ export const gameReviews = pgTable(
     imageUrl: text("image_url"),
     rating: integer("rating").notNull(),
     body: text("body").notNull(),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    removedByBan: boolean("removed_by_ban").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -353,6 +358,8 @@ export const profiles = pgTable(
     superAdmin: boolean("super_admin").notNull().default(false),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     purgedAt: timestamp("purged_at", { withTimezone: true }),
+    bannedAt: timestamp("banned_at", { withTimezone: true }),
+    banReason: text("ban_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     searchTsv: tsvector("search_tsv").generatedAlwaysAs(
@@ -390,7 +397,40 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "game_upvote",
   "followee_publish",
   "followee_launch",
+  "content_reported",
+  "content_removed",
+  "account_banned",
 ]);
+
+export const reportTargetEnum = pgEnum("report_target", ["review", "game"]);
+
+export const reportStatusEnum = pgEnum("report_status", ["open", "dismissed", "actioned"]);
+
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    reporterClerkUserId: text("reporter_clerk_user_id").notNull(),
+    targetType: reportTargetEnum("target_type").notNull(),
+    targetId: uuid("target_id").notNull(),
+    subjectClerkUserId: text("subject_clerk_user_id"),
+    reason: text("reason").notNull(),
+    details: text("details"),
+    status: reportStatusEnum("status").notNull().default("open"),
+    resolution: text("resolution"),
+    resolvedByClerkUserId: text("resolved_by_clerk_user_id"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("reports_open_reporter_target_idx")
+      .on(table.reporterClerkUserId, table.targetType, table.targetId)
+      .where(sql`${table.status} = 'open'`),
+    index("reports_status_created_idx").on(table.status, table.createdAt.desc(), table.id),
+    index("reports_subject_status_idx").on(table.subjectClerkUserId, table.status),
+    index("reports_target_status_idx").on(table.targetType, table.targetId, table.status),
+  ],
+);
 
 export const notificationJobTypeEnum = pgEnum("notification_job_type", [
   "followee_publish",
@@ -413,6 +453,8 @@ export type NotificationPayload = {
   gameCoverUrl?: string | null;
   isoYear?: number;
   isoWeek?: number;
+  reviewId?: string;
+  subjectKind?: "review" | "game";
 };
 
 export const notifications = pgTable(

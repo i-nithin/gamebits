@@ -6,9 +6,15 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   type NotificationPreferenceMap,
 } from "@/lib/notifications/catalog";
-import type { NotificationType } from "@/lib/notifications/types";
+import {
+  isSystemNotificationType,
+  type NotificationType,
+  type SystemNotificationType,
+} from "@/lib/notifications/types";
 
-export function notificationPreferenceColumn(type: NotificationType) {
+type PreferenceType = Exclude<NotificationType, SystemNotificationType>;
+
+export function notificationPreferenceColumn(type: PreferenceType) {
   switch (type) {
     case "follow":
       return notificationPreferences.follow;
@@ -49,6 +55,7 @@ export async function getNotificationPreferences(
 }
 
 export async function isNotificationEnabled(userId: string, type: NotificationType) {
+  if (isSystemNotificationType(type)) return true;
   if (!hasDatabase()) return true;
   const [row] = await getDb()
     .select({ enabled: notificationPreferenceColumn(type) })
@@ -59,7 +66,7 @@ export async function isNotificationEnabled(userId: string, type: NotificationTy
   return row.enabled;
 }
 
-function preferencePatch(type: NotificationType, enabled: boolean) {
+function preferencePatch(type: PreferenceType, enabled: boolean) {
   switch (type) {
     case "follow":
       return { follow: enabled };
@@ -79,7 +86,7 @@ export async function setNotificationPreference(
   type: NotificationType,
   enabled: boolean,
 ) {
-  if (!hasDatabase()) return;
+  if (!hasDatabase() || isSystemNotificationType(type)) return;
   const patch = preferencePatch(type, enabled);
   await getDb()
     .insert(notificationPreferences)

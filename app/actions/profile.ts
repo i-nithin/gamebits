@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { profiles } from "@/db/schema";
-import { getCurrentUserId } from "@/lib/auth-admin";
+import { accountAccessError, getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { confirmNewR2Object } from "@/lib/cloudflare-r2";
 import { MAX_IMAGE_BYTES } from "@/lib/constants";
@@ -66,11 +66,12 @@ export async function updateProfileAction(
   formData: FormData,
 ): Promise<ProfileActionState> {
   const userId = await getCurrentUserId();
-  if (!userId) return { error: "Sign in to continue" };
+  const blocked = await accountAccessError(userId);
+  if (!userId || blocked) return { error: blocked ?? "Sign in to continue" };
 
   const existing = await ensureCurrentProfile();
-  if (!existing || existing.clerkUserId !== userId || existing.deletedAt) {
-    return { error: "Sign in to continue" };
+  if (!existing || existing.clerkUserId !== userId || existing.deletedAt || existing.bannedAt) {
+    return { error: existing?.bannedAt ? "This account is banned" : "Sign in to continue" };
   }
 
   const parsed = identitySchema.safeParse({

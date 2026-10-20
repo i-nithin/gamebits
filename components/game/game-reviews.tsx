@@ -5,6 +5,7 @@ import { StarIcon } from "lucide-react";
 
 import { upsertReviewAction } from "@/app/actions/reviews";
 import { CommentEditor, RemoveCommentButton } from "@/components/game/comment-editor";
+import { ReportCommentButton } from "@/components/reports/report-comment-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -248,7 +249,9 @@ export function GameReviews({
                       }}
                     />
                   </span>
-                ) : null}
+                ) : editingId === review.id ? null : (
+                  <ReportCommentButton reviewId={review.id} signedIn={signedIn} />
+                )}
               </div>
               {editingId === review.id ? (
                 <CommentEditor
