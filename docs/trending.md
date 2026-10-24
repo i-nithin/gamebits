@@ -194,7 +194,7 @@ Old snapshots are kept. A sealed row is never rewritten, so a report for last we
 
 ## Refresh
 
-[`vercel.json`](../vercel.json) calls `GET /api/cron/recompute-trends` every 15 minutes. The route checks `CRON_SECRET` and always recomputes. A page read calls `ensureFreshTrends`, which skips the work when `trend_state.computed_at` is under 20 minutes old (`TREND_STALE_MS`) and Today's snapshot already exists. A fresh regime row with no Today snapshot still forces a recompute, so the first deploy after the tables exist fills them on the next page view.
+[`vercel.json`](../vercel.json) calls `GET /api/cron/recompute-trends` every 15 minutes. Render staging hits the same route from the Blueprint cron in [`render.yaml`](../render.yaml). The route checks `CRON_SECRET` and always recomputes. A page read calls `ensureFreshTrends`, which skips the work when `trend_state.computed_at` is under 20 minutes old (`TREND_STALE_MS`) and Today's snapshot already exists. A fresh regime row with no Today snapshot still forces a recompute, so the first deploy after the tables exist fills them on the next page view.
 
 ```mermaid
 flowchart TD

@@ -34,7 +34,8 @@ cp .env.example .env.local
 | `R2_SECRET_ACCESS_KEY` | For uploads | R2 API token secret access key |
 | `R2_BUCKET_NAME` | For uploads | R2 bucket name |
 | `R2_PUBLIC_URL` | For uploads | Public base URL for objects (no trailing slash) |
-| `CRON_SECRET` | Production | Bearer token for the account-purge and unpaid-ad checkout jobs |
+| `CRON_SECRET` | Production | Bearer token for the account-purge, unpaid-ad checkout, and trend-recompute jobs |
+| `CRON_BASE_URL` | Optional | Origin the Render cron ping uses. Falls back to `NEXT_PUBLIC_APP_URL` |
 | `DODO_PAYMENTS_API_KEY` | For ad checkout | Dodo API key (`dodo_test_…` or `dodo_live_…`) |
 | `DODO_PAYMENTS_WEBHOOK_KEY` | For ad checkout | Signing secret from the Dodo webhook endpoint |
 | `DODO_PAYMENTS_ENVIRONMENT` | For ad checkout | `test_mode` or `live_mode`. Anything else, including unset, stays in test mode |
@@ -201,6 +202,22 @@ Open [http://localhost:3000](http://localhost:3000).
 5. Run migrations against production (`npm run db:migrate` with production `DATABASE_URL_UNPOOLED`), or wire a migrate step into your deploy pipeline. On a new production database, sign in once, then promote your profile with the SQL in the Admin section above.
 6. Confirm the crons in the Vercel project. `vercel.json` calls `/api/cron/purge-accounts` once a day and `/api/cron/expire-ad-checkouts` every hour. Without `CRON_SECRET`, those requests are rejected: logins past the 30-day window stay open until the person signs in again, and unpaid ad slots stay held until the checkout row is cancelled.
 7. In the Dodo dashboard, register `https://YOUR_PRODUCTION_DOMAIN/api/webhooks/dodo` and put that endpoint’s signing secret in `DODO_PAYMENTS_WEBHOOK_KEY`. Checkout and the webhook route both refuse to run when that key is empty.
+
+## Deploy (Render, staging)
+
+[`render.yaml`](render.yaml) is a Blueprint for a paid web service plus the same three cron jobs as `vercel.json`. Production can stay on Vercel. Do not use a free Render instance: a Next.js 16 production build needs more than 512 MB, and a sleeping free service makes the cron `GET`s time out.
+
+1. In Render, create a Blueprint from this repo. Use the `1c-2g` web plan from the file. Fill the prompted secrets (Neon, Clerk, R2, Dodo, Upstash, `NEXT_PUBLIC_APP_URL`). The `gamebits-staging` env group sets `DODO_PAYMENTS_ENVIRONMENT=test_mode` and generates `CRON_SECRET`.
+2. Set `NEXT_PUBLIC_APP_URL` and `R2_PUBLIC_URL` **before the first successful build**. Those values are baked into the client bundle and `next/image` remote patterns. After the hostname exists, use `https://gamebits-staging.onrender.com` with no trailing slash, then **Manual Deploy** if the first build used a placeholder.
+3. Use a staging Neon branch or a separate Neon project. Pooled URL → `DATABASE_URL`, direct URL → `DATABASE_URL_UNPOOLED`. The web service runs `npm run db:migrate` as a pre-deploy step.
+4. In Clerk, add the Render origin to allowed origins and redirect URLs.
+5. Add `https://gamebits-staging.onrender.com` to the R2 bucket CORS `AllowedOrigins`.
+6. In the Dodo **test** dashboard, register `https://gamebits-staging.onrender.com/api/webhooks/dodo` and put that endpoint’s signing secret in `DODO_PAYMENTS_WEBHOOK_KEY`. Keep `DODO_PAYMENTS_ENVIRONMENT` as `test_mode`.
+7. Upstash is required on Render (`NODE_ENV=production`). Without `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, search, uploads, and outbound clicks return 503.
+8. After the first deploy, sign in once, then promote your profile with the SQL in the Admin section above.
+9. On each cron service, open **Runs** and **Trigger Run**. `scripts/render-cron.mjs` `GET`s `/api/cron/purge-accounts` (04:00 UTC daily), `/api/cron/expire-ad-checkouts` (hourly), and `/api/cron/recompute-trends` (every 15 minutes) with `Authorization: Bearer $CRON_SECRET`. A non-2xx exit marks the run failed.
+
+Optional: set `CRON_BASE_URL` on the web service (and copy it onto the cron services) if the jobs should hit a different origin than `NEXT_PUBLIC_APP_URL`.
 
 ## Docs
 

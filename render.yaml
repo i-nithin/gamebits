@@ -1,0 +1,99 @@
+# Staging Blueprint. Production stays on Vercel (vercel.json).
+# Render env groups cannot use sync: false, so remaining secrets are prompted
+# on the web service. Cron jobs read CRON_SECRET from this group and the
+# public origin from the web service.
+
+services:
+  - type: web
+    name: gamebits-staging
+    runtime: node
+    plan: 1c-2g
+    buildCommand: npm install --include=dev && npm run build
+    preDeployCommand: npm run db:migrate
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - fromGroup: gamebits-staging
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
+      - key: DODO_PAYMENTS_API_KEY
+        sync: false
+      - key: DODO_PAYMENTS_WEBHOOK_KEY
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+
+  - type: cron
+    name: gamebits-staging-purge-accounts
+    runtime: node
+    plan: 0.5c-512mb
+    schedule: "0 4 * * *"
+    buildCommand: "true"
+    startCommand: node scripts/render-cron.mjs purge-accounts
+    envVars:
+      - fromGroup: gamebits-staging
+      - key: NEXT_PUBLIC_APP_URL
+        fromService:
+          name: gamebits-staging
+          type: web
+          envVarKey: NEXT_PUBLIC_APP_URL
+
+  - type: cron
+    name: gamebits-staging-expire-ad-checkouts
+    runtime: node
+    plan: 0.5c-512mb
+    schedule: "0 * * * *"
+    buildCommand: "true"
+    startCommand: node scripts/render-cron.mjs expire-ad-checkouts
+    envVars:
+      - fromGroup: gamebits-staging
+      - key: NEXT_PUBLIC_APP_URL
+        fromService:
+          name: gamebits-staging
+          type: web
+          envVarKey: NEXT_PUBLIC_APP_URL
+
+  - type: cron
+    name: gamebits-staging-recompute-trends
+    runtime: node
+    plan: 0.5c-512mb
+    schedule: "*/15 * * * *"
+    buildCommand: "true"
+    startCommand: node scripts/render-cron.mjs recompute-trends
+    envVars:
+      - fromGroup: gamebits-staging
+      - key: NEXT_PUBLIC_APP_URL
+        fromService:
+          name: gamebits-staging
+          type: web
+          envVarKey: NEXT_PUBLIC_APP_URL
+
+envVarGroups:
+  - name: gamebits-staging
+    envVars:
+      - key: DODO_PAYMENTS_ENVIRONMENT
+        value: test_mode
+      - key: CRON_SECRET
+        generateValue: true

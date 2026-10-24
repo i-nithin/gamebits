@@ -408,7 +408,7 @@ export function MediaPicker({
       let firstError: string | null = null;
       for (const result of results) {
         if ("error" in result) {
-          firstError ??= result.error;
+          firstError ??= result.error ?? null;
           continue;
         }
         if (addedUrls.has(result.url)) {
