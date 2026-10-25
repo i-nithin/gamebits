@@ -258,7 +258,7 @@ async function loadEvents(
       at: votes.createdAt,
     })
     .from(votes)
-    .where(gte(votes.createdAt, since));
+    .where(and(gte(votes.createdAt, since), isNull(votes.withdrawnAt)));
   const reviewRows = await tx
     .select({
       gameId: gameReviews.gameId,

@@ -22,7 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trackedOutboundHref } from "@/lib/analytics/links";
 import { GAME_LINK_FIELDS, GAME_STATUS_LABELS } from "@/lib/constants";
-import { formatIsoWeekLabel, weekHref } from "@/lib/iso-week";
+import { formatIsoWeekLabel, hasIsoWeekStarted, weekHref } from "@/lib/iso-week";
 import type { GamePageData } from "@/lib/types";
 
 const RICH_TAG = /<\/?[a-z][\s\S]*>/i;
@@ -32,6 +32,7 @@ export function GameDetail({
   year,
   week,
   live,
+  votingOpen,
   signedIn,
   viewerId = null,
   highlightReviewId = null,
@@ -43,6 +44,7 @@ export function GameDetail({
   year: number;
   week: number;
   live: boolean;
+  votingOpen: boolean;
   signedIn: boolean;
   viewerId?: string | null;
   highlightReviewId?: string | null;
@@ -153,7 +155,11 @@ export function GameDetail({
 
           <div className="flex flex-col gap-3 rounded-2xl bg-obsidian p-4 card-ring">
             <p className="text-[11px] tracking-[0.08em] text-fog uppercase">
-              {live ? `Live · ${weekLabel}` : weekLabel}
+              {live
+                ? `Live · ${weekLabel}`
+                : votingOpen
+                  ? `Rank locked · ${weekLabel}`
+                  : weekLabel}
             </p>
             <div className="flex items-center gap-2">
               <a
@@ -169,7 +175,7 @@ export function GameDetail({
                 week={week}
                 voteCount={game.voteCount}
                 voted={game.voted}
-                live={live}
+                open={votingOpen}
                 wide
               />
               <LikeButton gameId={game.id} liked={data.liked} likeCount={data.likeCount} />
@@ -295,7 +301,11 @@ export function GameDetail({
                       </span>
                     </span>
                     <Badge variant={launch.live ? "secondary" : "outline"}>
-                      {launch.live ? "Live" : "Frozen"}
+                      {launch.live
+                        ? "Live"
+                        : hasIsoWeekStarted(launch.year, launch.week)
+                          ? "Rank locked"
+                          : "Upcoming"}
                     </Badge>
                   </Link>
                 </li>

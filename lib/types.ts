@@ -54,6 +54,7 @@ export type WeekBoard = {
   year: number;
   week: number;
   live: boolean;
+  votingOpen: boolean;
   games: RankedGame[];
 };
 

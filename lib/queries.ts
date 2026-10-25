@@ -14,7 +14,8 @@ import {
   type SortDirection,
 } from "@/lib/constants";
 import { getDb, hasDatabase } from "@/lib/db";
-import { isIsoWeekLive } from "@/lib/iso-week";
+import { hasIsoWeekEnded, hasIsoWeekStarted, isIsoWeekLive, isoWeekRangeUtc } from "@/lib/iso-week";
+import { ensureWeekRankSnapshot, nextRevoteStamp } from "@/lib/week-rank";
 import { isUuid } from "@/lib/sanitize";
 import type {
   FollowProfile,
@@ -50,6 +51,30 @@ function toRanked(
     voteCount: row.voteCount,
     voted: row.voted,
     rank: index + 1,
+  }));
+}
+
+function toFrozen(
+  rows: Array<{
+    game: typeof games.$inferSelect;
+    featured: boolean;
+    voteCount: number;
+    voted: boolean;
+    finalRank: number | null;
+  }>,
+): RankedGame[] {
+  const ranked = rows.toSorted((a, b) => {
+    const ar = a.finalRank ?? Number.MAX_SAFE_INTEGER;
+    const br = b.finalRank ?? Number.MAX_SAFE_INTEGER;
+    if (ar !== br) return ar - br;
+    return a.game.name.localeCompare(b.game.name);
+  });
+
+  return ranked.map((row) => rankedGame(row.game, {
+    featured: row.featured,
+    voteCount: row.voteCount,
+    voted: row.voted,
+    rank: row.finalRank ?? 0,
   }));
 }
 
@@ -507,8 +532,15 @@ export const getWeekBoard = cache(async function getWeekBoard(
   week: number,
   userId?: string | null,
 ): Promise<WeekBoard> {
+  const live = isIsoWeekLive(year, week);
+  const ended = hasIsoWeekEnded(year, week);
+  const votingOpen = hasIsoWeekStarted(year, week);
   if (!hasDatabase()) {
-    return { year, week, live: isIsoWeekLive(year, week), games: [] };
+    return { year, week, live, votingOpen, games: [] };
+  }
+
+  if (ended) {
+    await ensureWeekRankSnapshot(year, week);
   }
 
   const db = getDb();
@@ -516,6 +548,7 @@ export const getWeekBoard = cache(async function getWeekBoard(
     .select({
       game: games,
       featured: weekListings.featured,
+      finalRank: weekListings.finalRank,
       voteCount: sql<number>`coalesce(count(${votes.id}), 0)::int`,
       voted: userId
         ? sql<boolean>`coalesce(bool_or(${votes.clerkUserId} = ${userId}), false)`
@@ -529,6 +562,7 @@ export const getWeekBoard = cache(async function getWeekBoard(
         eq(votes.gameId, games.id),
         eq(votes.isoYear, weekListings.isoYear),
         eq(votes.isoWeek, weekListings.isoWeek),
+        isNull(votes.withdrawnAt),
       ),
     )
     .where(
@@ -543,8 +577,9 @@ export const getWeekBoard = cache(async function getWeekBoard(
   return {
     year,
     week,
-    live: isIsoWeekLive(year, week),
-    games: await withCatalog(toRanked(rows)),
+    live,
+    votingOpen,
+    games: await withCatalog(ended ? toFrozen(rows) : toRanked(rows)),
   };
 });
 
@@ -639,8 +674,14 @@ export async function toggleWeekVote(opts: {
     .limit(1);
   if (!game) throw new Error("Game not found");
 
-  const existing = await db
-    .select({ id: votes.id })
+  const now = new Date();
+  const { end } = isoWeekRangeUtc(opts.year, opts.week);
+  const [existing] = await db
+    .select({
+      id: votes.id,
+      rankingAt: votes.rankingAt,
+      withdrawnAt: votes.withdrawnAt,
+    })
     .from(votes)
     .where(
       and(
@@ -652,9 +693,17 @@ export async function toggleWeekVote(opts: {
     )
     .limit(1);
 
-  if (existing[0]) {
-    await db.delete(votes).where(eq(votes.id, existing[0].id));
+  if (existing && !existing.withdrawnAt) {
+    await db.update(votes).set({ withdrawnAt: now }).where(eq(votes.id, existing.id));
     return { voted: false };
+  }
+
+  if (existing) {
+    await db
+      .update(votes)
+      .set(nextRevoteStamp(existing, end, now))
+      .where(eq(votes.id, existing.id));
+    return { voted: true };
   }
 
   await db.insert(votes).values({
@@ -662,6 +711,8 @@ export async function toggleWeekVote(opts: {
     gameId: opts.gameId,
     isoYear: opts.year,
     isoWeek: opts.week,
+    rankingAt: now,
+    createdAt: now,
   });
   return { voted: true };
 }
@@ -1408,20 +1459,17 @@ export async function getGamePageData(
     };
   });
 
-  const liveBoard = launches.find((launch) => launch.live);
-  const extras = liveBoard
-    ? {
-        featured: liveBoard.featured,
-        voteCount: liveBoard.voteCount,
-        voted: boards.find((board) => board.live)?.games.find((item) => item.id === gameRow.id)?.voted ?? false,
-        rank: liveBoard.rank,
-      }
-    : {
-        featured: false,
-        voteCount: launches[0]?.voteCount ?? 0,
-        voted: false,
-        rank: launches[0]?.rank ?? 0,
-      };
+  const selectedLaunch = launches.find((launch) => launch.live) ?? launches[0];
+  const selectedBoard = selectedLaunch
+    ? boards.find((board) => board.year === selectedLaunch.year && board.week === selectedLaunch.week)
+    : undefined;
+  const selectedGame = selectedBoard?.games.find((item) => item.id === gameRow.id);
+  const extras = {
+    featured: selectedLaunch?.live ? selectedLaunch.featured : false,
+    voteCount: selectedGame?.voteCount ?? 0,
+    voted: selectedGame?.voted ?? false,
+    rank: selectedGame?.rank ?? 0,
+  };
 
   const agg = reviewAgg[0];
   const reviewIdOk = Boolean(reviewId && /^[0-9a-f-]{36}$/i.test(reviewId));

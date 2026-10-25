@@ -39,6 +39,14 @@ export function isIsoWeekLive(year: number, week: number, now = new Date()) {
   return current.year === year && current.week === week;
 }
 
+export function hasIsoWeekStarted(year: number, week: number, now = new Date()) {
+  return compareIsoWeek({ year, week }, getIsoWeekUtc(now)) <= 0;
+}
+
+export function hasIsoWeekEnded(year: number, week: number, now = new Date()) {
+  return compareIsoWeek({ year, week }, getIsoWeekUtc(now)) < 0;
+}
+
 export function weekHref(year: number, week: number) {
   return `/week/${year}/${week}`;
 }

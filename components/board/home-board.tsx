@@ -16,7 +16,8 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { isCarouselVideo, type CarouselAd, type SidebarAd } from "@/lib/ads-types";
-import type { RankedGame, WeekBoard } from "@/lib/types";
+import type { TrendingRailItem } from "@/lib/trending/queries";
+import type { WeekBoard } from "@/lib/types";
 
 export function HomeBoard({
   board,
@@ -27,7 +28,7 @@ export function HomeBoard({
   board: WeekBoard;
   ads: SidebarAd[];
   carouselAds: CarouselAd[];
-  trending: RankedGame[];
+  trending: TrendingRailItem[];
 }) {
   const [heroIndex, setHeroIndex] = useState(0);
 
@@ -73,7 +74,9 @@ export function HomeBoard({
                 <p className="text-sm text-fog">
                   {board.live
                     ? "Games ranked by votes this week"
-                    : `Frozen ranking · Week ${board.week}, ${board.year}`}
+                    : board.votingOpen
+                      ? "Rank locked to votes cast this week. The button shows every vote since."
+                      : `Upcoming · Week ${board.week}, ${board.year}`}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2 text-xs text-fog">
@@ -83,7 +86,9 @@ export function HomeBoard({
                     Live
                   </span>
                 ) : (
-                  <span className="rounded-full bg-graphite px-2.5 py-1">Frozen</span>
+                  <span className="rounded-full bg-graphite px-2.5 py-1">
+                    {board.votingOpen ? "Rank locked" : "Upcoming"}
+                  </span>
                 )}
               </div>
             </div>
@@ -101,7 +106,7 @@ export function HomeBoard({
                 games={board.games}
                 year={board.year}
                 week={board.week}
-                live={board.live}
+                open={board.votingOpen}
               />
             )}
           </section>

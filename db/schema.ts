@@ -241,6 +241,9 @@ export const weekListings = pgTable(
     isoYear: integer("iso_year").notNull(),
     isoWeek: integer("iso_week").notNull(),
     featured: boolean("featured").notNull().default(false),
+    finalRank: integer("final_rank"),
+    rankVoteCount: integer("rank_vote_count"),
+    snapshottedAt: timestamp("snapshotted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -263,6 +266,8 @@ export const votes = pgTable(
       .references(() => games.id, { onDelete: "cascade" }),
     isoYear: integer("iso_year").notNull(),
     isoWeek: integer("iso_week").notNull(),
+    rankingAt: timestamp("ranking_at", { withTimezone: true }).notNull().defaultNow(),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

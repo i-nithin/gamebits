@@ -20,12 +20,12 @@ export function DiscoverTable({
   games,
   year,
   week,
-  live,
+  open,
 }: {
   games: RankedGame[];
   year: number;
   week: number;
-  live: boolean;
+  open: boolean;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -76,7 +76,7 @@ export function DiscoverTable({
                   week={week}
                   voteCount={game.voteCount}
                   voted={game.voted}
-                  live={live}
+                  open={open}
                   compact
                 />
               </div>

@@ -31,7 +31,11 @@ export default async function WeekPage({
           {formatIsoWeekLabel(board.year, board.week)}
         </h1>
         <p className="text-sm text-fog">
-          {board.live ? "Live" : "Frozen"} · ranked by votes
+          {board.live
+            ? "Live · ranked by votes"
+            : board.votingOpen
+              ? "Rank locked · votes still open. Order uses votes cast during this week. The button shows every vote since."
+              : "Upcoming · voting opens when this week starts"}
         </p>
       </div>
       {board.games.length === 0 ? (
@@ -46,7 +50,7 @@ export default async function WeekPage({
           games={board.games}
           year={board.year}
           week={board.week}
-          live={board.live}
+          open={board.votingOpen}
         />
       )}
     </div>
