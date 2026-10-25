@@ -36,11 +36,11 @@ if (!url) {
   throw new Error("DATABASE_URL is required to seed analytics");
 }
 
-const HISTORY_DAYS = 60;
+const HISTORY_DAYS = 90;
 const LAUNCH_WEEKS = 4;
-const REVIEWS_PER_GAME = 12;
-const VISITOR_POOL = 9000;
-const USER_POOL = 2400;
+const REVIEWS_PER_GAME = 28;
+const VISITOR_POOL = 18000;
+const USER_POOL = 4800;
 const SEED_USER = "seed:%";
 const INSERT_CHUNK = 1500;
 
@@ -442,8 +442,8 @@ function buildDailyCounts(rng: Rng, now: Date) {
     const weekend = date.getUTCDay() === 0 || date.getUTCDay() === 6 ? 1.2 : 1;
     const noise = 0.78 + rng() * 0.44;
     const pageViews = Math.max(
-      36,
-      Math.round((110 + recency * 460) * gameScale * weekend * noise),
+      90,
+      Math.round((280 + recency * 1100) * gameScale * weekend * noise),
     );
     const linkClicks = Math.min(
       pageViews,
@@ -454,8 +454,8 @@ function buildDailyCounts(rng: Rng, now: Date) {
 
   const lastWeek = days.slice(-7);
   const weekViews = lastWeek.reduce((sum, day) => sum + day.pageViews, 0);
-  if (weekViews < 1800) {
-    const factor = 1800 / weekViews;
+  if (weekViews < 4500) {
+    const factor = 4500 / weekViews;
     for (const day of lastWeek) {
       day.pageViews = Math.round(day.pageViews * factor);
       day.linkClicks = Math.min(day.pageViews, Math.max(1, Math.round(day.linkClicks * factor)));
@@ -537,7 +537,7 @@ function buildGamePlan(slug: string, name: string, linkKinds: string[], now: Dat
     const distance = LAUNCH_WEEKS - 1 - index;
     const scale = distance === 0 ? 1 : distance === 1 ? 0.84 : 0.62 + (LAUNCH_WEEKS - distance) * 0.04;
     const swing = 0.72 + rng() * 0.7;
-    const count = between(rng, Math.round(90 * scale * swing), Math.round(340 * scale * swing));
+    const count = between(rng, Math.round(180 * scale * swing), Math.round(700 * scale * swing));
     const range = isoWeekRangeUtc(week.year, week.week);
     const end = range.end.getTime() < now.getTime() ? range.end : now;
     return sampleIds(rng, Math.max(24, count), USER_POOL).map((userId) => ({
@@ -548,13 +548,13 @@ function buildGamePlan(slug: string, name: string, linkKinds: string[], now: Dat
     }));
   });
 
-  const likeCount = between(rng, 220, 680);
-  const bookmarkCount = between(rng, 70, 240);
+  const likeCount = between(rng, 500, 1600);
+  const bookmarkCount = between(rng, 180, 600);
   const templates = shuffle(rng, REVIEW_TEMPLATES).slice(0, REVIEWS_PER_GAME);
   const usedNames = new Set<string>();
   const reviewers: number[] = [];
   let guard = 0;
-  while (reviewers.length < REVIEWS_PER_GAME && guard < 400) {
+  while (reviewers.length < REVIEWS_PER_GAME && guard < 2000) {
     const userId = Math.floor(rng() * USER_POOL);
     const name = persona(userId).displayName;
     guard += 1;

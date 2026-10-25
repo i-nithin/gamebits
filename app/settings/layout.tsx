@@ -68,9 +68,9 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   }
 
   return (
-    <div className="flex w-full flex-col gap-3 px-4 py-4 md:flex-row md:items-start md:gap-5 md:px-5 md:py-5">
+    <div className="flex h-[calc(100dvh-6rem)] w-full flex-col gap-2 overflow-hidden px-4 pt-0 pb-3 md:flex-row md:items-stretch md:gap-5 md:px-5 md:py-4">
       <SettingsNav />
-      <div className="flex min-h-[calc(100dvh-5.5rem)] min-w-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
     </div>
   );
 }
