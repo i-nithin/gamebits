@@ -64,7 +64,7 @@ export function NotificationSettings({
             <div className="overflow-hidden rounded-xl border border-iron">
               <div className="flex items-center gap-3 border-b border-iron px-4 py-3 text-sm text-fog">
                 <span className="min-w-0 flex-1">Category</span>
-                <span className="w-16 shrink-0 text-center">In app</span>
+                <span className="w-16 shrink-0 text-center">Live</span>
               </div>
               <ul>
                 {group.types.map((type) => {
