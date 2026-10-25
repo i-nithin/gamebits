@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { CircleIcon } from "lucide-react";
 
@@ -9,78 +9,27 @@ import { OpenAdSlot } from "@/components/ads/open-ad-slot";
 import { AdCarousel } from "@/components/board/ad-carousel";
 import { GameCardGrid } from "@/components/board/game-card-grid";
 import { RankRail } from "@/components/board/rank-rail";
-import { WeekFilter } from "@/components/board/week-filter";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { compareIsoWeek, type IsoWeek } from "@/lib/iso-week";
-import { cn } from "@/lib/utils";
 import { isCarouselVideo, type CarouselAd, type SidebarAd } from "@/lib/ads-types";
 import type { RankedGame, WeekBoard } from "@/lib/types";
 
 export function HomeBoard({
-  weekBoards,
-  currentWeek,
+  board,
   ads,
   carouselAds,
   trending,
 }: {
-  weekBoards: WeekBoard[];
-  currentWeek: IsoWeek;
+  board: WeekBoard;
   ads: SidebarAd[];
   carouselAds: CarouselAd[];
   trending: RankedGame[];
 }) {
-  const weeks = useMemo(
-    () => weekBoards.map((board) => ({ year: board.year, week: board.week })),
-    [weekBoards],
-  );
   const [heroIndex, setHeroIndex] = useState(0);
-  const [selectedWeek, setSelectedWeek] = useState<IsoWeek>(currentWeek);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [windowStart, setWindowStart] = useState(() => {
-    const currentIndex = weeks.findIndex(
-      (week) => week.year === currentWeek.year && week.week === currentWeek.week,
-    );
-    return Math.max(0, currentIndex - 3);
-  });
-
-  function selectWeek(week: IsoWeek) {
-    if (compareIsoWeek(week, currentWeek) > 0) return;
-    setSelectedWeek(week);
-  }
-
-  const board =
-    weekBoards.find(
-      (item) => item.year === selectedWeek.year && item.week === selectedWeek.week,
-    ) ?? {
-      year: selectedWeek.year,
-      week: selectedWeek.week,
-      live: false,
-      games: [],
-    };
-
-  const categories = useMemo(() => {
-    const unique = new Map<string, string>();
-    for (const game of board.games) {
-      for (const category of game.categories) unique.set(category.slug, category.name);
-    }
-    return [...unique.entries()]
-      .map(([slug, name]) => ({ slug, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [board.games]);
-  const activeCategory =
-    selectedCategory && categories.some((category) => category.slug === selectedCategory)
-      ? selectedCategory
-      : null;
-  const launches = activeCategory
-    ? board.games.filter((game) =>
-        game.categories.some((category) => category.slug === activeCategory),
-      )
-    : board.games;
 
   const backdropIndex =
     carouselAds.length === 0 ? 0 : Math.min(heroIndex, carouselAds.length - 1);
@@ -124,7 +73,7 @@ export function HomeBoard({
                 <p className="text-sm text-fog">
                   {board.live
                     ? "Games ranked by votes this week"
-                    : `Frozen ranking · Week ${selectedWeek.week}, ${selectedWeek.year}`}
+                    : `Frozen ranking · Week ${board.week}, ${board.year}`}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2 text-xs text-fog">
@@ -138,59 +87,18 @@ export function HomeBoard({
                 )}
               </div>
             </div>
-            <WeekFilter
-              weeks={weeks}
-              selected={selectedWeek}
-              current={currentWeek}
-              windowStart={windowStart}
-              onSelect={selectWeek}
-              onWindowStartChange={setWindowStart}
-            />
-            {categories.length > 0 ? (
-              <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <button
-                  type="button"
-                  aria-pressed={activeCategory === null}
-                  onClick={() => setSelectedCategory(null)}
-                  className={cn(
-                    "h-8 shrink-0 rounded-full border border-iron px-3 text-sm",
-                    activeCategory === null
-                      ? "bg-graphite text-paper-white"
-                      : "text-fog hover:bg-slate/50 hover:text-paper-white",
-                  )}
-                >
-                  All
-                </button>
-                {categories.map((category) => (
-                  <button
-                    key={category.slug}
-                    type="button"
-                    aria-pressed={activeCategory === category.slug}
-                    onClick={() => setSelectedCategory(category.slug)}
-                    className={cn(
-                      "h-8 shrink-0 rounded-full border border-iron px-3 text-sm",
-                      activeCategory === category.slug
-                        ? "bg-graphite text-paper-white"
-                        : "text-fog hover:bg-slate/50 hover:text-paper-white",
-                    )}
-                  >
-                    {category.name}
-                  </button>
-                ))}
-              </div>
-            ) : null}
             {board.games.length === 0 ? (
               <Empty className="border border-dashed border-iron">
                 <EmptyHeader>
                   <EmptyTitle>No launches this week</EmptyTitle>
                   <EmptyDescription>
-                    Nothing was assigned to Week {selectedWeek.week}, {selectedWeek.year} yet.
+                    Nothing was assigned to Week {board.week}, {board.year} yet.
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : (
               <GameCardGrid
-                games={launches}
+                games={board.games}
                 year={board.year}
                 week={board.week}
                 live={board.live}

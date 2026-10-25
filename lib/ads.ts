@@ -113,6 +113,7 @@ export async function listLiveSidebarAds(now = new Date()): Promise<SidebarAd[]>
     .where(
       and(
         eq(adOrders.placement, "sidebar"),
+        eq(adOrders.format, "brand"),
         eq(adOrders.status, "approved"),
         eq(adSlots.status, "approved"),
         eq(adOrders.year, month.year),

@@ -13,7 +13,6 @@ import { AdImagePicker } from "@/components/ads/ad-image-picker";
 import { LabelWithInfo } from "@/components/game/field-info";
 import { GameFormShell } from "@/components/game/game-form-shell";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,13 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SIDEBAR_AD_UNIT_CENTS, formatUsd } from "@/lib/ad-catalog";
-import type { AdCreativePrefill, AdFormat, MonthOption } from "@/lib/ads-types";
+import type { AdCreativePrefill, MonthOption } from "@/lib/ads-types";
 import { AD_NAME_MAX, AD_TAGLINE_MAX } from "@/lib/constants";
-
-const FORMATS: { id: AdFormat; label: string }[] = [
-  { id: "brand", label: "Logo and tagline" },
-  { id: "media", label: "Image or GIF" },
-];
 
 const inputClass = "h-9 rounded-lg border-iron bg-graphite";
 
@@ -75,11 +69,11 @@ export function AdBookingForm({
     () => order?.monthKey ?? (months.find((month) => !month.full) ?? months[0])?.key ?? "",
   );
   const [slotCount, setSlotCount] = useState(order?.slotCount ?? 1);
-  const [format, setFormat] = useState<AdFormat>(prefill?.format ?? "brand");
-  const [logoUrl, setLogoUrl] = useState(prefill?.logoUrl ?? "");
-  const [mediaUrl, setMediaUrl] = useState(prefill?.mediaUrl ?? "");
-  const [productName, setProductName] = useState(prefill?.productName ?? "");
-  const [tagline, setTagline] = useState(prefill?.tagline ?? "");
+  const [logoUrl, setLogoUrl] = useState(prefill?.format === "brand" ? (prefill.logoUrl ?? "") : "");
+  const [productName, setProductName] = useState(
+    prefill?.format === "brand" ? (prefill.productName ?? "") : "",
+  );
+  const [tagline, setTagline] = useState(prefill?.format === "brand" ? (prefill.tagline ?? "") : "");
   const [destinationUrl, setDestinationUrl] = useState(prefill?.destinationUrl ?? "");
   const [imageBusy, setImageBusy] = useState(false);
 
@@ -88,24 +82,15 @@ export function AdBookingForm({
   const slots = order ? order.slotCount : Math.min(slotCount, Math.max(openSlots, 1));
   const listHref = isAdmin ? "/4dm1n/adbits" : "/adbits";
 
-  const preview =
-    format === "brand"
-      ? {
-          format: "brand" as const,
-          logoUrl,
-          productName: productName.trim() || "Product name",
-          tagline: tagline.trim() || "One line about the product",
-          mediaUrl: null,
-        }
-      : {
-          format: "media" as const,
-          logoUrl: null,
-          productName: null,
-          tagline: null,
-          mediaUrl,
-        };
+  const preview = {
+    format: "brand" as const,
+    logoUrl,
+    productName: productName.trim() || "Product name",
+    tagline: tagline.trim() || "One line about the product",
+    mediaUrl: null,
+  };
 
-  const creativeReady = format === "brand" ? Boolean(logoUrl) : Boolean(mediaUrl);
+  const creativeReady = Boolean(logoUrl);
   const sidebarTotal = formatUsd(SIDEBAR_AD_UNIT_CENTS * slots);
 
   return (
@@ -134,27 +119,14 @@ export function AdBookingForm({
         <div className="flex flex-col gap-5 sm:overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div>
             <p className="text-xs tracking-wide text-fog uppercase">Creative</p>
-            <h2 className="text-lg font-medium">
-              {format === "brand" ? "Product logo" : "Ad image"}
-            </h2>
+            <h2 className="text-lg font-medium">Product logo</h2>
           </div>
-          {format === "brand" ? (
-            <AdImagePicker
-              key="logo"
-              variant="logo"
-              value={logoUrl}
-              onChange={setLogoUrl}
-              onBusyChange={setImageBusy}
-            />
-          ) : (
-            <AdImagePicker
-              key="media"
-              variant="media"
-              value={mediaUrl}
-              onChange={setMediaUrl}
-              onBusyChange={setImageBusy}
-            />
-          )}
+          <AdImagePicker
+            variant="logo"
+            value={logoUrl}
+            onChange={setLogoUrl}
+            onBusyChange={setImageBusy}
+          />
 
           <div>
             <p className="text-xs tracking-wide text-fog uppercase">Preview</p>
@@ -176,11 +148,7 @@ export function AdBookingForm({
               </div>
             </>
           ) : (
-            <p className="text-sm text-fog">
-              {format === "brand"
-                ? "Upload a logo to see the card."
-                : "Upload an image or GIF to see the card."}
-            </p>
+            <p className="text-sm text-fog">Upload a logo to see the card.</p>
           )}
         </div>
       }
@@ -280,61 +248,37 @@ export function AdBookingForm({
             )}
 
             <Field>
-              <LabelWithInfo info="Logo and tagline builds the card for you. Image or GIF uses your own artwork.">
-                Format
+              <LabelWithInfo htmlFor="productName" info="Shown as the headline on the card.">
+                Product name
               </LabelWithInfo>
-              <div className="flex items-center gap-2">
-                {FORMATS.map((item) => (
-                  <Button
-                    key={item.id}
-                    type="button"
-                    size="sm"
-                    variant={format === item.id ? "secondary" : "outline"}
-                    aria-pressed={format === item.id}
-                    onClick={() => setFormat(item.id)}
-                  >
-                    {item.label}
-                  </Button>
-                ))}
-              </div>
+              <Input
+                id="productName"
+                maxLength={AD_NAME_MAX}
+                value={productName}
+                onChange={(event) => setProductName(event.target.value)}
+                placeholder="Chatbase"
+                className={inputClass}
+              />
+              <FieldDescription>
+                {AD_NAME_MAX - productName.length} characters left
+              </FieldDescription>
             </Field>
-
-            {format === "brand" ? (
-              <>
-                <Field>
-                  <LabelWithInfo htmlFor="productName" info="Shown as the headline on the card.">
-                    Product name
-                  </LabelWithInfo>
-                  <Input
-                    id="productName"
-                    maxLength={AD_NAME_MAX}
-                    value={productName}
-                    onChange={(event) => setProductName(event.target.value)}
-                    placeholder="Chatbase"
-                    className={inputClass}
-                  />
-                  <FieldDescription>
-                    {AD_NAME_MAX - productName.length} characters left
-                  </FieldDescription>
-                </Field>
-                <Field>
-                  <LabelWithInfo htmlFor="tagline" info="One short line under the name.">
-                    Tagline
-                  </LabelWithInfo>
-                  <Input
-                    id="tagline"
-                    maxLength={AD_TAGLINE_MAX}
-                    value={tagline}
-                    onChange={(event) => setTagline(event.target.value)}
-                    placeholder="AI agent for customer support"
-                    className={inputClass}
-                  />
-                  <FieldDescription>
-                    {AD_TAGLINE_MAX - tagline.length} characters left
-                  </FieldDescription>
-                </Field>
-              </>
-            ) : null}
+            <Field>
+              <LabelWithInfo htmlFor="tagline" info="One short line under the name.">
+                Tagline
+              </LabelWithInfo>
+              <Input
+                id="tagline"
+                maxLength={AD_TAGLINE_MAX}
+                value={tagline}
+                onChange={(event) => setTagline(event.target.value)}
+                placeholder="AI agent for customer support"
+                className={inputClass}
+              />
+              <FieldDescription>
+                {AD_TAGLINE_MAX - tagline.length} characters left
+              </FieldDescription>
+            </Field>
 
             <Field>
               <LabelWithInfo
@@ -370,11 +314,11 @@ export function AdBookingForm({
       {order ? <input type="hidden" name="orderId" value={order.id} /> : null}
       <input type="hidden" name="monthKey" value={order?.monthKey ?? monthKey} />
       <input type="hidden" name="slotCount" value={slots} />
-      <input type="hidden" name="format" value={format} />
-      <input type="hidden" name="logoUrl" value={format === "brand" ? logoUrl : ""} />
-      <input type="hidden" name="mediaUrl" value={format === "media" ? mediaUrl : ""} />
-      <input type="hidden" name="productName" value={format === "brand" ? productName : ""} />
-      <input type="hidden" name="tagline" value={format === "brand" ? tagline : ""} />
+      <input type="hidden" name="format" value="brand" />
+      <input type="hidden" name="logoUrl" value={logoUrl} />
+      <input type="hidden" name="mediaUrl" value="" />
+      <input type="hidden" name="productName" value={productName} />
+      <input type="hidden" name="tagline" value={tagline} />
       <input type="hidden" name="destinationUrl" value={destinationUrl} />
     </GameFormShell>
   );
