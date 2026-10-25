@@ -1,9 +1,9 @@
 import { config } from "dotenv";
-import { eq, isNull, like, sql } from "drizzle-orm";
+import { and, eq, isNull, like, sql } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool, type PoolClient } from "pg";
 
-import { getIsoWeekUtc, isoWeekRangeUtc, shiftIsoWeek } from "../lib/iso-week";
+import { compareIsoWeek, getIsoWeekUtc, isoWeekRangeUtc, shiftIsoWeek } from "../lib/iso-week";
 import {
   bookmarks,
   gameAnalyticsDaily,
@@ -665,6 +665,7 @@ async function seedGame(
           gameId: game.id,
           isoYear: vote.isoYear,
           isoWeek: vote.isoWeek,
+          rankingAt: vote.createdAt,
           createdAt: vote.createdAt,
         })),
       )
@@ -792,6 +793,16 @@ async function main() {
           `${plan.bookmarks.length.toLocaleString("en-US")} bookmarks, ` +
           `${plan.reviews.length} reviews`,
       );
+    }
+
+    const current = getIsoWeekUtc(now);
+    for (let index = 0; index < LAUNCH_WEEKS; index += 1) {
+      const week = shiftIsoWeek(current.year, current.week, -(LAUNCH_WEEKS - 1 - index));
+      if (compareIsoWeek(week, current) >= 0) continue;
+      await db
+        .update(weekListings)
+        .set({ finalRank: null, rankVoteCount: null, snapshottedAt: null })
+        .where(and(eq(weekListings.isoYear, week.year), eq(weekListings.isoWeek, week.week)));
     }
 
     await client.query("commit");

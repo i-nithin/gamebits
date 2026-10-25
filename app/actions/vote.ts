@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { games } from "@/db/schema";
 import { accountBlockReason, getCurrentUserId } from "@/lib/auth-admin";
 import { getDb } from "@/lib/db";
-import { isIsoWeekLive } from "@/lib/iso-week";
+import { hasIsoWeekStarted } from "@/lib/iso-week";
 import {
   emitDirectNotification,
   ensureActorPayload,
@@ -26,7 +26,7 @@ export async function toggleVoteAction(formData: FormData) {
     return { ok: false as const, reason: "invalid" as const };
   }
 
-  if (!isIsoWeekLive(year, week)) {
+  if (!hasIsoWeekStarted(year, week)) {
     return { ok: false as const, reason: "frozen" as const };
   }
 

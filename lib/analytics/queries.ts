@@ -38,7 +38,8 @@ import type {
 import type { AnalyticsCountryBucket } from "@/db/schema";
 import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { getDb, hasDatabase } from "@/lib/db";
-import { isIsoWeekLive } from "@/lib/iso-week";
+import { hasIsoWeekEnded, isIsoWeekLive } from "@/lib/iso-week";
+import { ensureWeekRankSnapshot } from "@/lib/week-rank";
 
 function asCount(value: number | string | null | undefined) {
   const count = Number(value ?? 0);
@@ -288,7 +289,7 @@ async function sumDailyForGames(
 async function countVotesForGames(gameIds: string[], window: AnalyticsWindow) {
   if (gameIds.length === 0) return new Map<string, number>();
   const db = getDb();
-  const conditions: SQL[] = [inArray(votes.gameId, gameIds)];
+  const conditions: SQL[] = [inArray(votes.gameId, gameIds), isNull(votes.withdrawnAt)];
   if (window.start && window.end) {
     conditions.push(
       and(
@@ -694,6 +695,11 @@ async function launchesForGame(
   gameId: string,
   listings: Array<{ isoYear: number; isoWeek: number }>,
 ): Promise<AnalyticsLaunch[]> {
+  const closed = listings.filter((listing) => hasIsoWeekEnded(listing.isoYear, listing.isoWeek));
+  for (const listing of closed) {
+    await ensureWeekRankSnapshot(listing.isoYear, listing.isoWeek);
+  }
+
   const db = getDb();
   const [peers, ownVotes] = await Promise.all([
     db
@@ -702,6 +708,7 @@ async function launchesForGame(
         isoWeek: weekListings.isoWeek,
         gameId: games.id,
         name: games.name,
+        finalRank: weekListings.finalRank,
         voteCount: sql<number>`count(${votes.id})::int`,
       })
       .from(weekListings)
@@ -712,6 +719,7 @@ async function launchesForGame(
           eq(votes.gameId, games.id),
           eq(votes.isoYear, weekListings.isoYear),
           eq(votes.isoWeek, weekListings.isoWeek),
+          isNull(votes.withdrawnAt),
         ),
       )
       .where(
@@ -720,7 +728,13 @@ async function launchesForGame(
           sql`${games.archivedAt} is null`,
         ),
       )
-      .groupBy(weekListings.isoYear, weekListings.isoWeek, games.id, games.name),
+      .groupBy(
+        weekListings.isoYear,
+        weekListings.isoWeek,
+        weekListings.finalRank,
+        games.id,
+        games.name,
+      ),
     db
       .select({
         isoYear: votes.isoYear,
@@ -728,15 +742,29 @@ async function launchesForGame(
         voteCount: sql<number>`count(*)::int`,
       })
       .from(votes)
-      .where(and(eq(votes.gameId, gameId), weekTupleFilter(votes.isoYear, votes.isoWeek, listings)))
+      .where(
+        and(
+          eq(votes.gameId, gameId),
+          isNull(votes.withdrawnAt),
+          weekTupleFilter(votes.isoYear, votes.isoWeek, listings),
+        ),
+      )
       .groupBy(votes.isoYear, votes.isoWeek),
   ]);
 
-  const peersByWeek = new Map<string, Array<{ gameId: string; name: string; voteCount: number }>>();
+  const peersByWeek = new Map<
+    string,
+    Array<{ gameId: string; name: string; voteCount: number; finalRank: number | null }>
+  >();
   for (const peer of peers) {
     const key = weekKey(peer.isoYear, peer.isoWeek);
     const list = peersByWeek.get(key) ?? [];
-    list.push({ gameId: peer.gameId, name: peer.name, voteCount: asCount(peer.voteCount) });
+    list.push({
+      gameId: peer.gameId,
+      name: peer.name,
+      voteCount: asCount(peer.voteCount),
+      finalRank: peer.finalRank,
+    });
     peersByWeek.set(key, list);
   }
 
@@ -747,12 +775,15 @@ async function launchesForGame(
   return listings.map((listing) => {
     const key = weekKey(listing.isoYear, listing.isoWeek);
     const weekPeers = peersByWeek.get(key) ?? [];
-    const rank = rankOnWeek(weekPeers, gameId);
     const listed = weekPeers.find((peer) => peer.gameId === gameId);
+    const live = isIsoWeekLive(listing.isoYear, listing.isoWeek);
+    const rank = hasIsoWeekEnded(listing.isoYear, listing.isoWeek)
+      ? (listed?.finalRank ?? 0)
+      : rankOnWeek(weekPeers, gameId);
     return {
       year: listing.isoYear,
       week: listing.isoWeek,
-      live: isIsoWeekLive(listing.isoYear, listing.isoWeek),
+      live,
       rank,
       voteCount: votesByWeek.get(key) ?? listed?.voteCount ?? 0,
     };

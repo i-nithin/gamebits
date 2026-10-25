@@ -29,14 +29,14 @@ A **GameBits Launch** is a **weekly campaign slot**.
 
 **Clock:** ISO week, Monday 00:00 UTC → Sunday 23:59 UTC. Archives: `/week/[year]/[week]` (ISO week number).
 
-**Ranking:** Upvote count during that campaign week. **1 vote per signed-in user per game.**
+**Ranking:** Upvote count during that campaign week sets the rank. **1 vote per signed-in user per game per launch.** After the week ends, people can still vote and unvote. Those later votes change the running total, not the rank.
 
-**Freeze:** When the week ends, that week’s rank is frozen. The game page stays. Upvotes no longer change that week’s leaderboard (button disabled, or votes ignored for that week).
+**Freeze:** When the week ends, that week’s rank is snapshotted from votes that were still active at week close. The game page stays, and voting stays open. The leaderboard order does not change.
 
 ## Public surfaces (only these)
 
 1. **Homepage** — current ISO week, ranked list of that week’s ~20 games.
-2. **`/week/[year]/[week]`** — frozen (or live, if current) leaderboard for that week.
+2. **`/week/[year]/[week]`** — leaderboard for that week. The current week is live. A past week keeps its snapshotted rank, and votes stay open.
 3. **`/games/[slug]`** — permanent game page (media gallery, details/launches/reviews).
 4. **`/games/new`** and **`/games/[slug]/edit`** — signed-in create/edit (owner or admin).
 
