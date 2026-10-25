@@ -156,45 +156,28 @@ function normalizeCreative(
     return { ok: false as const, error: "Use an https link for the click destination" };
   }
 
-  if (input.format === "brand") {
-    const productName = sanitizePlainText(input.productName ?? "", AD_NAME_MAX);
-    const tagline = sanitizePlainText(input.tagline ?? "", AD_TAGLINE_MAX);
-    const logoUrl = input.logoUrl?.trim() ?? "";
-    if (!productName || !tagline || !logoUrl || !imageAllowed(logoUrl, imageOwners)) {
-      return { ok: false as const, error: "Add a logo, product name, and tagline" };
-    }
-    return {
-      ok: true as const,
-      creative: {
-        format: "brand" as const,
-        year: input.year,
-        month: input.month,
-        slotCount: input.slotCount,
-        destinationUrl,
-        logoUrl,
-        productName,
-        tagline,
-        mediaUrl: null,
-      },
-    };
+  if (input.format !== "brand") {
+    return { ok: false as const, error: "Sidebar ads use a logo and tagline" };
   }
 
-  const mediaUrl = input.mediaUrl?.trim() ?? "";
-  if (!mediaUrl || !imageAllowed(mediaUrl, imageOwners)) {
-    return { ok: false as const, error: "Upload an image or GIF" };
+  const productName = sanitizePlainText(input.productName ?? "", AD_NAME_MAX);
+  const tagline = sanitizePlainText(input.tagline ?? "", AD_TAGLINE_MAX);
+  const logoUrl = input.logoUrl?.trim() ?? "";
+  if (!productName || !tagline || !logoUrl || !imageAllowed(logoUrl, imageOwners)) {
+    return { ok: false as const, error: "Add a logo, product name, and tagline" };
   }
   return {
     ok: true as const,
     creative: {
-      format: "media" as const,
+      format: "brand" as const,
       year: input.year,
       month: input.month,
       slotCount: input.slotCount,
       destinationUrl,
-      logoUrl: null,
-      productName: null,
-      tagline: null,
-      mediaUrl,
+      logoUrl,
+      productName,
+      tagline,
+      mediaUrl: null,
     },
   };
 }

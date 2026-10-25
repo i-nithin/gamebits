@@ -39,6 +39,24 @@ export function RedditMark(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function InstagramMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="17.4" cy="6.6" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function FacebookMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <path d="M14.2 8.4V6.9c0-.8.4-1.2 1.3-1.2H17V3.2h-2.2C12.1 3.2 11 4.6 11 6.7v1.7H9v2.6h2V21h3.2v-9.9h2.2l.4-2.7h-2.6Z" />
+    </svg>
+  );
+}
+
 export function XMark(props: SVGProps<SVGSVGElement>) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1227" fill="none" aria-hidden {...props}>
