@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { RecordPageView } from "@/components/analytics/record-page-view";
 import { GameDetail } from "@/components/game/game-detail";
 import { getCurrentUserId } from "@/lib/auth-admin";
-import { getIsoWeekUtc } from "@/lib/iso-week";
+import { getIsoWeekUtc, hasIsoWeekStarted } from "@/lib/iso-week";
 import { getGamePageData } from "@/lib/queries";
 
 export default async function GamePage({
@@ -35,6 +35,10 @@ export default async function GamePage({
         year={year}
         week={week}
         live={Boolean(liveLaunch)}
+        votingOpen={
+          data.launches.some((launch) => launch.year === year && launch.week === week) &&
+          hasIsoWeekStarted(year, week)
+        }
         signedIn={Boolean(userId)}
         viewerId={userId}
         highlightReviewId={reviewId && data.reviews.some((review) => review.id === reviewId) ? reviewId : null}

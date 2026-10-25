@@ -151,11 +151,13 @@ export function CollectionsBrowser({
 }) {
   const filtering =
     filters.categories.length > 0 || filters.platforms.length > 0 || filters.statuses.length > 0;
+  const weeklySort = filters.sort === "newest" ? "votes" : filters.sort;
   const weeklyGames = weekBoard
     ? sortGames(
         weekBoard.games.filter((game) => matchesFilters(game, filters)),
-        filters.sort === "newest" ? "votes" : filters.sort,
+        weeklySort,
         filters.dir,
+        !weekBoard.live && weeklySort === "votes",
       )
     : [];
   const catalogKey = [
@@ -230,11 +232,11 @@ export function CollectionsBrowser({
             <CollectionsTable
               games={weeklyGames}
               filters={filters}
-              vote={
-                weekBoard
-                  ? { year: weekBoard.year, week: weekBoard.week, live: weekBoard.live }
-                  : undefined
-              }
+                vote={
+                  weekBoard
+                    ? { year: weekBoard.year, week: weekBoard.week, open: weekBoard.votingOpen }
+                    : undefined
+                }
             />
           )
         ) : games.length === 0 ? (
@@ -843,15 +845,21 @@ function SortHead({
   );
 }
 
-function sortGames(games: RankedGame[], sort: CollectionSort, dir: SortDirection) {
+function sortGames(
+  games: RankedGame[],
+  sort: CollectionSort,
+  dir: SortDirection,
+  lockRank = false,
+) {
   const factor = dir === "asc" ? 1 : -1;
   return games.toSorted((a, b) => {
     let compared = 0;
     if (sort === "name") compared = a.name.localeCompare(b.name);
     else if (sort === "status") {
       compared = GAME_STATUSES.indexOf(a.status) - GAME_STATUSES.indexOf(b.status);
-    } else compared = a.voteCount - b.voteCount;
-    if (compared !== 0) return compared * factor;
+    } else if (lockRank) compared = a.rank - b.rank;
+    else compared = a.voteCount - b.voteCount;
+    if (compared !== 0) return compared * (lockRank ? -factor : factor);
     return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
   });
 }
@@ -874,7 +882,7 @@ function CollectionsTable({
 }: {
   games: RankedGame[];
   filters: CollectionFilters;
-  vote?: { year: number; week: number; live: boolean };
+  vote?: { year: number; week: number; open: boolean };
   sortable?: boolean;
 }) {
   const sticky = "sticky left-0 z-10 bg-page md:static md:bg-transparent";
@@ -938,7 +946,7 @@ function CollectionsTable({
                       week={vote.week}
                       voteCount={game.voteCount}
                       voted={game.voted}
-                      live={vote.live}
+                      open={vote.open}
                       compact
                     />
                   </div>

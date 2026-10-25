@@ -135,7 +135,7 @@ function eventCount(event: TrendEvent) {
   return event.count ?? 1;
 }
 
-function positiveWeight(event: TrendEvent) {
+export function positiveWeight(event: TrendEvent) {
   const count = eventCount(event);
   switch (event.kind) {
     case "visitor":

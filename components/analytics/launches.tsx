@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { formatAnalyticsCount } from "@/lib/analytics/format";
 import type { AnalyticsLaunch } from "@/lib/analytics/types";
-import { formatIsoWeekLabel, weekHref } from "@/lib/iso-week";
+import { formatIsoWeekLabel, hasIsoWeekStarted, weekHref } from "@/lib/iso-week";
 import { cn } from "@/lib/utils";
 
 const COLUMNS =
@@ -52,8 +52,10 @@ export function AnalyticsLaunches({ launches }: { launches: AnalyticsLaunch[] })
           <span className="py-3.5 pr-4 text-right text-xs sm:pr-5">
             {launch.live ? (
               <span className="text-ice-signal">Live</span>
+            ) : hasIsoWeekStarted(launch.year, launch.week) ? (
+              <span className="text-fog">Rank locked</span>
             ) : (
-              <span className="text-fog">Ended</span>
+              <span className="text-fog">Upcoming</span>
             )}
           </span>
         </Link>

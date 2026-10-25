@@ -22,7 +22,7 @@ export function notifyReason(title: string, reason: string) {
     return;
   }
   if (reason === "frozen") {
-    notifyError(title, "Voting is closed for this week.");
+    notifyError(title, "Voting opens when this week starts.");
     return;
   }
   notifyError(title, "Try again in a moment.");

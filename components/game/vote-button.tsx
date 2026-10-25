@@ -20,7 +20,7 @@ export function VoteButton({
   week,
   voteCount,
   voted,
-  live,
+  open,
   compact = false,
   wide = false,
   className,
@@ -30,7 +30,7 @@ export function VoteButton({
   week: number;
   voteCount: number;
   voted: boolean;
-  live: boolean;
+  open: boolean;
   compact?: boolean;
   wide?: boolean;
   className?: string;
@@ -68,7 +68,7 @@ export function VoteButton({
       type="button"
       variant="outline"
       size={compact ? "sm" : wide ? "lg" : "default"}
-      disabled={!live || pending}
+      disabled={!open || pending}
       onClick={vote}
       className={classes}
     >
@@ -86,7 +86,7 @@ export function VoteButton({
     <>
       <Show when="signed-in">{control}</Show>
       <Show when="signed-out">
-        {live ? (
+        {open ? (
           <Button
             type="button"
             variant="outline"
