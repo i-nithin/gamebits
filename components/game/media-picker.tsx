@@ -387,14 +387,14 @@ export function MediaPicker({
     setUploadProgress({ done: 0, total: accepted.length });
     try {
       const results = await Promise.all(
-        accepted.map(async (file) => {
+        accepted.map(async (file): Promise<{ url: string } | { error: string }> => {
           try {
             const url = await uploadImage(file, "media");
-            return { url } as const;
+            return { url };
           } catch (err) {
             return {
               error: err instanceof Error ? err.message : "Upload failed",
-            } as const;
+            };
           } finally {
             setUploadProgress((current) =>
               current ? { done: current.done + 1, total: current.total } : current,
