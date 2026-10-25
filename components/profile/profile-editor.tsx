@@ -241,7 +241,7 @@ export function ProfileEditor({ profile }: { profile: ProfileFormValues }) {
 
   return (
       <form
-        className="flex min-h-full flex-1 flex-col"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
         action={(formData) => {
           if (uploading > 0 || pending) return;
           return action(formData);
@@ -249,194 +249,220 @@ export function ProfileEditor({ profile }: { profile: ProfileFormValues }) {
       >
         <input type="hidden" name="imageUrl" value={imageUrl} />
         <input type="hidden" name="coverUrl" value={coverUrl} />
-        <section className="flex min-h-full flex-1 flex-col overflow-hidden rounded-xl border border-iron bg-obsidian">
-          <div className="relative">
-            <CoverField value={coverUrl} onChange={setCoverUrl} onBusyChange={onBusyChange} />
-            <AvatarField value={imageUrl} onChange={setImageUrl} onBusyChange={onBusyChange} />
-          </div>
-
-          <div className="flex flex-1 flex-col px-5 pt-12 pb-6 sm:px-6">
-            <h1 className="text-xl font-medium text-paper-white">Edit Profile</h1>
-
-            <FieldGroup className="mt-5 gap-4">
-              <Field className="gap-1.5">
-                <FormLabel htmlFor="name">Name</FormLabel>
-                <Input
-                  id="name"
-                  name="name"
-                  required
-                  maxLength={80}
-                  defaultValue={profile.name}
-                  placeholder="Your name"
-                  autoComplete="name"
-                  className={inputClass}
-                />
-              </Field>
-              <Field className="gap-1.5">
-                <FormLabel htmlFor="handle">Username</FormLabel>
-                <Input
-                  id="handle"
-                  name="handle"
-                  required
-                  minLength={3}
-                  maxLength={30}
-                  spellCheck={false}
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  value={handle}
-                  onChange={(event) =>
-                    setHandle(
-                      event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 30),
-                    )
-                  }
-                  placeholder="your_name"
-                  className={inputClass}
-                />
-                <FieldDescription>This is your public username.</FieldDescription>
-              </Field>
-              <Field className="gap-1.5">
-                <FormLabel htmlFor="headline">Headline</FormLabel>
-                <Input
-                  id="headline"
-                  name="headline"
-                  maxLength={140}
-                  defaultValue={profile.headline}
-                  placeholder="What are you making?"
-                  className={inputClass}
-                />
-              </Field>
-              <Field className="gap-1.5">
-                <FormLabel htmlFor="bio">Bio</FormLabel>
-                <Textarea
-                  id="bio"
-                  name="bio"
-                  maxLength={500}
-                  rows={3}
-                  defaultValue={profile.bio}
-                  placeholder="Add a bio"
-                  className="min-h-20 rounded-lg border-iron bg-graphite"
-                />
-              </Field>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field className="gap-1.5">
-                  <FormLabel htmlFor="city">City</FormLabel>
-                  <Input
-                    id="city"
-                    name="city"
-                    maxLength={80}
-                    defaultValue={profile.city}
-                    placeholder="City"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field className="gap-1.5">
-                  <FormLabel>Country</FormLabel>
-                  <CountrySelect value={country} onChange={setCountry} />
-                </Field>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <FormLabel>URL</FormLabel>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <InputGroup className="h-9 rounded-lg border-iron bg-graphite">
-                    <InputGroupAddon>
-                      <GlobeIcon className="text-fog" />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      id="websiteUrl"
-                      name="websiteUrl"
-                      type="url"
-                      maxLength={500}
-                      defaultValue={profile.websiteUrl}
-                      placeholder="Add a URL"
-                      aria-label="Personal site"
-                      className={linkClass}
-                    />
-                  </InputGroup>
-                  <InputGroup className="h-9 rounded-lg border-iron bg-graphite">
-                    <InputGroupAddon>
-                      <XMark className="size-4" />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      id="xUrl"
-                      name="xUrl"
-                      type="url"
-                      maxLength={500}
-                      defaultValue={profile.xUrl}
-                      placeholder="https://x.com/"
-                      aria-label="X"
-                      className={linkClass}
-                    />
-                  </InputGroup>
-                  <InputGroup className="h-9 rounded-lg border-iron bg-graphite">
-                    <InputGroupAddon>
-                      <GitHubMark className="size-4 text-paper-white" />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      id="githubUrl"
-                      name="githubUrl"
-                      type="url"
-                      maxLength={500}
-                      defaultValue={profile.githubUrl}
-                      placeholder="https://github.com/"
-                      aria-label="GitHub"
-                      className={linkClass}
-                    />
-                  </InputGroup>
-                  <InputGroup className="h-9 rounded-lg border-iron bg-graphite">
-                    <InputGroupAddon>
-                      <LinkedInMark className="size-4" />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      id="linkedinUrl"
-                      name="linkedinUrl"
-                      type="url"
-                      maxLength={500}
-                      defaultValue={profile.linkedinUrl}
-                      placeholder="https://linkedin.com/in/"
-                      aria-label="LinkedIn"
-                      className={linkClass}
-                    />
-                  </InputGroup>
-                  <InputGroup className="h-9 rounded-lg border-iron bg-graphite md:col-span-2">
-                    <InputGroupAddon>
-                      <RedditMark className="size-4" />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      id="redditUrl"
-                      name="redditUrl"
-                      type="url"
-                      maxLength={500}
-                      defaultValue={profile.redditUrl}
-                      placeholder="https://reddit.com/user/"
-                      aria-label="Reddit"
-                      className={linkClass}
-                    />
-                  </InputGroup>
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-sm border border-iron bg-obsidian">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+            <div className="mx-auto w-full sm:w-[90%] md:w-[70%]">
+              <div className="relative">
+                <div className="overflow-hidden rounded-sm">
+                  <CoverField value={coverUrl} onChange={setCoverUrl} onBusyChange={onBusyChange} />
                 </div>
-                <FieldDescription>Add a link to your website or social profile.</FieldDescription>
+                <AvatarField value={imageUrl} onChange={setImageUrl} onBusyChange={onBusyChange} />
               </div>
-              <Field className="gap-1.5">
-                <FormLabel htmlFor="email">Email Address</FormLabel>
-                <div className="relative">
-                  <Input
-                    id="email"
-                    value={profile.email ? maskEmail(profile.email) : ""}
-                    readOnly
-                    disabled
-                    placeholder="No email on this account"
-                    className={cn(inputClass, profile.email && "pr-36")}
-                  />
-                  {profile.email ? (
-                    <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-medium tracking-wide text-success">
-                      EMAIL VERIFIED
-                    </span>
-                  ) : null}
+
+              <div className="pt-12">
+                <h1 className="text-xl font-medium text-paper-white">Edit Profile</h1>
+                <p className="mt-1 text-sm text-fog">Your public profile on GameBits.</p>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-6">
+                <div>
+                  <p className="mb-3 text-xs tracking-wide text-fog uppercase">About</p>
+                  <FieldGroup className="gap-4 overflow-hidden rounded-sm border border-iron bg-page px-4 py-4">
+                    <Field className="gap-1.5">
+                      <FormLabel htmlFor="name">Name</FormLabel>
+                      <Input
+                        id="name"
+                        name="name"
+                        required
+                        maxLength={80}
+                        defaultValue={profile.name}
+                        placeholder="Your name"
+                        autoComplete="name"
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field className="gap-1.5">
+                      <FormLabel htmlFor="handle">Username</FormLabel>
+                      <Input
+                        id="handle"
+                        name="handle"
+                        required
+                        minLength={3}
+                        maxLength={30}
+                        spellCheck={false}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        value={handle}
+                        onChange={(event) =>
+                          setHandle(
+                            event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 30),
+                          )
+                        }
+                        placeholder="your_name"
+                        className={inputClass}
+                      />
+                      <FieldDescription>This is your public username.</FieldDescription>
+                    </Field>
+                    <Field className="gap-1.5">
+                      <FormLabel htmlFor="headline">Headline</FormLabel>
+                      <Input
+                        id="headline"
+                        name="headline"
+                        maxLength={140}
+                        defaultValue={profile.headline}
+                        placeholder="What are you making?"
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field className="gap-1.5">
+                      <FormLabel htmlFor="bio">Bio</FormLabel>
+                      <Textarea
+                        id="bio"
+                        name="bio"
+                        maxLength={500}
+                        rows={3}
+                        defaultValue={profile.bio}
+                        placeholder="Add a bio"
+                        className="min-h-20 rounded-lg border-iron bg-graphite"
+                      />
+                    </Field>
+                  </FieldGroup>
                 </div>
-                <FieldDescription>For your security, your email address is currently masked.</FieldDescription>
-              </Field>
-            </FieldGroup>
+
+                <div>
+                  <p className="mb-3 text-xs tracking-wide text-fog uppercase">Location</p>
+                  <div className="grid grid-cols-1 gap-4 overflow-hidden rounded-sm border border-iron bg-page px-4 py-4 sm:grid-cols-2">
+                    <Field className="gap-1.5">
+                      <FormLabel htmlFor="city">City</FormLabel>
+                      <Input
+                        id="city"
+                        name="city"
+                        maxLength={80}
+                        defaultValue={profile.city}
+                        placeholder="City"
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field className="gap-1.5">
+                      <FormLabel>Country</FormLabel>
+                      <CountrySelect value={country} onChange={setCountry} />
+                    </Field>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-3 text-xs tracking-wide text-fog uppercase">Links</p>
+                  <div className="flex flex-col gap-3 overflow-hidden rounded-sm border border-iron bg-page px-4 py-4">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <InputGroup className="h-9 rounded-lg border-iron bg-graphite">
+                        <InputGroupAddon>
+                          <GlobeIcon className="text-fog" />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          id="websiteUrl"
+                          name="websiteUrl"
+                          type="url"
+                          maxLength={500}
+                          defaultValue={profile.websiteUrl}
+                          placeholder="Add a URL"
+                          aria-label="Personal site"
+                          className={linkClass}
+                        />
+                      </InputGroup>
+                      <InputGroup className="h-9 rounded-lg border-iron bg-graphite">
+                        <InputGroupAddon>
+                          <XMark className="size-4" />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          id="xUrl"
+                          name="xUrl"
+                          type="url"
+                          maxLength={500}
+                          defaultValue={profile.xUrl}
+                          placeholder="https://x.com/"
+                          aria-label="X"
+                          className={linkClass}
+                        />
+                      </InputGroup>
+                      <InputGroup className="h-9 rounded-lg border-iron bg-graphite">
+                        <InputGroupAddon>
+                          <GitHubMark className="size-4 text-paper-white" />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          id="githubUrl"
+                          name="githubUrl"
+                          type="url"
+                          maxLength={500}
+                          defaultValue={profile.githubUrl}
+                          placeholder="https://github.com/"
+                          aria-label="GitHub"
+                          className={linkClass}
+                        />
+                      </InputGroup>
+                      <InputGroup className="h-9 rounded-lg border-iron bg-graphite">
+                        <InputGroupAddon>
+                          <LinkedInMark className="size-4" />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          id="linkedinUrl"
+                          name="linkedinUrl"
+                          type="url"
+                          maxLength={500}
+                          defaultValue={profile.linkedinUrl}
+                          placeholder="https://linkedin.com/in/"
+                          aria-label="LinkedIn"
+                          className={linkClass}
+                        />
+                      </InputGroup>
+                      <InputGroup className="h-9 rounded-lg border-iron bg-graphite md:col-span-2">
+                        <InputGroupAddon>
+                          <RedditMark className="size-4" />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          id="redditUrl"
+                          name="redditUrl"
+                          type="url"
+                          maxLength={500}
+                          defaultValue={profile.redditUrl}
+                          placeholder="https://reddit.com/user/"
+                          aria-label="Reddit"
+                          className={linkClass}
+                        />
+                      </InputGroup>
+                    </div>
+                    <FieldDescription>Add a link to your website or social profile.</FieldDescription>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-3 text-xs tracking-wide text-fog uppercase">Email</p>
+                  <Field className="gap-1.5 overflow-hidden rounded-sm border border-iron bg-page px-4 py-4">
+                    <FormLabel htmlFor="email">Email Address</FormLabel>
+                    <div className="relative">
+                      <Input
+                        id="email"
+                        value={profile.email ? maskEmail(profile.email) : ""}
+                        readOnly
+                        disabled
+                        placeholder="No email on this account"
+                        className={cn(inputClass, profile.email && "pr-36")}
+                      />
+                      {profile.email ? (
+                        <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-medium tracking-wide text-success">
+                          EMAIL VERIFIED
+                        </span>
+                      ) : null}
+                    </div>
+                    <FieldDescription>
+                      For your security, your email address is currently masked.
+                    </FieldDescription>
+                  </Field>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center justify-end gap-3 border-t border-iron px-5 py-4 sm:px-6">
+          <div className="flex shrink-0 items-center border-t border-iron bg-obsidian px-4 py-4 sm:px-6">
+            <div className="mx-auto flex w-full justify-end sm:w-[90%] md:w-[70%]">
               <Button
                 type="submit"
                 disabled={pending || uploading > 0}
@@ -445,6 +471,7 @@ export function ProfileEditor({ profile }: { profile: ProfileFormValues }) {
                 {pending ? <Spinner data-icon="inline-start" /> : null}
                 {pending ? "Saving…" : "Save"}
               </Button>
+            </div>
           </div>
         </section>
       </form>
