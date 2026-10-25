@@ -54,14 +54,16 @@ export function NotificationSettings({
   }
 
   return (
-    <section className="flex min-h-full flex-1 flex-col rounded-xl border border-iron bg-obsidian px-5 py-5 sm:px-6">
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-sm border border-iron bg-obsidian">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+      <div className="mx-auto w-full sm:w-[90%] md:w-[70%]">
       <h1 className="text-xl font-medium text-paper-white">Notification Preferences</h1>
       <p className="mt-1 text-sm text-fog">Manage which activity shows up in your notifications.</p>
       <div className="mt-6 flex flex-col gap-6">
         {GROUPS.map((group) => (
           <div key={group.label}>
             <p className="mb-3 text-xs tracking-wide text-fog uppercase">{group.label}</p>
-            <div className="overflow-hidden rounded-xl border border-iron">
+            <div className="overflow-hidden rounded-sm border border-iron bg-page">
               <div className="flex items-center gap-3 border-b border-iron px-4 py-3 text-sm text-fog">
                 <span className="min-w-0 flex-1">Category</span>
                 <span className="w-16 shrink-0 text-center">Live</span>
@@ -76,7 +78,7 @@ export function NotificationSettings({
                       key={item.type}
                       className="flex items-center gap-3 border-b border-iron px-4 py-3 last:border-b-0"
                     >
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-graphite text-fog">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-graphite text-fog">
                         <Icon className="size-4" />
                       </span>
                       <span className="min-w-0 flex-1">
@@ -100,6 +102,8 @@ export function NotificationSettings({
             </div>
           </div>
         ))}
+      </div>
+      </div>
       </div>
     </section>
   );
