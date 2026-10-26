@@ -6,7 +6,6 @@ import {
   ACCEPTED_CLIP_TYPES,
   ACCEPTED_IMAGE_TYPES,
   MAX_AD_IMAGE_BYTES,
-  MAX_CAROUSEL_IMAGE_BYTES,
   MAX_CAROUSEL_VIDEO_BYTES,
   MAX_CLIP_BYTES,
   MAX_IMAGE_BYTES,
@@ -27,8 +26,8 @@ const bodySchema = z.discriminatedUnion("purpose", [
   }),
   z.object({
     purpose: z.literal("carousel"),
-    contentType: z.enum([...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_CLIP_TYPES]),
-    contentLength: z.number().int().positive(),
+    contentType: z.enum(ACCEPTED_CLIP_TYPES),
+    contentLength: z.number().int().positive().max(MAX_CAROUSEL_VIDEO_BYTES),
   }),
   z.object({
     purpose: z.literal("clip"),
@@ -56,16 +55,6 @@ export async function POST(request: Request) {
 
     if (parsed.data.purpose === "platform" && !(await getAdminAccess(userId))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (parsed.data.purpose === "carousel") {
-      const video = (ACCEPTED_CLIP_TYPES as readonly string[]).includes(parsed.data.contentType);
-      const max = video ? MAX_CAROUSEL_VIDEO_BYTES : MAX_CAROUSEL_IMAGE_BYTES;
-      if (parsed.data.contentLength > max) {
-        return NextResponse.json(
-          { error: video ? "Videos must be 12MB or smaller" : "Images must be 8MB or smaller" },
-          { status: 400 },
-        );
-      }
     }
 
     const upload = await createPresignedUpload({

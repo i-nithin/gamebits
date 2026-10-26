@@ -21,17 +21,16 @@ import {
   updateAdCreative,
   updateCarouselCreative,
 } from "@/lib/ads";
-import { monthKey, parseMonthKey } from "@/lib/ads-month";
+import { monthKey } from "@/lib/ads-month";
+import { isCarouselVideo } from "@/lib/ads-types";
 import { accountAccessError, getCurrentUserId, requireAdmin } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { confirmNewR2Object } from "@/lib/cloudflare-r2";
 import {
   AD_NAME_MAX,
-  AD_SLOT_CAP,
   AD_TAGLINE_MAX,
   CAROUSEL_BADGES,
   MAX_AD_IMAGE_BYTES,
-  MAX_CAROUSEL_IMAGE_BYTES,
   MAX_CAROUSEL_VIDEO_BYTES,
   type CarouselBadge,
 } from "@/lib/constants";
@@ -40,10 +39,7 @@ import { createAdCheckoutSession } from "@/lib/dodo";
 import { isUuid, sanitizePlainText } from "@/lib/sanitize";
 
 const creativeSchema = z.object({
-  year: z.number().int(),
-  month: z.number().int().min(1).max(12),
   format: z.enum(["brand", "media"]),
-  slotCount: z.number().int().min(1).max(AD_SLOT_CAP),
   destinationUrl: z.string().max(2000),
   logoUrl: z.string().max(2000).nullable(),
   productName: z.string().max(80).nullable(),
@@ -98,6 +94,9 @@ async function startBookingCheckout(input: {
 function revalidateAds() {
   revalidatePath("/");
   revalidatePath("/adbits");
+  revalidatePath("/adbits/sidebar");
+  revalidatePath("/adbits/carousel");
+  revalidatePath("/adbits/history");
   revalidatePath("/4dm1n/adbits");
 }
 
@@ -130,10 +129,6 @@ async function requireBooker() {
 
 function imageAllowed(url: string, userIds: string[]) {
   return userIds.some((userId) => isAdImageUrl(url, userId));
-}
-
-function carouselMaxBytes(url: string) {
-  return /\.(mp4|webm)(?:$|\?)/i.test(url) ? MAX_CAROUSEL_VIDEO_BYTES : MAX_CAROUSEL_IMAGE_BYTES;
 }
 
 async function confirmAdFile(
@@ -170,9 +165,6 @@ function normalizeCreative(
     ok: true as const,
     creative: {
       format: "brand" as const,
-      year: input.year,
-      month: input.month,
-      slotCount: input.slotCount,
       destinationUrl,
       logoUrl,
       productName,
@@ -182,15 +174,13 @@ function normalizeCreative(
   };
 }
 
+function readWeekStarts(formData: FormData) {
+  return [...new Set(formData.getAll("weekKey").map((value) => String(value)))];
+}
+
 function readCreativeForm(formData: FormData) {
-  const month = parseMonthKey(String(formData.get("monthKey") ?? ""));
-  if (!month) return null;
-  const slotCount = Number.parseInt(String(formData.get("slotCount") ?? "1"), 10);
   return {
-    year: month.year,
-    month: month.month,
     format: String(formData.get("format") ?? ""),
-    slotCount: Number.isInteger(slotCount) ? slotCount : 0,
     destinationUrl: String(formData.get("destinationUrl") ?? ""),
     logoUrl: String(formData.get("logoUrl") ?? "") || null,
     productName: String(formData.get("productName") ?? "") || null,
@@ -207,7 +197,6 @@ export async function bookAdFormAction(
   if (!booker.ok) return { error: booker.error };
 
   const input = readCreativeForm(formData);
-  if (!input) return { error: "Choose a month" };
   const parsed = creativeSchema.safeParse(input);
   if (!parsed.success) return { error: "Check the ad details and try again" };
   const creative = normalizeCreative(parsed.data, booker.userId);
@@ -220,6 +209,7 @@ export async function bookAdFormAction(
   const created = await createAdOrder({
     ownerClerkUserId: booker.userId,
     creative: creative.creative,
+    weekStarts: readWeekStarts(formData),
     status: "pending",
     reviewedByClerkUserId: null,
     payment: { status: "checkout", productId: adProductId("sidebar") },
@@ -229,7 +219,7 @@ export async function bookAdFormAction(
   const checkout = await startBookingCheckout({
     orderId: created.id,
     placement: "sidebar",
-    quantity: created.slotCount,
+    quantity: created.weekCount,
     userId: booker.userId,
   });
   if (!checkout.ok) {
@@ -248,7 +238,6 @@ export async function placeAdminAdFormAction(
   const adminId = await requireAdmin();
 
   const input = readCreativeForm(formData);
-  if (!input) return { error: "Choose a month" };
   const parsed = creativeSchema.safeParse(input);
   if (!parsed.success) return { error: "Check the ad details and try again" };
   const creative = normalizeCreative(parsed.data, adminId);
@@ -261,6 +250,7 @@ export async function placeAdminAdFormAction(
   const created = await createAdOrder({
     ownerClerkUserId: adminId,
     creative: creative.creative,
+    weekStarts: readWeekStarts(formData),
     status: "approved",
     reviewedByClerkUserId: adminId,
     payment: { status: "waived" },
@@ -268,7 +258,7 @@ export async function placeAdminAdFormAction(
   if (!created.ok) return { error: created.error };
 
   revalidateAds();
-  redirect(`/4dm1n/adbits?month=${monthKey(creative.creative)}`);
+  redirect(`/4dm1n/adbits?month=${monthKey(created)}`);
 }
 
 async function saveAdCreative(
@@ -285,17 +275,7 @@ async function saveAdCreative(
   }
   if (!order.editable) return { error: "This booking can no longer be edited" };
 
-  const input = {
-    year: order.year,
-    month: order.month,
-    format: String(formData.get("format") ?? ""),
-    slotCount: order.slotCount,
-    destinationUrl: String(formData.get("destinationUrl") ?? ""),
-    logoUrl: String(formData.get("logoUrl") ?? "") || null,
-    productName: String(formData.get("productName") ?? "") || null,
-    tagline: String(formData.get("tagline") ?? "") || null,
-    mediaUrl: String(formData.get("mediaUrl") ?? "") || null,
-  };
+  const input = readCreativeForm(formData);
   const parsed = creativeSchema.safeParse(input);
   if (!parsed.success) return { error: "Check the ad details and try again" };
   const creative = normalizeCreative(parsed.data, [order.ownerClerkUserId, actorId]);
@@ -322,7 +302,7 @@ export async function saveOwnedAdFormAction(
   if (!booker.ok) return { error: booker.error };
   const saved = await saveAdCreative(formData, booker.userId, false);
   if ("error" in saved) return saved;
-  redirect("/adbits");
+  redirect("/adbits/history");
 }
 
 export async function saveAdminAdFormAction(
@@ -348,7 +328,7 @@ export async function continueAdCheckoutAction(orderId: string) {
   const checkout = await startBookingCheckout({
     orderId: order.id,
     placement: order.placement,
-    quantity: order.slotCount,
+    quantity: order.quantity,
     userId: booker.userId,
   });
   if (!checkout.ok) return checkout;
@@ -399,8 +379,6 @@ export async function removeAdOrderAction(orderId: string) {
 }
 
 const carouselSchema = z.object({
-  year: z.number().int(),
-  month: z.number().int().min(1).max(12),
   gameId: z.string().uuid(),
   destinationUrl: z.string().max(2000),
   tagline: z.string().max(160).nullable(),
@@ -409,17 +387,10 @@ const carouselSchema = z.object({
   countdownEndsAt: z.string().nullable(),
 });
 
-function readCarouselForm(
-  formData: FormData,
-  lockedMonth?: { year: number; month: number },
-) {
-  const month = lockedMonth ?? parseMonthKey(String(formData.get("monthKey") ?? ""));
-  if (!month) return null;
+function readCarouselForm(formData: FormData) {
   const badgeRaw = String(formData.get("badge") ?? "");
   const countdownRaw = String(formData.get("countdownEndsAt") ?? "").trim();
   return {
-    year: month.year,
-    month: month.month,
     gameId: String(formData.get("gameId") ?? ""),
     destinationUrl: String(formData.get("destinationUrl") ?? ""),
     tagline: String(formData.get("tagline") ?? "").trim() || null,
@@ -444,18 +415,18 @@ async function normalizeCarousel(
   if (input.tagline && !tagline) {
     return { ok: false as const, error: "Tagline is too long" };
   }
-  if (!imageAllowed(input.mediaUrl, imageOwners)) {
-    return { ok: false as const, error: "Upload an image, GIF, or video" };
+  if (!isCarouselVideo(input.mediaUrl) || !imageAllowed(input.mediaUrl, imageOwners)) {
+    return { ok: false as const, error: "Upload an MP4 or WebM video" };
   }
   if (
     !(await confirmAdFile(
       input.mediaUrl,
       imageOwners,
-      carouselMaxBytes(input.mediaUrl),
+      MAX_CAROUSEL_VIDEO_BYTES,
       keptUrls,
     ))
   ) {
-    return { ok: false as const, error: "Upload an image, GIF, or video" };
+    return { ok: false as const, error: "Upload an MP4 or WebM video" };
   }
 
   let countdownEndsAt: Date | null = null;
@@ -488,8 +459,6 @@ async function normalizeCarousel(
   return {
     ok: true as const,
     creative: {
-      year: input.year,
-      month: input.month,
       destinationUrl,
       tagline,
       mediaUrl: input.mediaUrl,
@@ -508,7 +477,6 @@ export async function bookCarouselFormAction(
   if (!booker.ok) return { error: booker.error };
 
   const input = readCarouselForm(formData);
-  if (!input) return { error: "Choose a month" };
   const parsed = carouselSchema.safeParse(input);
   if (!parsed.success) return { error: "Check the ad details and try again" };
   const creative = await normalizeCarousel(parsed.data, booker.userId, [booker.userId], false);
@@ -516,6 +484,7 @@ export async function bookCarouselFormAction(
 
   const created = await createCarouselAdOrder({
     ownerClerkUserId: booker.userId,
+    weekStarts: readWeekStarts(formData),
     ...creative.creative,
     status: "pending",
     reviewedByClerkUserId: null,
@@ -526,7 +495,7 @@ export async function bookCarouselFormAction(
   const checkout = await startBookingCheckout({
     orderId: created.id,
     placement: "carousel",
-    quantity: 1,
+    quantity: created.weekCount,
     userId: booker.userId,
   });
   if (!checkout.ok) {
@@ -545,7 +514,6 @@ export async function placeAdminCarouselFormAction(
   const adminId = await requireAdmin();
 
   const input = readCarouselForm(formData);
-  if (!input) return { error: "Choose a month" };
   const parsed = carouselSchema.safeParse(input);
   if (!parsed.success) return { error: "Check the ad details and try again" };
   const creative = await normalizeCarousel(parsed.data, adminId, [adminId], true);
@@ -553,6 +521,7 @@ export async function placeAdminCarouselFormAction(
 
   const created = await createCarouselAdOrder({
     ownerClerkUserId: adminId,
+    weekStarts: readWeekStarts(formData),
     ...creative.creative,
     status: "approved",
     reviewedByClerkUserId: adminId,
@@ -561,7 +530,7 @@ export async function placeAdminCarouselFormAction(
   if (!created.ok) return { error: created.error };
 
   revalidateAds();
-  redirect(`/4dm1n/adbits?placement=carousel&month=${monthKey(creative.creative)}`);
+  redirect(`/4dm1n/adbits?placement=carousel&month=${monthKey(created)}`);
 }
 
 async function saveCarouselCreative(
@@ -578,8 +547,7 @@ async function saveCarouselCreative(
   }
   if (!order.editable) return { error: "This booking can no longer be edited" };
 
-  const input = readCarouselForm(formData, { year: order.year, month: order.month });
-  if (!input) return { error: "Choose a month" };
+  const input = readCarouselForm(formData);
   const parsed = carouselSchema.safeParse(input);
   if (!parsed.success) return { error: "Check the ad details and try again" };
   const kept = new Set(order.mediaUrl ? [order.mediaUrl] : []);
@@ -606,7 +574,7 @@ export async function saveOwnedCarouselFormAction(
   if (!booker.ok) return { error: booker.error };
   const saved = await saveCarouselCreative(formData, booker.userId, false);
   if ("error" in saved) return saved;
-  redirect("/adbits?placement=carousel");
+  redirect("/adbits/history");
 }
 
 export async function saveAdminCarouselFormAction(

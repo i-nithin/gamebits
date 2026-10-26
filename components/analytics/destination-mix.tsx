@@ -44,7 +44,7 @@ function destinationIcon(kind: string, label: string) {
 export function AnalyticsDestinationMix({ clicks }: { clicks: AnalyticsClickRow[] }) {
   if (clicks.length === 0) {
     return (
-      <div className="rounded-2xl bg-obsidian p-5 card-ring">
+      <div className="rounded-sm bg-obsidian p-5 card-ring">
         <h2 className="text-[11px] tracking-[0.08em] text-fog uppercase">Where people clicked</h2>
         <p className="mt-4 text-sm text-fog">No link clicks in this period.</p>
       </div>
@@ -68,7 +68,7 @@ export function AnalyticsDestinationMix({ clicks }: { clicks: AnalyticsClickRow[
   } satisfies ChartConfig;
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl bg-obsidian p-5 card-ring">
+    <div className="flex flex-col gap-4 rounded-sm bg-obsidian p-5 card-ring">
       <h2 className="text-[11px] tracking-[0.08em] text-fog uppercase">Where people clicked</h2>
       <div className="flex flex-col items-center gap-8 sm:flex-row sm:items-center">
         <div className="relative h-52 w-52 shrink-0">

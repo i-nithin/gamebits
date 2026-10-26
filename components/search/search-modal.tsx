@@ -277,13 +277,13 @@ export function SearchModal() {
       <DialogPortal>
         <DialogOverlay className="bg-scrim backdrop-blur-none max-md:hidden" />
         <DialogPrimitive.Popup
-          className="fixed inset-0 z-50 flex h-dvh w-full max-w-none translate-none flex-col overflow-hidden rounded-none border-0 bg-page text-paper-white outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 md:inset-auto md:top-[10%] md:left-1/2 md:h-[min(32rem,calc(100dvh-4rem))] md:max-w-3xl md:-translate-x-1/2 md:rounded-xl md:border md:border-iron md:bg-obsidian md:data-open:zoom-in-95 md:data-closed:zoom-out-95"
+          className="fixed inset-0 z-50 flex h-dvh w-full max-w-none translate-none flex-col overflow-hidden rounded-none border-0 bg-page text-paper-white outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 md:inset-auto md:top-[10%] md:left-1/2 md:h-[min(32rem,calc(100dvh-4rem))] md:max-w-3xl md:-translate-x-1/2 md:rounded-md md:border md:border-iron md:bg-obsidian md:data-open:zoom-in-95 md:data-closed:zoom-out-95"
           onKeyDown={onKeyDown}
         >
           <DialogTitle className="sr-only">Search GameBits</DialogTitle>
           <DialogDescription className="sr-only">Find games and people</DialogDescription>
-          <div className="flex h-14 shrink-0 items-center gap-3 border-b border-iron px-4">
-            <SearchIcon className="size-4 shrink-0 text-fog" />
+          <div className="flex h-18 shrink-0 items-center gap-3 border-b border-iron px-4">
+            <SearchIcon className="size-6 shrink-0 text-fog" />
             <input
               autoFocus
               value={query}

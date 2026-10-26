@@ -13,8 +13,8 @@ import {
 import type { AdPlacement, MonthOption } from "@/lib/ads-types";
 
 function monthChoice(month: MonthOption) {
-  const count = `${month.label} · ${month.booked}/${month.cap}`;
-  return month.full ? `${count} · Full` : count;
+  const count = month.booked;
+  return `${month.label} · ${count} ${count === 1 ? "booking" : "bookings"}`;
 }
 
 export function AdminMonthFilter({

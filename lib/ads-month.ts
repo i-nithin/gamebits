@@ -88,11 +88,16 @@ export function formatPacificInstant(date: Date) {
   return pacificInstantFormat.format(date);
 }
 
-export function pacificMonthStart(year: number, month: number) {
-  let guess = new Date(Date.UTC(year, month - 1, 1, 8, 0, 0));
+export function pacificCalendarDate(date = new Date()) {
+  const parts = pacificParts(date);
+  return { year: parts.year, month: parts.month, day: parts.day };
+}
+
+export function pacificMidnight(year: number, month: number, day: number) {
+  let guess = new Date(Date.UTC(year, month - 1, day, 8, 0, 0));
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const parts = pacificParts(guess);
-    const target = Date.UTC(year, month - 1, 1, 0, 0, 0);
+    const target = Date.UTC(year, month - 1, day, 0, 0, 0);
     const actual = Date.UTC(
       parts.year,
       parts.month - 1,
@@ -106,6 +111,10 @@ export function pacificMonthStart(year: number, month: number) {
     guess = new Date(guess.getTime() + delta);
   }
   return guess;
+}
+
+export function pacificMonthStart(year: number, month: number) {
+  return pacificMidnight(year, month, 1);
 }
 
 export function pacificMonthBounds(month: PacificMonth) {

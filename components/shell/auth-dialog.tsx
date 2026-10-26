@@ -66,10 +66,10 @@ function AuthDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay className="bg-scrim backdrop-blur-none max-md:hidden" />
-        <DialogPrimitive.Popup className="fixed inset-0 z-50 flex h-dvh w-full max-w-none translate-none flex-col justify-center rounded-none border-0 bg-obsidian px-6 py-6 text-paper-white outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 md:inset-auto md:top-1/2 md:left-1/2 md:h-auto md:max-w-[400px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border md:border-iron md:shadow-lg md:data-open:zoom-in-95 md:data-closed:zoom-out-95">
+        <DialogPrimitive.Popup className="fixed inset-0 z-50 flex h-dvh w-full max-w-none translate-none flex-col justify-center rounded-none border-0 bg-obsidian px-6 py-6 text-paper-white outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 md:inset-auto md:top-1/2 md:left-1/2 md:h-auto md:max-w-[400px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-sm md:border md:border-iron md:shadow-lg md:data-open:zoom-in-95 md:data-closed:zoom-out-95">
           <DialogPrimitive.Close
             aria-label="Close"
-            className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-lg text-fog hover:bg-white/8 hover:text-paper-white"
+            className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-full text-fog hover:bg-white/8 hover:text-paper-white"
           >
             <XIcon className="size-4" />
           </DialogPrimitive.Close>
@@ -425,7 +425,7 @@ function AuthForm({
               void onGoogle();
             }}
             className={cn(
-              "relative flex h-11 w-full items-center justify-center gap-2 rounded-full border border-iron bg-graphite px-4 text-sm text-paper-white hover:bg-slate disabled:opacity-50",
+              "relative flex h-11 w-full items-center justify-center gap-2 rounded-md border border-iron bg-graphite px-4 text-sm text-paper-white hover:bg-slate disabled:opacity-50",
               lastMethod === "google" && "pr-24",
             )}
           >
@@ -516,10 +516,10 @@ function GoogleMark() {
 }
 
 const fieldClass =
-  "h-11 w-full rounded-xl border border-iron bg-graphite px-3 text-sm text-paper-white outline-none placeholder:text-fog focus-visible:border-ice-signal focus-visible:ring-3 focus-visible:ring-ice-signal/40";
+  "h-11 w-full rounded-md border border-iron bg-graphite px-3 text-sm text-paper-white outline-none placeholder:text-fog focus-visible:border-ice-signal focus-visible:ring-3 focus-visible:ring-ice-signal/40";
 
 const continueClass =
-  "flex h-11 w-full items-center justify-center rounded-full bg-ice-strong px-4 text-sm font-medium text-paper-white hover:bg-ice-strong/90 disabled:opacity-50";
+  "flex h-11 w-full items-center justify-center rounded-md bg-ice-strong px-4 text-sm font-medium text-paper-white hover:bg-ice-strong/90 disabled:opacity-50";
 
 function secondFactorCopy(strategy: SecondFactorStrategy | null) {
   if (strategy === "totp") return "Enter the code from your authenticator app.";

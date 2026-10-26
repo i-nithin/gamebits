@@ -156,7 +156,7 @@ export function TopBar({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="hidden h-9 min-w-0 items-center gap-2 rounded-lg border border-white/12 bg-[#1a1a1a] px-3 text-left text-sm text-white/45 hover:border-white/20 md:flex md:w-72 md:flex-none"
+            className="hidden h-9 min-w-0 items-center gap-2 rounded-sm border border-white/12 bg-[#1a1a1a] px-3 text-left text-sm text-white/45 hover:border-white/20 md:flex md:w-72 md:flex-none"
           >
             <SearchIcon className="size-4 shrink-0" />
             <span className="min-w-0 flex-1 truncate">Search GameBits</span>

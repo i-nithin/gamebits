@@ -43,7 +43,7 @@ export function BookSlotDialog({
               <DialogHeader>
                 <DialogTitle>Where should this ad run?</DialogTitle>
                 <DialogDescription>
-                  Right-rail cards and the home carousel each have six slots a month.
+                  Right-rail cards and the home carousel each hold six ads a week.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-2">

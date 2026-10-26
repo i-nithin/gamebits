@@ -11,9 +11,9 @@ export function ProfileGameGrid({ games }: { games: SavedGame[] }) {
         <Link
           key={game.id}
           href={`/games/${game.slug}`}
-          className="group -m-2 flex min-w-0 flex-col gap-3 rounded-2xl p-2 transition-colors hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-signal focus-visible:ring-offset-2 focus-visible:ring-offset-page"
+          className="group -m-2 flex min-w-0 flex-col gap-3 rounded-sm p-2 transition-colors hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-signal focus-visible:ring-offset-2 focus-visible:ring-offset-page"
         >
-          <span className="relative aspect-[16/10] overflow-hidden rounded-xl bg-graphite card-ring">
+          <span className="relative aspect-[16/10] overflow-hidden rounded-sm bg-graphite card-ring">
             <Image
               src={game.coverUrl || game.logoUrl}
               alt=""

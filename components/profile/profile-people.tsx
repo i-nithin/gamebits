@@ -13,9 +13,9 @@ export function ProfilePeople({ people }: { people: FollowProfile[] }) {
           <Link
             key={person.clerkUserId}
             href={`/u/${person.handle}`}
-            className="group flex min-w-0 items-center gap-3 rounded-2xl bg-obsidian/40 p-4 transition-[background-color,transform] hover:-translate-y-0.5 hover:bg-graphite/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-signal"
+            className="group flex min-w-0 items-center gap-3 rounded-sm bg-obsidian/40 p-4 transition-[background-color,transform] hover:-translate-y-0.5 hover:bg-obsidian/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-signal border border-iron"
           >
-            <span className="relative size-14 shrink-0 overflow-hidden rounded-full bg-slate ring-1 ring-white/10">
+            <span className="relative size-14 shrink-0 overflow-hidden rounded-sm bg-slate ring-1 ring-white/10">
               {person.imageUrl ? (
                 <Image src={person.imageUrl} alt="" fill className="object-cover" sizes="56px" />
               ) : (

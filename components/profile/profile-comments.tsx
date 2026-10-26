@@ -36,7 +36,7 @@ export function ProfileComments({
         return (
           <article
             key={review.id}
-            className="flex min-w-0 gap-3 rounded-2xl bg-obsidian/40 p-4 sm:gap-4"
+            className="flex min-w-0 gap-3 rounded-sm bg-obsidian p-4 sm:gap-4 border border-iron"
           >
             <Link
               href={href}

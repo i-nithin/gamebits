@@ -59,7 +59,7 @@ cp .env.example .env.local
 
 ### Dodo Payments
 
-Adbits bookings charge through Dodo Checkout. The right rail is $99 per slot and the carousel is $299. A booking is approved only after a verified `payment.succeeded` webhook. The browser return to `/adbits?checkout=return` does not mark the booking paid.
+Adbits bookings charge through Dodo Checkout. The right rail is $19 per week and the carousel is $79 per week. Checkout quantity is the number of weeks. A booking is approved only after a verified `payment.succeeded` webhook. The browser return to `/adbits/history?checkout=return` does not mark the booking paid.
 
 Webhook URL to register in the Dodo dashboard (**Developer → Webhooks → Create Webhook**):
 

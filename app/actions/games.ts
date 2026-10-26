@@ -378,7 +378,7 @@ export async function upsertOwnedGameAction(
   await revalidateOwnerProfile(existing?.ownerClerkUserId ?? userId, userId);
   const next = String(formData.get("next") ?? "");
   if (createdNew && gameId && next === "carousel") {
-    redirect(`/adbits/carousel/new?game=${gameId}`);
+    redirect(`/adbits/carousel?game=${gameId}`);
   }
   if (createdNew && gameId && next === "admin-carousel") {
     redirect(`/4dm1n/adbits/carousel/new?game=${gameId}`);
