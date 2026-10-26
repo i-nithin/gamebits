@@ -20,6 +20,14 @@ export type MonthOption = {
   windowLabel: string;
 };
 
+export type WeekOption = {
+  key: string;
+  label: string;
+  booked: number;
+  cap: number;
+  full: boolean;
+};
+
 export type AdCreativePrefill = {
   format: AdFormat;
   logoUrl: string | null;
@@ -59,6 +67,7 @@ export type CarouselGameChoice = {
   slug: string;
   name: string;
   developerName: string;
+  logoUrl: string;
   iarcRating: IarcRating | null;
   reviewAverage: number | null;
   reviewCount: number;
@@ -84,6 +93,8 @@ export type AdOrderRecord = AdCreativePrefill & {
   countdownEndsAt: string | null;
   slotCount: number;
   activeSlots: number;
+  weekStarts: string[];
+  scheduleLabel: string;
   status: "pending" | "approved" | "rejected" | "removed";
   phase: "pending" | "scheduled" | "live" | "ended" | "rejected" | "removed";
   paymentStatus: AdPaymentStatus;

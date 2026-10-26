@@ -154,17 +154,13 @@ export function AnalyticsSkeleton() {
 
 export function AdbitsSkeleton() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-8 w-32" />
-        </div>
-        <Skeleton className="h-9 w-28 rounded-full" />
+    <div className="flex w-full flex-col gap-3 px-4 py-4 md:flex-row md:items-start md:gap-5 md:px-5 md:py-5">
+      <div className="flex gap-2 md:w-48 md:flex-col">
+        <Skeleton className="h-9 w-28 rounded-full md:w-full md:rounded-lg" />
+        <Skeleton className="h-9 w-32 rounded-full md:w-full md:rounded-lg" />
+        <Skeleton className="h-9 w-32 rounded-full md:w-full md:rounded-lg" />
       </div>
-      <Skeleton className="h-10 w-48 rounded-full" />
-      <Skeleton className="h-36 w-full rounded-2xl" />
-      <Skeleton className="h-36 w-full rounded-2xl" />
+      <Skeleton className="h-80 min-w-0 flex-1 rounded-xl" />
     </div>
   );
 }

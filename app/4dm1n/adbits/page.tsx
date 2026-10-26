@@ -50,8 +50,8 @@ export default async function AdminAdbitsPage({
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-medium tracking-tight">Adbits</h1>
           <p className="max-w-xl text-sm text-fog">
-            Right-rail and carousel ads go live and end at midnight Pacific Time. The window below
-            follows daylight saving, so the label reads PDT or PST for that instant.
+            Weekly ads run Monday to Monday, Pacific Time. Older monthly bookings still run for
+            their month. The window below follows daylight saving, so the label reads PDT or PST.
           </p>
         </div>
         <BookSlotDialog mode="admin" label="Place an ad" />
@@ -72,7 +72,8 @@ export default async function AdminAdbitsPage({
             </h2>
             {selected ? (
               <p className="mt-1 text-sm text-fog">
-                {selected.windowLabel} · {selected.booked}/{selected.cap} slots held
+                {selected.windowLabel} · {selected.booked}{" "}
+                {selected.booked === 1 ? "booking" : "bookings"}
               </p>
             ) : null}
           </div>
@@ -120,7 +121,10 @@ export default async function AdminAdbitsPage({
                         <AdPhaseBadge phase={order.phase} />
                       </p>
                       <p className="mt-1 text-xs text-fog">
-                        {order.activeSlots} active of {order.slotCount} · Booked {order.bookedAt} ·{" "}
+                        {order.weekStarts.length > 0
+                          ? order.scheduleLabel
+                          : `${order.activeSlots} active of ${order.slotCount}`}{" "}
+                        · Booked {order.bookedAt} ·{" "}
                         {order.clickCount} {order.clickCount === 1 ? "click" : "clicks"}
                       </p>
                       <AdPaymentLine

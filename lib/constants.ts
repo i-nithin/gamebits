@@ -5,7 +5,6 @@ export const AD_NAME_MAX = 40;
 export const AD_TAGLINE_MAX = 80;
 export const AD_ROTATE_MS = 6_000;
 export const MAX_AD_IMAGE_BYTES = 2 * 1024 * 1024;
-export const MAX_CAROUSEL_IMAGE_BYTES = 8 * 1024 * 1024;
 export const MAX_CAROUSEL_VIDEO_BYTES = 12 * 1024 * 1024;
 
 export const IARC_RATINGS = ["3", "7", "12", "16", "18"] as const;

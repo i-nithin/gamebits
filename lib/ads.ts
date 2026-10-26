@@ -1,15 +1,15 @@
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
-import { adOrders, adSlots, games, profiles } from "@/db/schema";
+import { adOrderWeeks, adOrders, adSlots, games, profiles } from "@/db/schema";
 import type { AdPaymentStatus } from "@/lib/ad-catalog";
 import {
   AD_PHASE_LABELS,
+  currentPacificMonth,
   formatMonthLabel,
   formatPacificInstant,
   liveWindowLabel,
   monthKey,
   monthWindow,
-  orderPhase,
   type PacificMonth,
 } from "@/lib/ads-month";
 import type {
@@ -19,7 +19,19 @@ import type {
   CarouselGameChoice,
   MonthOption,
   SidebarAd,
+  WeekOption,
 } from "@/lib/ads-types";
+import {
+  bookingPhase,
+  currentPacificWeekStart,
+  dateKey,
+  formatScheduleLabel,
+  formatWeekRange,
+  nextMonthLabel,
+  nextMonthWeeks,
+  resolveOpenWeeks,
+  weekKey,
+} from "@/lib/ads-week";
 import { AD_MONTH_WINDOW, AD_SLOT_CAP, type CarouselBadge, type IarcRating } from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { r2PublicBaseUrl } from "@/lib/cloudflare-r2";
@@ -28,9 +40,27 @@ const OCCUPYING = ["pending", "approved"] as const;
 
 export { AD_PHASE_LABELS };
 
-function monthInWindow(month: PacificMonth, now = new Date()) {
-  return monthWindow(AD_MONTH_WINDOW, now).some(
-    (item) => item.year === month.year && item.month === month.month,
+function legacyMonthSql() {
+  return sql`not exists (
+    select 1 from ad_order_weeks
+    where ad_order_weeks.order_id = ${adOrders.id}
+  )`;
+}
+
+function currentWeekSql(week: string) {
+  return sql`exists (
+    select 1 from ad_order_weeks
+    where ad_order_weeks.order_id = ${adOrders.id}
+      and ad_order_weeks.week_start = ${week}::date
+  )`;
+}
+
+function liveWindowSql(now = new Date()) {
+  const month = currentPacificMonth(now);
+  const week = weekKey(currentPacificWeekStart(now));
+  return or(
+    and(eq(adOrders.year, month.year), eq(adOrders.month, month.month), legacyMonthSql()),
+    currentWeekSql(week),
   );
 }
 
@@ -58,7 +88,7 @@ export async function listMonthOptions(
     .select({
       year: adOrders.year,
       month: adOrders.month,
-      booked: sql<number>`count(*)::int`,
+      booked: sql<number>`count(distinct ${adOrders.id})::int`,
     })
     .from(adSlots)
     .innerJoin(adOrders, eq(adSlots.orderId, adOrders.id))
@@ -88,14 +118,90 @@ export async function listMonthOptions(
       label: formatMonthLabel(month),
       booked,
       cap: AD_SLOT_CAP,
-      full: booked >= AD_SLOT_CAP,
+      full: false,
       windowLabel: liveWindowLabel(month),
     };
   });
 }
 
+type SeatDb = Pick<ReturnType<typeof getDb>, "select">;
+
+async function seatsByWeek(
+  db: SeatDb,
+  placement: AdPlacement,
+  year: number,
+  month: number,
+  weekStarts: string[],
+) {
+  const [weeklyRows, legacyRows] = await Promise.all([
+    db
+      .select({
+        weekStart: adOrderWeeks.weekStart,
+        booked: sql<number>`count(*)::int`,
+      })
+      .from(adSlots)
+      .innerJoin(adOrders, eq(adSlots.orderId, adOrders.id))
+      .innerJoin(adOrderWeeks, eq(adOrderWeeks.orderId, adOrders.id))
+      .where(
+        and(
+          eq(adOrders.placement, placement),
+          inArray(adOrderWeeks.weekStart, weekStarts),
+          inArray(adSlots.status, [...OCCUPYING]),
+        ),
+      )
+      .groupBy(adOrderWeeks.weekStart),
+    db
+      .select({ booked: sql<number>`count(*)::int` })
+      .from(adSlots)
+      .innerJoin(adOrders, eq(adSlots.orderId, adOrders.id))
+      .where(
+        and(
+          eq(adOrders.placement, placement),
+          eq(adOrders.year, year),
+          eq(adOrders.month, month),
+          inArray(adSlots.status, [...OCCUPYING]),
+          legacyMonthSql(),
+        ),
+      ),
+  ]);
+
+  const weekly = new Map(weeklyRows.map((row) => [dateKey(row.weekStart), Number(row.booked)]));
+  const legacy = Number(legacyRows[0]?.booked ?? 0);
+  return new Map(weekStarts.map((week) => [week, (weekly.get(week) ?? 0) + legacy]));
+}
+
+export async function listWeekOptions(
+  placement: AdPlacement = "sidebar",
+  now = new Date(),
+): Promise<{ monthLabel: string; weeks: WeekOption[] }> {
+  const weeks = nextMonthWeeks(now);
+  const monthLabel = nextMonthLabel(now);
+  if (weeks.length === 0) return { monthLabel, weeks: [] };
+  const keys = weeks.map(weekKey);
+  const seats = await seatsByWeek(
+    getDb(),
+    placement,
+    weeks[0].year,
+    weeks[0].month,
+    keys,
+  );
+  return {
+    monthLabel,
+    weeks: weeks.map((week) => {
+      const key = weekKey(week);
+      const booked = seats.get(key) ?? 0;
+      return {
+        key,
+        label: formatWeekRange(week),
+        booked,
+        cap: AD_SLOT_CAP,
+        full: booked >= AD_SLOT_CAP,
+      };
+    }),
+  };
+}
+
 export async function listLiveSidebarAds(now = new Date()): Promise<SidebarAd[]> {
-  const month = monthWindow(1, now)[0];
   const db = getDb();
   const rows = await db
     .select({
@@ -116,8 +222,7 @@ export async function listLiveSidebarAds(now = new Date()): Promise<SidebarAd[]>
         eq(adOrders.format, "brand"),
         eq(adOrders.status, "approved"),
         eq(adSlots.status, "approved"),
-        eq(adOrders.year, month.year),
-        eq(adOrders.month, month.month),
+        liveWindowSql(now),
       ),
     )
     .groupBy(
@@ -150,7 +255,6 @@ function numericAverage(value: number | string | null) {
 }
 
 export async function listLiveCarouselAds(now = new Date()): Promise<CarouselAd[]> {
-  const month = monthWindow(1, now)[0];
   const db = getDb();
   const rows = await db
     .select({
@@ -172,8 +276,7 @@ export async function listLiveCarouselAds(now = new Date()): Promise<CarouselAd[
       and(
         eq(adOrders.placement, "carousel"),
         eq(adOrders.status, "approved"),
-        eq(adOrders.year, month.year),
-        eq(adOrders.month, month.month),
+        liveWindowSql(now),
         isNull(games.archivedAt),
         sql`exists (
           select 1 from ad_slots
@@ -214,6 +317,7 @@ export async function listCarouselGameChoices(opts: {
       slug: games.slug,
       name: games.name,
       developerName: games.developerName,
+      logoUrl: games.logoUrl,
       iarcRating: games.iarcRating,
       reviewAverage: sql<number | null>`(select avg(game_reviews.rating) from game_reviews where game_reviews.game_id = ${games.id})`,
       reviewCount: sql<number>`(select count(*)::int from game_reviews where game_reviews.game_id = ${games.id})`,
@@ -231,6 +335,7 @@ export async function listCarouselGameChoices(opts: {
     slug: row.slug,
     name: row.name,
     developerName: row.developerName,
+    logoUrl: row.logoUrl,
     iarcRating: row.iarcRating,
     reviewAverage: numericAverage(row.reviewAverage),
     reviewCount: Number(row.reviewCount),
@@ -269,19 +374,25 @@ type OrderRow = {
   slotStatus: "pending" | "approved" | "rejected" | "removed";
 };
 
-function groupOrders(rows: OrderRow[], now = new Date()): AdOrderRecord[] {
+function groupOrders(
+  rows: OrderRow[],
+  weeksByOrder: Map<string, string[]>,
+  now = new Date(),
+): AdOrderRecord[] {
   const orders = new Map<string, AdOrderRecord>();
   for (const row of rows) {
     let order = orders.get(row.id);
     if (!order) {
       const month = { year: row.year, month: row.month };
+      const monthLabel = formatMonthLabel(month);
+      const weekStarts = weeksByOrder.get(row.id) ?? [];
       order = {
         id: row.id,
         placement: row.placement,
         format: row.format,
         year: row.year,
         month: row.month,
-        monthLabel: formatMonthLabel(month),
+        monthLabel,
         gameId: row.gameId,
         gameName: row.gameName,
         gameSlug: row.gameSlug,
@@ -296,6 +407,12 @@ function groupOrders(rows: OrderRow[], now = new Date()): AdOrderRecord[] {
         destinationUrl: row.destinationUrl,
         slotCount: row.slotCount,
         activeSlots: 0,
+        weekStarts,
+        scheduleLabel: formatScheduleLabel({
+          monthLabel,
+          slotCount: row.slotCount,
+          weekStarts,
+        }),
         status: row.status,
         phase: "pending",
         paymentStatus: row.paymentStatus,
@@ -316,14 +433,35 @@ function groupOrders(rows: OrderRow[], now = new Date()): AdOrderRecord[] {
     }
   }
   for (const order of orders.values()) {
-    order.phase = orderPhase(
+    order.phase = bookingPhase(
       order.status,
       { year: order.year, month: order.month },
       order.activeSlots,
+      order.weekStarts,
       now,
     );
   }
   return [...orders.values()];
+}
+
+async function weeksForOrders(orderIds: string[]) {
+  const weeks = new Map<string, string[]>();
+  if (orderIds.length === 0) return weeks;
+  const db = getDb();
+  const rows = await db
+    .select({
+      orderId: adOrderWeeks.orderId,
+      weekStart: adOrderWeeks.weekStart,
+    })
+    .from(adOrderWeeks)
+    .where(inArray(adOrderWeeks.orderId, orderIds))
+    .orderBy(asc(adOrderWeeks.weekStart));
+  for (const row of rows) {
+    const list = weeks.get(row.orderId) ?? [];
+    list.push(dateKey(row.weekStart));
+    weeks.set(row.orderId, list);
+  }
+  return weeks;
 }
 
 async function listOrders(
@@ -369,7 +507,8 @@ async function listOrders(
     .leftJoin(games, eq(games.id, adOrders.gameId))
     .where(where)
     .orderBy(desc(adOrders.bookedAt), adSlots.createdAt);
-  return groupOrders(rows, now);
+  const weeks = await weeksForOrders([...new Set(rows.map((row) => row.id))]);
+  return groupOrders(rows, weeks, now);
 }
 
 export function listUserAdOrders(userId: string) {
@@ -414,19 +553,30 @@ export async function getAdOrderForEdit(orderId: string) {
     .limit(1);
   if (!row) return null;
 
-  const [activeRow] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(adSlots)
-    .where(and(eq(adSlots.orderId, orderId), inArray(adSlots.status, [...OCCUPYING])));
+  const [[activeRow], weekRows] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(adSlots)
+      .where(and(eq(adSlots.orderId, orderId), inArray(adSlots.status, [...OCCUPYING]))),
+    db
+      .select({ weekStart: adOrderWeeks.weekStart })
+      .from(adOrderWeeks)
+      .where(eq(adOrderWeeks.orderId, orderId))
+      .orderBy(asc(adOrderWeeks.weekStart)),
+  ]);
   const activeSlots = Number(activeRow?.count ?? 0);
+  const weekStarts = weekRows.map((week) => dateKey(week.weekStart));
   const month = { year: row.year, month: row.month };
-  const phase = orderPhase(row.status, month, activeSlots);
+  const monthLabel = formatMonthLabel(month);
+  const phase = bookingPhase(row.status, month, activeSlots, weekStarts);
   return {
     ...row,
     countdownEndsAt: row.countdownEndsAt ? row.countdownEndsAt.toISOString() : null,
     activeSlots,
+    weekStarts,
     phase,
-    monthLabel: formatMonthLabel(month),
+    monthLabel,
+    scheduleLabel: formatScheduleLabel({ monthLabel, slotCount: row.slotCount, weekStarts }),
     editable: EDITABLE_PHASES.has(phase),
   };
 }
@@ -479,9 +629,6 @@ export async function getOwnedAdCreative(userId: string, orderId: string) {
 
 type CreativeInsert = {
   format: "brand" | "media";
-  year: number;
-  month: number;
-  slotCount: number;
   destinationUrl: string;
   logoUrl: string | null;
   productName: string | null;
@@ -493,42 +640,42 @@ type AdPaymentInsert =
   | { status: "waived" }
   | { status: "checkout"; productId: string };
 
+async function reserveWeeks(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
+  placement: AdPlacement,
+  year: number,
+  month: number,
+  weekStarts: string[],
+) {
+  const lockKey = placement === "carousel" ? 84215046 : 84215045;
+  await tx.execute(sql`select pg_advisory_xact_lock(${lockKey}, ${year * 12 + month})`);
+  const open = resolveOpenWeeks(weekStarts);
+  if (!open.ok || open.year !== year || open.month !== month) {
+    return { ok: false as const, error: "That week is not open for booking" };
+  }
+  const seats = await seatsByWeek(tx, placement, year, month, open.weekStarts);
+  if (open.weekStarts.some((week) => (seats.get(week) ?? 0) + 1 > AD_SLOT_CAP)) {
+    return { ok: false as const, error: "One of those weeks is full" };
+  }
+  return { ok: true as const, weekStarts: open.weekStarts };
+}
+
 export async function createAdOrder(input: {
   ownerClerkUserId: string;
   creative: CreativeInsert;
+  weekStarts: string[];
   status: "pending" | "approved";
   reviewedByClerkUserId: string | null;
   payment: AdPaymentInsert;
 }) {
+  const opened = resolveOpenWeeks(input.weekStarts);
+  if (!opened.ok) return opened;
   const { creative } = input;
-  if (!monthInWindow(creative)) {
-    return { ok: false as const, error: "That month is not open for booking" };
-  }
-  if (creative.slotCount < 1 || creative.slotCount > AD_SLOT_CAP) {
-    return { ok: false as const, error: "Choose at least one slot" };
-  }
 
   const db = getDb();
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(84215045, ${creative.year * 12 + creative.month})`,
-    );
-    const [countRow] = await tx
-      .select({ booked: sql<number>`count(*)::int` })
-      .from(adSlots)
-      .innerJoin(adOrders, eq(adSlots.orderId, adOrders.id))
-      .where(
-        and(
-          eq(adOrders.placement, "sidebar"),
-          eq(adOrders.year, creative.year),
-          eq(adOrders.month, creative.month),
-          inArray(adSlots.status, [...OCCUPYING]),
-        ),
-      );
-    const booked = Number(countRow?.booked ?? 0);
-    if (booked + creative.slotCount > AD_SLOT_CAP) {
-      return { ok: false as const, error: "That month does not have enough open slots" };
-    }
+    const reserved = await reserveWeeks(tx, "sidebar", opened.year, opened.month, opened.weekStarts);
+    if (!reserved.ok) return reserved;
 
     const now = new Date();
     const [order] = await tx
@@ -536,15 +683,15 @@ export async function createAdOrder(input: {
       .values({
         placement: "sidebar",
         format: creative.format,
-        year: creative.year,
-        month: creative.month,
+        year: opened.year,
+        month: opened.month,
         ownerClerkUserId: input.ownerClerkUserId,
         logoUrl: creative.logoUrl,
         productName: creative.productName,
         tagline: creative.tagline,
         mediaUrl: creative.mediaUrl,
         destinationUrl: creative.destinationUrl,
-        slotCount: creative.slotCount,
+        slotCount: 1,
         status: input.status,
         paymentStatus: input.payment.status,
         dodoProductId: input.payment.status === "checkout" ? input.payment.productId : null,
@@ -553,20 +700,23 @@ export async function createAdOrder(input: {
       })
       .returning({ id: adOrders.id });
 
-    await tx.insert(adSlots).values(
-      Array.from({ length: creative.slotCount }, () => ({
-        orderId: order.id,
-        status: input.status,
-      })),
+    await tx.insert(adSlots).values({ orderId: order.id, status: input.status });
+    await tx.insert(adOrderWeeks).values(
+      reserved.weekStarts.map((weekStart) => ({ orderId: order.id, weekStart })),
     );
-    return { ok: true as const, id: order.id, slotCount: creative.slotCount };
+    return {
+      ok: true as const,
+      id: order.id,
+      year: opened.year,
+      month: opened.month,
+      weekCount: reserved.weekStarts.length,
+    };
   });
 }
 
 export async function createCarouselAdOrder(input: {
   ownerClerkUserId: string;
-  year: number;
-  month: number;
+  weekStarts: string[];
   destinationUrl: string;
   tagline: string | null;
   mediaUrl: string;
@@ -577,31 +727,13 @@ export async function createCarouselAdOrder(input: {
   reviewedByClerkUserId: string | null;
   payment: AdPaymentInsert;
 }) {
-  if (!monthInWindow(input)) {
-    return { ok: false as const, error: "That month is not open for booking" };
-  }
+  const opened = resolveOpenWeeks(input.weekStarts);
+  if (!opened.ok) return opened;
 
   const db = getDb();
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(84215046, ${input.year * 12 + input.month})`,
-    );
-    const [countRow] = await tx
-      .select({ booked: sql<number>`count(*)::int` })
-      .from(adSlots)
-      .innerJoin(adOrders, eq(adSlots.orderId, adOrders.id))
-      .where(
-        and(
-          eq(adOrders.placement, "carousel"),
-          eq(adOrders.year, input.year),
-          eq(adOrders.month, input.month),
-          inArray(adSlots.status, [...OCCUPYING]),
-        ),
-      );
-    const booked = Number(countRow?.booked ?? 0);
-    if (booked + 1 > AD_SLOT_CAP) {
-      return { ok: false as const, error: "That month does not have an open carousel slot" };
-    }
+    const reserved = await reserveWeeks(tx, "carousel", opened.year, opened.month, opened.weekStarts);
+    if (!reserved.ok) return reserved;
 
     const now = new Date();
     const [order] = await tx
@@ -609,8 +741,8 @@ export async function createCarouselAdOrder(input: {
       .values({
         placement: "carousel",
         format: "media",
-        year: input.year,
-        month: input.month,
+        year: opened.year,
+        month: opened.month,
         ownerClerkUserId: input.ownerClerkUserId,
         logoUrl: null,
         productName: null,
@@ -630,7 +762,16 @@ export async function createCarouselAdOrder(input: {
       .returning({ id: adOrders.id });
 
     await tx.insert(adSlots).values({ orderId: order.id, status: input.status });
-    return { ok: true as const, id: order.id };
+    await tx.insert(adOrderWeeks).values(
+      reserved.weekStarts.map((weekStart) => ({ orderId: order.id, weekStart })),
+    );
+    return {
+      ok: true as const,
+      id: order.id,
+      year: opened.year,
+      month: opened.month,
+      weekCount: reserved.weekStarts.length,
+    };
   });
 }
 
@@ -809,23 +950,33 @@ export async function removeAdOrder(orderId: string) {
 
 export async function getApprovedAdDestination(orderId: string) {
   const db = getDb();
-  const [row] = await db
-    .select({
-      destinationUrl: adOrders.destinationUrl,
-      status: adOrders.status,
-      ownerClerkUserId: adOrders.ownerClerkUserId,
-      year: adOrders.year,
-      month: adOrders.month,
-      active: sql<number>`(
-        select count(*)::int from ad_slots
-        where ad_slots.order_id = ${adOrders.id} and ad_slots.status = 'approved'
-      )`,
-    })
-    .from(adOrders)
-    .where(eq(adOrders.id, orderId))
-    .limit(1);
+  const [[row], weekRows] = await Promise.all([
+    db
+      .select({
+        destinationUrl: adOrders.destinationUrl,
+        status: adOrders.status,
+        ownerClerkUserId: adOrders.ownerClerkUserId,
+        year: adOrders.year,
+        month: adOrders.month,
+        active: sql<number>`(
+          select count(*)::int from ad_slots
+          where ad_slots.order_id = ${adOrders.id} and ad_slots.status = 'approved'
+        )`,
+      })
+      .from(adOrders)
+      .where(eq(adOrders.id, orderId))
+      .limit(1),
+    db
+      .select({ weekStart: adOrderWeeks.weekStart })
+      .from(adOrderWeeks)
+      .where(eq(adOrderWeeks.orderId, orderId))
+      .orderBy(asc(adOrderWeeks.weekStart)),
+  ]);
   if (!row || row.status !== "approved" || Number(row.active) < 1) return null;
-  return row;
+  return {
+    ...row,
+    weekStarts: weekRows.map((week) => dateKey(week.weekStart)),
+  };
 }
 
 export async function incrementAdClicks(orderId: string) {

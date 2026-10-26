@@ -1,6 +1,6 @@
 import { and, eq, inArray, lt } from "drizzle-orm";
 
-import { adOrders, adSlots, dodoWebhookEvents } from "@/db/schema";
+import { adOrderWeeks, adOrders, adSlots, dodoWebhookEvents } from "@/db/schema";
 import type { DodoWebhookEvent } from "@/lib/dodo";
 import { getDb } from "@/lib/db";
 import { isUuid } from "@/lib/sanitize";
@@ -21,23 +21,34 @@ export async function attachAdCheckoutSession(orderId: string, sessionId: string
 
 export async function getPayableAdOrder(userId: string, orderId: string) {
   const db = getDb();
-  const [row] = await db
-    .select({
-      id: adOrders.id,
-      placement: adOrders.placement,
-      slotCount: adOrders.slotCount,
-    })
-    .from(adOrders)
-    .where(
-      and(
-        eq(adOrders.id, orderId),
-        eq(adOrders.ownerClerkUserId, userId),
-        eq(adOrders.status, "pending"),
-        eq(adOrders.paymentStatus, "checkout"),
-      ),
-    )
-    .limit(1);
-  return row ?? null;
+  const [[row], weeks] = await Promise.all([
+    db
+      .select({
+        id: adOrders.id,
+        placement: adOrders.placement,
+        slotCount: adOrders.slotCount,
+      })
+      .from(adOrders)
+      .where(
+        and(
+          eq(adOrders.id, orderId),
+          eq(adOrders.ownerClerkUserId, userId),
+          eq(adOrders.status, "pending"),
+          eq(adOrders.paymentStatus, "checkout"),
+        ),
+      )
+      .limit(1),
+    db
+      .select({ weekStart: adOrderWeeks.weekStart })
+      .from(adOrderWeeks)
+      .where(eq(adOrderWeeks.orderId, orderId)),
+  ]);
+  if (!row) return null;
+  return {
+    id: row.id,
+    placement: row.placement,
+    quantity: weeks.length > 0 ? weeks.length : row.slotCount,
+  };
 }
 
 function orderIdFromMetadata(metadata: { [key: string]: string | number | boolean } | undefined) {
@@ -110,10 +121,15 @@ async function fulfillPaidOrder(
 
   const productId = order.dodoProductId ?? "";
   const quantity = quantityForProduct(input.productCart, productId);
+  const weekRows = await tx
+    .select({ weekStart: adOrderWeeks.weekStart })
+    .from(adOrderWeeks)
+    .where(eq(adOrderWeeks.orderId, order.id));
+  const expectedQuantity = weekRows.length > 0 ? weekRows.length : order.slotCount;
   const onlyExpectedProduct =
     Boolean(productId) &&
     (input.productCart ?? []).every((item) => item.product_id === productId);
-  const matches = onlyExpectedProduct && quantity === order.slotCount;
+  const matches = onlyExpectedProduct && quantity === expectedQuantity;
   const now = new Date();
   const payment = {
     dodoPaymentId: input.paymentId,

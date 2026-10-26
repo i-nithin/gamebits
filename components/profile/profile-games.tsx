@@ -677,7 +677,7 @@ export function ProfileGames({
               align="start"
               alignItemWithTrigger={false}
               sideOffset={8}
-              className="w-(--anchor-width) rounded-xl bg-obsidian p-2 shadow-2xl ring-1 ring-white/15 [&_[data-slot=select-item]>span:last-child]:hidden"
+              className="w-(--anchor-width) rounded-sm bg-obsidian p-2 shadow-2xl ring-1 ring-white/15 [&_[data-slot=select-item]>span:last-child]:hidden"
             >
               <SelectItem
                 value="published"
@@ -687,13 +687,13 @@ export function ProfileGames({
               </SelectItem>
               <SelectItem
                 value="archived"
-                className="h-10 rounded-lg px-3 pr-3 text-sm data-selected:bg-graphite focus:bg-graphite"
+                className="h-10 rounded-sm  px-3 pr-3 text-sm data-selected:bg-graphite focus:bg-graphite"
               >
                 Archived games
               </SelectItem>
               <SelectItem
                 value="all"
-                className="h-10 rounded-lg px-3 pr-3 text-sm data-selected:bg-graphite focus:bg-graphite"
+                className="h-10 rounded-sm px-3 pr-3 text-sm data-selected:bg-graphite focus:bg-graphite"
               >
                 All games
               </SelectItem>

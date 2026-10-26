@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 
 import { AdBookingForm } from "@/components/ads/ad-booking-form";
 import { getAdOrderForEdit } from "@/lib/ads";
-import { monthKey } from "@/lib/ads-month";
 import { enforceAdminPage } from "@/lib/auth-admin";
 import { isUuid } from "@/lib/sanitize";
 
@@ -23,9 +22,7 @@ export default async function EditAdminAdbitsPage({
       mode="admin"
       order={{
         id: order.id,
-        monthLabel: order.monthLabel,
-        slotCount: order.slotCount,
-        monthKey: monthKey(order),
+        scheduleLabel: order.scheduleLabel,
       }}
       prefill={order}
     />

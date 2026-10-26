@@ -13,7 +13,7 @@ const HEAD = "text-[11px] tracking-[0.08em] text-fog uppercase";
 export function AnalyticsLaunches({ launches }: { launches: AnalyticsLaunch[] }) {
   if (launches.length === 0) {
     return (
-      <div className="rounded-2xl bg-obsidian p-5 card-ring">
+      <div className="rounded-md bg-obsidian p-5 card-ring">
         <h2 className="text-[11px] tracking-[0.08em] text-fog uppercase">Launch history</h2>
         <p className="mt-4 text-sm text-fog">This game has not been on a weekly board yet.</p>
       </div>
@@ -21,7 +21,7 @@ export function AnalyticsLaunches({ launches }: { launches: AnalyticsLaunch[] })
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-obsidian card-ring">
+    <div className="overflow-hidden rounded-md bg-obsidian card-ring">
       <h2 className="px-4 pt-5 pb-1 text-[11px] tracking-[0.08em] text-fog uppercase sm:px-5">
         Launch history
       </h2>

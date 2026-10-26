@@ -10,44 +10,34 @@ import {
 } from "@/app/actions/ads";
 import { AdCard } from "@/components/ads/ad-card";
 import { AdImagePicker } from "@/components/ads/ad-image-picker";
+import { SidebarLogoPreview } from "@/components/ads/ad-preview-media";
+import { AdbitsFormCard, AdbitsFormSection } from "@/components/ads/adbits-form-card";
 import { LabelWithInfo } from "@/components/game/field-info";
 import { GameFormShell } from "@/components/game/game-form-shell";
+import { WeekPicker } from "@/components/ads/week-picker";
 import { Badge } from "@/components/ui/badge";
 import { Field, FieldDescription, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { SIDEBAR_AD_UNIT_CENTS, formatUsd } from "@/lib/ad-catalog";
-import type { AdCreativePrefill, MonthOption } from "@/lib/ads-types";
+import type { AdCreativePrefill, WeekOption } from "@/lib/ads-types";
 import { AD_NAME_MAX, AD_TAGLINE_MAX } from "@/lib/constants";
 
 const inputClass = "h-9 rounded-lg border-iron bg-graphite";
 
-function monthChoice(month: MonthOption) {
-  const count = `${month.label} · ${month.booked}/${month.cap}`;
-  return month.full ? `${count} · Full` : count;
-}
-
 export type AdEditTarget = {
   id: string;
-  monthLabel: string;
-  slotCount: number;
-  monthKey: string;
+  scheduleLabel: string;
 };
 
 export function AdBookingForm({
-  months = [],
+  weeks = [],
+  monthLabel = "",
   prefill = null,
   mode,
   order = null,
 }: {
-  months?: MonthOption[];
+  weeks?: WeekOption[];
+  monthLabel?: string;
   prefill?: AdCreativePrefill | null;
   mode: "user" | "admin";
   order?: AdEditTarget | null;
@@ -65,10 +55,7 @@ export function AdBookingForm({
     null,
   );
 
-  const [monthKey, setMonthKey] = useState(
-    () => order?.monthKey ?? (months.find((month) => !month.full) ?? months[0])?.key ?? "",
-  );
-  const [slotCount, setSlotCount] = useState(order?.slotCount ?? 1);
+  const [weekKeys, setWeekKeys] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState(prefill?.format === "brand" ? (prefill.logoUrl ?? "") : "");
   const [productName, setProductName] = useState(
     prefill?.format === "brand" ? (prefill.productName ?? "") : "",
@@ -77,10 +64,9 @@ export function AdBookingForm({
   const [destinationUrl, setDestinationUrl] = useState(prefill?.destinationUrl ?? "");
   const [imageBusy, setImageBusy] = useState(false);
 
-  const selected = months.find((month) => month.key === monthKey) ?? null;
-  const openSlots = selected ? Math.max(0, selected.cap - selected.booked) : 0;
-  const slots = order ? order.slotCount : Math.min(slotCount, Math.max(openSlots, 1));
-  const listHref = isAdmin ? "/4dm1n/adbits" : "/adbits";
+  const weekCount = weekKeys.length;
+  const weeksOpen = weeks.some((week) => !week.full);
+  const listHref = isAdmin ? "/4dm1n/adbits" : "/adbits/history";
 
   const preview = {
     format: "brand" as const,
@@ -91,26 +77,150 @@ export function AdBookingForm({
   };
 
   const creativeReady = Boolean(logoUrl);
-  const sidebarTotal = formatUsd(SIDEBAR_AD_UNIT_CENTS * slots);
+  const sidebarTotal = formatUsd(SIDEBAR_AD_UNIT_CENTS * weekCount);
+  const submitLabel = editing
+    ? "Save ad"
+    : isAdmin
+      ? "Place ad"
+      : weekCount > 0
+        ? `Pay ${sidebarTotal}`
+        : "Pay";
+
+  const bookingField = order ? (
+    <p className="text-sm text-paper-white">{order.scheduleLabel}</p>
+  ) : (
+    <Field>
+      <LabelWithInfo
+        htmlFor="weekKey"
+        info="A week runs Monday to Monday at midnight Pacific Time. You can book any open weeks of next month."
+      >
+        Weeks
+      </LabelWithInfo>
+      <WeekPicker
+        weeks={weeks}
+        monthLabel={monthLabel}
+        selected={weekKeys}
+        onChange={setWeekKeys}
+        unitCents={SIDEBAR_AD_UNIT_CENTS}
+        admin={isAdmin}
+      />
+    </Field>
+  );
+
+  const nameField = (
+    <Field>
+      <LabelWithInfo htmlFor="productName" info="Shown as the headline on the card.">
+        Product name
+      </LabelWithInfo>
+      <Input
+        id="productName"
+        maxLength={AD_NAME_MAX}
+        value={productName}
+        onChange={(event) => setProductName(event.target.value)}
+        placeholder="Chatbase"
+        className={inputClass}
+      />
+      <FieldDescription>{AD_NAME_MAX - productName.length} characters left</FieldDescription>
+    </Field>
+  );
+
+  const taglineField = (
+    <Field>
+      <LabelWithInfo htmlFor="tagline" info="One short line under the name.">
+        Tagline
+      </LabelWithInfo>
+      <Input
+        id="tagline"
+        maxLength={AD_TAGLINE_MAX}
+        value={tagline}
+        onChange={(event) => setTagline(event.target.value)}
+        placeholder="AI agent for customer support"
+        className={inputClass}
+      />
+      <FieldDescription>{AD_TAGLINE_MAX - tagline.length} characters left</FieldDescription>
+    </Field>
+  );
+
+  const destinationField = (
+    <Field>
+      <LabelWithInfo htmlFor="destinationUrl" info="Where the card sends people. Must be an https link.">
+        Click destination
+      </LabelWithInfo>
+      <Input
+        id="destinationUrl"
+        type="url"
+        inputMode="url"
+        required
+        value={destinationUrl}
+        onChange={(event) => setDestinationUrl(event.target.value)}
+        placeholder="https://example.com"
+        className={inputClass}
+      />
+    </Field>
+  );
+
+  const hidden = (
+    <>
+      {order ? <input type="hidden" name="orderId" value={order.id} /> : null}
+      {weekKeys.map((key) => (
+        <input key={key} type="hidden" name="weekKey" value={key} />
+      ))}
+      <input type="hidden" name="format" value="brand" />
+      <input type="hidden" name="logoUrl" value={logoUrl} />
+      <input type="hidden" name="mediaUrl" value="" />
+      <input type="hidden" name="productName" value={productName} />
+      <input type="hidden" name="tagline" value={tagline} />
+      <input type="hidden" name="destinationUrl" value={destinationUrl} />
+    </>
+  );
+
+  if (!isAdmin) {
+    return (
+      <AdbitsFormCard
+        title={editing ? "Edit ad" : "Right sidebar"}
+        description={
+          editing
+            ? "Change the card and where it sends people. The weeks stay."
+            : `${formatUsd(SIDEBAR_AD_UNIT_CENTS)} per week. Tax may be added at checkout.`
+        }
+        preview={
+          <SidebarLogoPreview
+            logoUrl={logoUrl}
+            productName={productName}
+            tagline={tagline}
+            onChange={setLogoUrl}
+            onBusyChange={setImageBusy}
+          />
+        }
+        hidden={hidden}
+        submitLabel={submitLabel}
+        submitDisabled={!creativeReady || (!editing && (weekCount < 1 || !weeksOpen))}
+        pending={pending}
+        uploading={imageBusy}
+        error={state?.error}
+        formAction={action}
+      >
+        <AdbitsFormSection label="Booking">{bookingField}</AdbitsFormSection>
+        <AdbitsFormSection label="Creative">
+          {nameField}
+          {taglineField}
+        </AdbitsFormSection>
+        <AdbitsFormSection label="Destination">{destinationField}</AdbitsFormSection>
+      </AdbitsFormCard>
+    );
+  }
 
   return (
     <GameFormShell
-      breadcrumbs={
-        isAdmin
-          ? [
-              { label: "Admin", href: "/4dm1n" },
-              { label: "Adbits", href: "/4dm1n/adbits" },
-              { label: editing ? "Edit ad" : "Place an ad" },
-            ]
-          : [
-              { label: "Adbits", href: "/adbits" },
-              { label: editing ? "Edit ad" : "Book a slot" },
-            ]
-      }
+      breadcrumbs={[
+        { label: "Admin", href: "/4dm1n" },
+        { label: "Adbits", href: "/4dm1n/adbits" },
+        { label: editing ? "Edit ad" : "Place an ad" },
+      ]}
       backHref={listHref}
       cancelHref={listHref}
-      submitLabel={editing ? "Save ad" : isAdmin ? "Place ad" : `Pay ${sidebarTotal}`}
-      submitDisabled={!creativeReady || (!editing && openSlots < 1)}
+      submitLabel={submitLabel}
+      submitDisabled={!creativeReady || (!editing && (weekCount < 1 || !weeksOpen))}
       pending={pending}
       uploading={imageBusy}
       error={state?.error}
@@ -156,170 +266,32 @@ export function AdBookingForm({
         <div className="flex flex-col gap-6 pb-4">
           <div>
             <h1 className="text-lg font-medium text-paper-white sm:text-xl">
-              {editing ? "Edit ad" : isAdmin ? "Place an ad" : "Book a slot"}
+              {editing ? "Edit ad" : "Place an ad"}
             </h1>
             <p className="mt-1 text-sm text-fog">
               {editing
-                ? "Change the card and where it sends people. The month and slot count stay."
-                : isAdmin
-                  ? "Goes live right away. A month still stops at six slots."
-                  : `${formatUsd(SIDEBAR_AD_UNIT_CENTS)} per slot for the month you book. Tax may be added at checkout.`}
+                ? "Change the card and where it sends people. The weeks stay."
+                : "Goes live right away. Each week still stops at six ads."}
             </p>
           </div>
 
           <FieldGroup className="gap-4">
-            {order ? (
-              <p className="text-sm text-paper-white">
-                {order.monthLabel} · {order.slotCount} {order.slotCount === 1 ? "slot" : "slots"}
-              </p>
-            ) : (
-              <>
-            <Field>
-              <LabelWithInfo
-                htmlFor="monthKey"
-                info="Slots are monthly. A month starts and ends at midnight Pacific Time."
-              >
-                Month
-              </LabelWithInfo>
-              <Select
-                value={monthKey}
-                onValueChange={(value) => {
-                  if (typeof value !== "string" || !value) return;
-                  setMonthKey(value);
-                  setSlotCount(1);
-                }}
-              >
-                <SelectTrigger id="monthKey" type="button" className={`w-full ${inputClass}`}>
-                  <SelectValue>
-                    {selected ? monthChoice(selected) : "Choose a month"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent align="start" className="border-iron bg-obsidian p-1 shadow-lg">
-                  <SelectGroup>
-                    {months.map((month) => (
-                      <SelectItem key={month.key} value={month.key} disabled={month.full}>
-                        {monthChoice(month)}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              {selected ? <FieldDescription>{selected.windowLabel}</FieldDescription> : null}
-            </Field>
-
-            <Field>
-              <LabelWithInfo
-                htmlFor="slotCount"
-                info="Extra slots buy more airtime for the same card, not a second card."
-              >
-                Slots
-              </LabelWithInfo>
-              <Select
-                value={String(slots)}
-                onValueChange={(value) => {
-                  if (typeof value === "string" && value) setSlotCount(Number(value));
-                }}
-                disabled={openSlots < 1}
-              >
-                <SelectTrigger id="slotCount" type="button" className={`w-full ${inputClass}`}>
-                  <SelectValue>{openSlots < 1 ? "No slots open" : String(slots)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent align="start" className="border-iron bg-obsidian p-1 shadow-lg">
-                  <SelectGroup>
-                    {Array.from({ length: openSlots }, (_, index) => String(index + 1)).map(
-                      (value) => (
-                        <SelectItem key={value} value={value}>
-                          {value}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <FieldDescription>
-                {openSlots < 1
-                  ? "Pick another month to free up slots."
-                  : isAdmin
-                    ? `${openSlots} of ${selected?.cap ?? 6} still open this month.`
-                    : `${slots} ${slots === 1 ? "slot" : "slots"} · ${sidebarTotal} before tax. ${openSlots} still open.`}
-              </FieldDescription>
-            </Field>
-              </>
-            )}
-
-            <Field>
-              <LabelWithInfo htmlFor="productName" info="Shown as the headline on the card.">
-                Product name
-              </LabelWithInfo>
-              <Input
-                id="productName"
-                maxLength={AD_NAME_MAX}
-                value={productName}
-                onChange={(event) => setProductName(event.target.value)}
-                placeholder="Chatbase"
-                className={inputClass}
-              />
-              <FieldDescription>
-                {AD_NAME_MAX - productName.length} characters left
-              </FieldDescription>
-            </Field>
-            <Field>
-              <LabelWithInfo htmlFor="tagline" info="One short line under the name.">
-                Tagline
-              </LabelWithInfo>
-              <Input
-                id="tagline"
-                maxLength={AD_TAGLINE_MAX}
-                value={tagline}
-                onChange={(event) => setTagline(event.target.value)}
-                placeholder="AI agent for customer support"
-                className={inputClass}
-              />
-              <FieldDescription>
-                {AD_TAGLINE_MAX - tagline.length} characters left
-              </FieldDescription>
-            </Field>
-
-            <Field>
-              <LabelWithInfo
-                htmlFor="destinationUrl"
-                info="Where the card sends people. Must be an https link."
-              >
-                Click destination
-              </LabelWithInfo>
-              <Input
-                id="destinationUrl"
-                type="url"
-                inputMode="url"
-                required
-                value={destinationUrl}
-                onChange={(event) => setDestinationUrl(event.target.value)}
-                placeholder="https://example.com"
-                className={inputClass}
-              />
-            </Field>
+            {bookingField}
+            {nameField}
+            {taglineField}
+            {destinationField}
           </FieldGroup>
 
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">
-              {slots} {slots === 1 ? "slot" : "slots"}
+              {editing ? order.scheduleLabel : `${weekCount} ${weekCount === 1 ? "week" : "weeks"}`}
             </Badge>
-            <Badge variant="outline">
-              {editing ? "Month and slots stay" : isAdmin ? "Live on save" : "Waiting for approval"}
-            </Badge>
+            <Badge variant="outline">{editing ? "Weeks stay" : "Live on save"}</Badge>
           </div>
         </div>
       }
     >
-      {order ? <input type="hidden" name="orderId" value={order.id} /> : null}
-      <input type="hidden" name="monthKey" value={order?.monthKey ?? monthKey} />
-      <input type="hidden" name="slotCount" value={slots} />
-      <input type="hidden" name="format" value="brand" />
-      <input type="hidden" name="logoUrl" value={logoUrl} />
-      <input type="hidden" name="mediaUrl" value="" />
-      <input type="hidden" name="productName" value={productName} />
-      <input type="hidden" name="tagline" value={tagline} />
-      <input type="hidden" name="destinationUrl" value={destinationUrl} />
+      {hidden}
     </GameFormShell>
   );
 }

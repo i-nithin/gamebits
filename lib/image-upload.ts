@@ -2,7 +2,6 @@ import {
   ACCEPTED_CLIP_TYPES,
   ACCEPTED_IMAGE_TYPES,
   MAX_AD_IMAGE_BYTES,
-  MAX_CAROUSEL_IMAGE_BYTES,
   MAX_CAROUSEL_VIDEO_BYTES,
   MAX_CLIP_BYTES,
   MAX_IMAGE_BYTES,
@@ -91,14 +90,11 @@ export async function uploadImage(file: File, purpose: UploadPurpose) {
 
 export async function uploadCarouselMedia(file: File) {
   const contentType = file.type.toLowerCase().split(";")[0]?.trim() ?? "";
-  const video = (ACCEPTED_CLIP_TYPES as readonly string[]).includes(contentType);
-  const image = (ACCEPTED_IMAGE_TYPES as readonly string[]).includes(contentType);
-  if (!video && !image) {
-    throw new Error("Use a JPEG, PNG, WebP, GIF, MP4, or WebM file");
+  if (!(ACCEPTED_CLIP_TYPES as readonly string[]).includes(contentType)) {
+    throw new Error("Only MP4 and WebM videos are allowed");
   }
-  const max = video ? MAX_CAROUSEL_VIDEO_BYTES : MAX_CAROUSEL_IMAGE_BYTES;
-  if (file.size > max) {
-    throw new Error(video ? "Videos must be 12MB or smaller" : "Images must be 8MB or smaller");
+  if (file.size > MAX_CAROUSEL_VIDEO_BYTES) {
+    throw new Error("Videos must be 12MB or smaller");
   }
 
   const fingerprint = fileFingerprint(file);

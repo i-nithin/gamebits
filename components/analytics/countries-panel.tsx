@@ -95,7 +95,7 @@ export function AnalyticsCountriesPanel({ countries }: { countries: AnalyticsCou
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-obsidian card-ring">
+    <section className="overflow-hidden rounded-sm bg-obsidian card-ring">
       <div className="flex flex-col gap-1 px-5 pt-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-[11px] tracking-[0.08em] text-fog uppercase">Audience</h2>

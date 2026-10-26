@@ -1,10 +1,12 @@
 import { AdBookingForm } from "@/components/ads/ad-booking-form";
-import { listMonthOptions } from "@/lib/ads";
+import { listWeekOptions } from "@/lib/ads";
 import { enforceAdminPage } from "@/lib/auth-admin";
 
 export default async function NewAdminAdbitsPage() {
   await enforceAdminPage();
-  const months = await listMonthOptions();
+  const booking = await listWeekOptions();
 
-  return <AdBookingForm months={months} mode="admin" />;
+  return (
+    <AdBookingForm weeks={booking.weeks} monthLabel={booking.monthLabel} mode="admin" />
+  );
 }

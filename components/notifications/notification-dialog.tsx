@@ -94,7 +94,7 @@ export function NotificationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
-        className="flex h-[min(80vh,640px)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden bg-obsidian p-0 text-paper-white ring-iron sm:max-w-3xl"
+        className="flex h-[min(80vh,640px)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden bg-obsidian p-0 text-paper-white ring-iron sm:max-w-3xl rounded-sm"
       >
         <DialogHeader className="flex-row items-center justify-between gap-3 border-b border-iron px-4 py-3 pr-12 sm:px-5">
           <div>

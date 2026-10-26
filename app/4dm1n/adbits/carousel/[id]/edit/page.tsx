@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 
 import { CarouselBookingForm } from "@/components/ads/carousel-booking-form";
 import { getAdOrderForEdit, listCarouselGameChoices } from "@/lib/ads";
-import { monthKey } from "@/lib/ads-month";
 import { enforceAdminPage, getCurrentUserId } from "@/lib/auth-admin";
 import { isUuid } from "@/lib/sanitize";
 
@@ -28,8 +27,7 @@ export default async function EditAdminCarouselAdPage({
       games={games}
       order={{
         id: order.id,
-        monthLabel: order.monthLabel,
-        monthKey: monthKey(order),
+        scheduleLabel: order.scheduleLabel,
       }}
       prefill={{
         gameId: order.gameId,
