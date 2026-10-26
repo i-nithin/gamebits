@@ -28,7 +28,7 @@ export function AnalyticsGameList({
   const suffix = query.startsWith("?") || query === "" ? query : `?${query}`;
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-obsidian card-ring">
+    <div className="overflow-hidden rounded-sm bg-obsidian card-ring">
       <div className="overflow-x-auto">
         <div className="min-w-[46rem] md:min-w-0">
           <div className={COLUMNS}>
@@ -54,7 +54,7 @@ export function AnalyticsGameList({
               >
                 <span className="sticky left-0 z-10 flex min-w-0 items-center gap-3 bg-obsidian py-3.5 pl-5 group-hover:bg-[#1c1c1e] md:static md:bg-transparent">
                   <span className="stat-mono w-4 shrink-0 text-xs text-fog">{index + 1}</span>
-                  <span className="relative size-11 shrink-0 overflow-hidden rounded-xl">
+                  <span className="relative size-11 shrink-0 overflow-hidden rounded-sm">
                     <Image src={game.logoUrl} alt="" fill className="object-cover" sizes="44px" />
                   </span>
                   <span className="flex min-w-0 items-center gap-2 pr-3">

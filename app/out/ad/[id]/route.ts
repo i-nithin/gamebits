@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { NextResponse } from "next/server";
 
 import { getApprovedAdDestination, incrementAdClicks } from "@/lib/ads";
-import { orderPhase } from "@/lib/ads-month";
+import { bookingPhase } from "@/lib/ads-week";
 import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { isUuid } from "@/lib/sanitize";
@@ -24,10 +24,11 @@ export async function GET(
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  const phase = orderPhase(
+  const phase = bookingPhase(
     "approved",
     { year: ad.year, month: ad.month },
     Number(ad.active),
+    ad.weekStarts,
   );
   const limit = await rateLimit("click", clientIp(request.headers));
   if (limit === "unavailable") {

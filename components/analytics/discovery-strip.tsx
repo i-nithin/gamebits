@@ -55,7 +55,7 @@ export function AnalyticsDiscoveryStrip({
         const positive = delta != null && delta > 0;
         const negative = delta != null && delta < 0;
         return (
-          <div key={metric.key} className="flex flex-col gap-4 rounded-2xl bg-obsidian px-5 py-6 card-ring">
+          <div key={metric.key} className="flex flex-col gap-4 rounded-sm bg-obsidian px-5 py-6 card-ring">
             <div className="flex items-center justify-between gap-2">
               <span className="flex items-center gap-1.5 text-[11px] tracking-[0.08em] text-fog uppercase">
                 {metric.label}

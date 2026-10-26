@@ -19,7 +19,7 @@ type BrandFields = {
   destinationUrl?: string;
 };
 
-const railCard = "bg-[#222222] text-paper-white";
+const railCard = "bg-obsidian text-paper-white";
 const railMuted = "text-[#a3a3a3]";
 const railVisitClass =
   "inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-white/20 bg-[#3c3c3c] px-3 text-sm font-medium text-white";
@@ -79,14 +79,14 @@ export function BrandAdCard({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-2xl border border-white/10 p-5", railCard, className)}>
+    <div className={cn("rounded-md border border-white/10 p-4", railCard, className)}>
       <div className="flex items-start justify-between gap-3">
-        <AdLogo src={ad.logoUrl} className="size-14 rounded-full bg-white/10" />
+        <AdLogo src={ad.logoUrl} className="size-14 rounded-md bg-white/10" />
         <VisitControl ad={ad} linked={linked} />
       </div>
       <p className="mt-4 truncate text-lg font-semibold">{ad.productName}</p>
       <p className={cn("mt-1 line-clamp-2 text-base leading-6", railMuted)}>{ad.tagline}</p>
-      <div className="my-4 h-px bg-white/15" />
+      <div className="my-3 h-px bg-white/15" />
       <div className={cn("flex items-center justify-between gap-3 text-sm", railMuted)}>
         <Link
           href="/adbits"
@@ -116,7 +116,7 @@ export function BrandAdBar({
   const linkedVisit = linked && ad.destinationUrl && ad.id ? { id: ad.id, href: ad.destinationUrl } : null;
   const face = (
     <>
-      <AdLogo src={ad.logoUrl} className="size-10 rounded-full bg-white/10" />
+      <AdLogo src={ad.logoUrl} className="size-10 rounded-sm bg-white/10" />
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
           <span className="truncate">{ad.productName}</span>

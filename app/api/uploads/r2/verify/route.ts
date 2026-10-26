@@ -5,7 +5,6 @@ import { requireSignedIn } from "@/lib/auth-admin";
 import { inspectOwnedObject, r2Configured, uploadKeyPrefix } from "@/lib/cloudflare-r2";
 import {
   MAX_AD_IMAGE_BYTES,
-  MAX_CAROUSEL_IMAGE_BYTES,
   MAX_CAROUSEL_VIDEO_BYTES,
   MAX_CLIP_BYTES,
   MAX_IMAGE_BYTES,
@@ -17,10 +16,9 @@ const bodySchema = z.object({
   purpose: z.enum(["logo", "media", "avatar", "cover", "platform", "ad", "carousel", "clip"]),
 });
 
-function maxBytes(purpose: z.infer<typeof bodySchema>["purpose"], key: string) {
-  const video = /\.(mp4|webm)$/i.test(key);
+function maxBytes(purpose: z.infer<typeof bodySchema>["purpose"]) {
   if (purpose === "clip") return MAX_CLIP_BYTES;
-  if (purpose === "carousel") return video ? MAX_CAROUSEL_VIDEO_BYTES : MAX_CAROUSEL_IMAGE_BYTES;
+  if (purpose === "carousel") return MAX_CAROUSEL_VIDEO_BYTES;
   if (purpose === "ad") return MAX_AD_IMAGE_BYTES;
   return MAX_IMAGE_BYTES;
 }
@@ -44,7 +42,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
     const video = /\.(mp4|webm)$/i.test(key);
-    if (purpose === "clip" && !video) {
+    if ((purpose === "clip" || purpose === "carousel") && !video) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
     if (purpose !== "clip" && purpose !== "carousel" && video) {
@@ -54,7 +52,7 @@ export async function POST(request: Request) {
     const ok = await inspectOwnedObject({
       key,
       userIds: [userId],
-      maxBytes: maxBytes(purpose, key),
+      maxBytes: maxBytes(purpose),
     });
     if (!ok) return NextResponse.json({ error: "Upload failed" }, { status: 400 });
     return NextResponse.json({ ok: true });

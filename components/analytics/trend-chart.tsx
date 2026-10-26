@@ -69,7 +69,7 @@ export function AnalyticsTrendChart({
         : "No activity in this period.";
 
   return (
-    <section className={cn("flex flex-col gap-4 rounded-2xl bg-obsidian p-4 sm:p-5 card-ring", className)}>
+    <section className={cn("flex flex-col gap-4 rounded-sm bg-obsidian p-4 sm:p-5 card-ring", className)}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-[11px] tracking-[0.08em] text-fog uppercase">
           Views and link clicks over time

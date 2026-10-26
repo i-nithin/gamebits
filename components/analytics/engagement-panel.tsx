@@ -77,9 +77,9 @@ export function AnalyticsEngagementPanel({
         const positive = delta != null && delta > 0;
         const negative = delta != null && delta < 0;
         return (
-          <div key={metric.key} className="flex flex-col gap-3 rounded-2xl bg-obsidian px-4 py-5 card-ring">
+          <div key={metric.key} className="flex flex-col gap-3 rounded-sm bg-obsidian px-4 py-5 card-ring">
             <div className="flex items-center justify-between gap-2">
-              <span className="flex size-8 items-center justify-center rounded-xl bg-graphite text-ice-signal">
+              <span className="flex size-8 items-center justify-center rounded-xl text-ice-signal">
                 <Icon className="size-4" aria-hidden />
               </span>
               {deltaLabel ? (

@@ -52,10 +52,10 @@ export function AdCarousel({
   if (!current) {
     return (
       <Link
-        href="/adbits?placement=carousel"
-        className="group flex aspect-[16/9] min-h-[240px] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-iron bg-graphite px-6 text-center transition-colors hover:border-ice-signal sm:min-h-[280px] lg:aspect-[21/9] lg:max-h-[420px]"
+        href="/adbits/carousel"
+        className="group flex aspect-[16/9] min-h-[240px] w-full flex-col items-center justify-center gap-2 rounded-sm border border-dashed border-iron bg-graphite px-6 text-center transition-colors hover:border-ice-signal sm:min-h-[280px] lg:aspect-[21/9] lg:max-h-[420px]"
       >
-        <span className="flex size-10 items-center justify-center rounded-full bg-slate text-fog transition-colors group-hover:text-ice-signal">
+        <span className="flex size-10 items-center justify-center rounded-sm bg-slate text-fog transition-colors group-hover:text-ice-signal">
           <MegaphoneIcon className="size-5" strokeWidth={1.5} />
         </span>
         <span className="text-base font-medium text-paper-white">Your ad here</span>
@@ -70,7 +70,7 @@ export function AdCarousel({
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="group relative aspect-[16/9] w-full min-h-[240px] overflow-hidden rounded-2xl sm:min-h-[280px] lg:aspect-[21/9] lg:max-h-[420px]">
+      <div className="group relative aspect-[16/9] w-full min-h-[350px] overflow-hidden rounded-md sm:min-h-[280px] lg:aspect-[21/9] lg:max-h-[420px] border border-iron">
         {ads.map((ad, slideIndex) => (
           <a
             key={ad.id}
@@ -98,7 +98,7 @@ export function AdCarousel({
               type="button"
               aria-label="Previous slide"
               onClick={() => goTo(activeIndex - 1)}
-              className="absolute top-1/2 left-3 z-20 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-paper-white opacity-100 backdrop-blur-sm transition-opacity hover:bg-black/60 md:opacity-0 md:group-hover:opacity-100"
+              className="absolute top-1/2 left-3 z-20 flex size-11 border border-iron -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-paper-white opacity-100 backdrop-blur-sm transition-opacity hover:bg-black/60 md:opacity-0 md:group-hover:opacity-100"
             >
               <ChevronLeftIcon className="size-4" strokeWidth={1.5} />
             </button>
@@ -106,7 +106,7 @@ export function AdCarousel({
               type="button"
               aria-label="Next slide"
               onClick={() => goTo(activeIndex + 1)}
-              className="absolute top-1/2 right-3 z-20 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-paper-white opacity-100 backdrop-blur-sm transition-opacity hover:bg-black/60 md:opacity-0 md:group-hover:opacity-100"
+              className="absolute top-1/2 right-3 z-20 flex size-11 border border-iron -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-paper-white opacity-100 backdrop-blur-sm transition-opacity hover:bg-black/60 md:opacity-0 md:group-hover:opacity-100"
             >
               <ChevronRightIcon className="size-4" strokeWidth={1.5} />
             </button>
@@ -124,8 +124,8 @@ export function AdCarousel({
               aria-current={slideIndex === activeIndex}
               onClick={() => goTo(slideIndex)}
               className={cn(
-                "h-1.5 rounded-full transition-all",
-                slideIndex === activeIndex ? "w-6 bg-paper-white" : "w-1.5 bg-fog/50",
+                "h-1.5 w-8 rounded-full transition-all",
+                slideIndex === activeIndex ? "w-8 bg-paper-white" : "w-8 bg-charcoal",
               )}
             />
           ))}

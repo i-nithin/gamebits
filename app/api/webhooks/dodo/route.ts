@@ -8,6 +8,9 @@ export const dynamic = "force-dynamic";
 function revalidateAds() {
   revalidatePath("/");
   revalidatePath("/adbits");
+  revalidatePath("/adbits/sidebar");
+  revalidatePath("/adbits/carousel");
+  revalidatePath("/adbits/history");
   revalidatePath("/4dm1n/adbits");
 }
 

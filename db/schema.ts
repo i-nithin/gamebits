@@ -685,6 +685,20 @@ export const adOrders = pgTable(
   ],
 );
 
+export const adOrderWeeks = pgTable(
+  "ad_order_weeks",
+  {
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => adOrders.id, { onDelete: "cascade" }),
+    weekStart: date("week_start", { mode: "string" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.orderId, table.weekStart] }),
+    index("ad_order_weeks_week_idx").on(table.weekStart),
+  ],
+);
+
 export const adSlots = pgTable(
   "ad_slots",
   {

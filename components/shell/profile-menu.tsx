@@ -53,7 +53,7 @@ export function ProfileMenu({ viewer }: { viewer: Viewer }) {
       {open ? (
         <div
           role="menu"
-          className="absolute top-full right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-iron bg-obsidian py-1 text-paper-white shadow-lg"
+          className="absolute top-full right-0 z-50 mt-2 w-64 overflow-hidden rounded-sm border border-iron bg-obsidian py-1 text-paper-white shadow-lg"
         >
           <div className="flex items-center gap-3 px-4 py-3">
             <ViewerMark viewer={viewer} className="size-10 text-sm" />

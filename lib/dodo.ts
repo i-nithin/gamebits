@@ -58,7 +58,6 @@ export async function createAdCheckoutSession(input: {
   name: string | null;
 }) {
   const origin = await appOrigin();
-  const placementQuery = input.placement === "carousel" ? "&placement=carousel" : "";
   const session = await getDodo().checkoutSessions.create({
     product_cart: [{ product_id: adProductId(input.placement), quantity: input.quantity }],
     customer: {
@@ -66,7 +65,7 @@ export async function createAdCheckoutSession(input: {
       name: input.name,
     },
     metadata: { order_id: input.orderId },
-    return_url: `${origin}/adbits?checkout=return${placementQuery}`,
+    return_url: `${origin}/adbits/history?checkout=return`,
   });
 
   if (!session.checkout_url) {
