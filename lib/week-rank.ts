@@ -44,6 +44,14 @@ type ListingRankRow = {
   snapshottedAt: Date | null;
 };
 
+export function boardRankMode(ended: boolean, finalRanks: Array<number | null>) {
+  return ended && finalRanks.every((rank) => rank != null) ? "frozen" : "live";
+}
+
+export function weekCacheSeconds(ranksFrozen: boolean) {
+  return ranksFrozen ? 300 : 30;
+}
+
 export function ranksForSnapshot(
   listings: ListingRankRow[],
   countByGame: Map<string, number>,
