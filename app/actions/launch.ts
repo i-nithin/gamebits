@@ -1,13 +1,9 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-import { weekListings } from "@/db/schema";
-import { WEEK_LISTING_CAP } from "@/lib/constants";
 import { accountAccessError, canManageGame, getCurrentUserId } from "@/lib/auth-admin";
-import { getDb } from "@/lib/db";
-import { countWeekListings, getGameById } from "@/lib/queries";
+import { getGameById, placeGameOnWeek } from "@/lib/queries";
 
 export async function launchGameAction(
   _prev: { error: string } | { ok: true } | null,
@@ -20,7 +16,6 @@ export async function launchGameAction(
   const gameId = String(formData.get("gameId") ?? "");
   const year = Number(formData.get("year"));
   const week = Number(formData.get("week"));
-  const featured = formData.get("featured") === "on";
 
   if (!gameId || !Number.isInteger(year) || !Number.isInteger(week)) {
     return { error: "Pick a valid ISO year and week" };
@@ -38,31 +33,10 @@ export async function launchGameAction(
     return { error: "Unarchive the game before launching" };
   }
 
-  const db = getDb();
-  const existing = await db
-    .select({ id: weekListings.id })
-    .from(weekListings)
-    .where(
-      and(
-        eq(weekListings.gameId, gameId),
-        eq(weekListings.isoYear, year),
-        eq(weekListings.isoWeek, week),
-      ),
-    )
-    .limit(1);
+  const placed = await placeGameOnWeek({ gameId, year, week, featured: null });
+  if (!placed.ok) return { error: placed.error };
 
-  if (!existing[0]) {
-    const count = await countWeekListings(year, week);
-    if (count >= WEEK_LISTING_CAP) {
-      return { error: `This week already has ${WEEK_LISTING_CAP} games` };
-    }
-    await db.insert(weekListings).values({
-      gameId,
-      isoYear: year,
-      isoWeek: week,
-      featured,
-    });
-
+  if (placed.created) {
     const { ensureActorPayload, enqueueFollowerFanout } = await import(
       "@/lib/notifications"
     );
@@ -82,11 +56,6 @@ export async function launchGameAction(
         isoWeek: week,
       },
     }).catch((error) => console.error("[notifications] launch fan-out failed", error));
-  } else {
-    await db
-      .update(weekListings)
-      .set({ featured })
-      .where(eq(weekListings.id, existing[0].id));
   }
 
   revalidatePath("/");

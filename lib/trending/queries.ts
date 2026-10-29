@@ -33,8 +33,8 @@ export const listTrendingGamesPage = cache(async function listTrendingGamesPage(
   statuses?: GameStatus[];
   cursor?: string | null;
   limit?: number;
-}): Promise<CollectionPage> {
-  if (!hasDatabase()) return { games: [], nextCursor: null };
+}): Promise<CollectionPage & { points: Record<string, number[]> }> {
+  if (!hasDatabase()) return { games: [], nextCursor: null, points: {} };
   await ensureFreshTrends();
 
   const range = opts?.range && isTrendRange(opts.range) ? opts.range : "today";
@@ -90,9 +90,16 @@ export const listTrendingGamesPage = cache(async function listTrendingGamesPage(
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
   const last = page[page.length - 1];
+  const ranked = await withCatalog(page.map((row) => asCatalogGame(row.game, row.rank)));
+  const pointMap = await sparklinePointsForWindow(
+    ranked.map((game) => game.id),
+    period.hotStart,
+    period.hotEnd,
+  );
   return {
-    games: await withCatalog(page.map((row) => asCatalogGame(row.game, row.rank))),
+    games: ranked,
     nextCursor: hasMore && last ? encodeTrendCursor(last.rank, range) : null,
+    points: Object.fromEntries(pointMap),
   };
 });
 
@@ -103,17 +110,14 @@ export type TrendingRailItem = {
 
 export async function listTopTrendingGames(limit = 5): Promise<TrendingRailItem[]> {
   const page = await listTrendingGamesPage({ limit, range: "today" });
-  const pointsByGame = await todaySparklinePoints(page.games.map((game) => game.id));
   return page.games.map((game) => ({
     game,
-    points: pointsByGame.get(game.id) ?? sparklinePoints([], utcDayStart(new Date()), new Date()),
+    points: page.points[game.id] ?? [],
   }));
 }
 
-async function todaySparklinePoints(gameIds: string[]) {
-  const now = new Date();
-  const start = utcDayStart(now);
-  const points = new Map(gameIds.map((id) => [id, sparklinePoints([], start, now)]));
+async function sparklinePointsForWindow(gameIds: string[], start: Date, end: Date) {
+  const points = new Map(gameIds.map((id) => [id, sparklinePoints([], start, end)]));
   if (gameIds.length === 0 || !hasDatabase()) return points;
 
   const db = getDb();
@@ -133,7 +137,7 @@ async function todaySparklinePoints(gameIds: string[]) {
       .where(and(
         inArray(gameAnalyticsEvents.gameId, gameIds),
         gte(gameAnalyticsEvents.createdAt, start),
-        lte(gameAnalyticsEvents.createdAt, now),
+        lte(gameAnalyticsEvents.createdAt, end),
       )),
     db
       .select({
@@ -142,7 +146,7 @@ async function todaySparklinePoints(gameIds: string[]) {
         at: likes.createdAt,
       })
       .from(likes)
-      .where(and(inArray(likes.gameId, gameIds), gte(likes.createdAt, start), lte(likes.createdAt, now))),
+      .where(and(inArray(likes.gameId, gameIds), gte(likes.createdAt, start), lte(likes.createdAt, end))),
     db
       .select({
         gameId: bookmarks.gameId,
@@ -153,7 +157,7 @@ async function todaySparklinePoints(gameIds: string[]) {
       .where(and(
         inArray(bookmarks.gameId, gameIds),
         gte(bookmarks.createdAt, start),
-        lte(bookmarks.createdAt, now),
+        lte(bookmarks.createdAt, end),
       )),
     db
       .select({
@@ -166,7 +170,7 @@ async function todaySparklinePoints(gameIds: string[]) {
         inArray(votes.gameId, gameIds),
         isNull(votes.withdrawnAt),
         gte(votes.createdAt, start),
-        lte(votes.createdAt, now),
+        lte(votes.createdAt, end),
       )),
     db
       .select({
@@ -180,7 +184,7 @@ async function todaySparklinePoints(gameIds: string[]) {
         inArray(gameReviews.gameId, gameIds),
         isNull(gameReviews.removedAt),
         gte(gameReviews.createdAt, start),
-        lte(gameReviews.createdAt, now),
+        lte(gameReviews.createdAt, end),
       )),
   ]);
 
@@ -208,7 +212,7 @@ async function todaySparklinePoints(gameIds: string[]) {
   }
 
   for (const id of gameIds) {
-    points.set(id, sparklinePoints(eventsByGame.get(id) ?? [], start, now, SPARKLINE_BUCKETS));
+    points.set(id, sparklinePoints(eventsByGame.get(id) ?? [], start, end, SPARKLINE_BUCKETS));
   }
   return points;
 }
@@ -227,10 +231,6 @@ function pushOwned(
       at: row.at,
     });
   }
-}
-
-function utcDayStart(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
 function cleanSlugs(values: string[]) {

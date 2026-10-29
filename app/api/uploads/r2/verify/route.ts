@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireSignedIn } from "@/lib/auth-admin";
+import { getAdminAccess, requireSignedIn } from "@/lib/auth-admin";
 import { inspectOwnedObject, r2Configured, uploadKeyPrefix } from "@/lib/cloudflare-r2";
 import {
   MAX_AD_IMAGE_BYTES,
@@ -38,6 +38,9 @@ export async function POST(request: Request) {
     }
 
     const { key, purpose } = parsed.data;
+    if (purpose === "platform" && !(await getAdminAccess(userId))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     if (key.includes("..") || !key.startsWith(uploadKeyPrefix(purpose, userId))) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }

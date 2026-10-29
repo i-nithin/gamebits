@@ -7,6 +7,7 @@ import { NotificationDialog } from "@/components/notifications/notification-dial
 import { useNotifications } from "@/components/notifications/notification-provider";
 import { NotificationRow } from "@/components/notifications/notification-row";
 import { Button } from "@/components/ui/button";
+import { notifyError } from "@/lib/notify";
 import type { NotificationItem } from "@/lib/notifications/types";
 
 export function NotificationBell() {
@@ -30,7 +31,13 @@ export function NotificationBell() {
   useEffect(() => {
     if (!popupOpen) return;
     startTransition(() => {
-      void loadLatestUnread().then(setItems);
+      void loadLatestUnread()
+        .then(setItems)
+        .catch((error) => {
+          console.error("[notifications] popup failed", error);
+          setItems([]);
+          notifyError("Couldn't load notifications.");
+        });
     });
   }, [popupOpen, loadLatestUnread]);
 

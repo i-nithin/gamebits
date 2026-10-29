@@ -70,7 +70,7 @@ export function HomeBoard({
           <section className="flex flex-col gap-5">
             <div className="flex items-end justify-between gap-3">
               <div className="flex min-w-0 flex-col gap-1">
-                <h2 className="text-xl font-medium text-paper-white">Launches</h2>
+                <h2 className="text-xl font-medium text-paper-white">Top Launches this week</h2>
                 <p className="text-sm text-fog">
                   {board.live
                     ? "Games ranked by votes this week"
@@ -81,7 +81,7 @@ export function HomeBoard({
               </div>
               <div className="flex shrink-0 items-center gap-2 text-xs text-fog">
                 {board.live ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-graphite px-2.5 py-1">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-graphite px-2.5 py-1 border border-iron dark:bg-black/55">
                     <CircleIcon className="size-1.5 fill-success text-success" />
                     Live
                   </span>

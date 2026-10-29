@@ -34,7 +34,7 @@ export function GameDetail({
   live,
   votingOpen,
   signedIn,
-  viewerId = null,
+  viewerHandle = null,
   highlightReviewId = null,
   launchRequested = false,
   launchYear,
@@ -46,7 +46,7 @@ export function GameDetail({
   live: boolean;
   votingOpen: boolean;
   signedIn: boolean;
-  viewerId?: string | null;
+  viewerHandle?: string | null;
   highlightReviewId?: string | null;
   launchRequested?: boolean;
   launchYear: number;
@@ -55,6 +55,14 @@ export function GameDetail({
   const router = useRouter();
   const { game } = data;
   const canManage = data.isOwner || data.isAdmin;
+  const slug = data.game.slug;
+  const [tab, setTab] = useState(highlightReviewId ? "reviews" : "details");
+  const [tabContext, setTabContext] = useState(`${slug}:${highlightReviewId ?? ""}`);
+  const nextTabContext = `${slug}:${highlightReviewId ?? ""}`;
+  if (nextTabContext !== tabContext) {
+    setTabContext(nextTabContext);
+    setTab(highlightReviewId ? "reviews" : "details");
+  }
   const [launchOpen, setLaunchOpen] = useState(launchRequested);
   const [seenLaunchRequest, setSeenLaunchRequest] = useState(launchRequested);
   if (launchRequested !== seenLaunchRequest) {
@@ -185,7 +193,11 @@ export function GameDetail({
         </div>
       </div>
 
-      <Tabs defaultValue={highlightReviewId ? "reviews" : "details"} className="gap-0">
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(String(value))}
+        className="gap-0"
+      >
         <TabsList
           variant="line"
           className="h-11 w-full justify-start gap-6 rounded-none border-b border-iron bg-transparent p-0"
@@ -316,10 +328,11 @@ export function GameDetail({
 
         <TabsContent value="reviews" className="pt-6">
           <GameReviews
+            key={slug}
             slug={game.slug}
             gameId={game.id}
             signedIn={signedIn}
-            viewerId={viewerId}
+            viewerHandle={viewerHandle}
             initialReviews={data.reviews}
             nextCursor={data.reviewsNextCursor}
             average={data.reviewAverage}

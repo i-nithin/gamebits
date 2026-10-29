@@ -17,3 +17,5 @@ export default async function EditAdminCategoryPage({
 
   return <CategoryForm category={category} gameCount={gameCount} />;
 }
+
+export const metadata = { title: 'Edit Category', robots: { index: false, follow: false } };

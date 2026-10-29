@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { countryFromHeaders } from "@/lib/analytics/geo";
 import { recordLinkClick } from "@/lib/analytics/record";
+import { resolveVisitorKey } from "@/lib/analytics/visitor";
 import { resolveOutboundDestination } from "@/lib/analytics/outbound";
 import { getAdminAccess, getCurrentUserId } from "@/lib/auth-admin";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -40,14 +41,15 @@ export async function GET(
     limit === "ok" &&
     !(await getAdminAccess(userId)) &&
     !(userId && game.ownerClerkUserId && game.ownerClerkUserId === userId);
+  const visitorKey = shouldTrack ? await resolveVisitorKey(userId) : null;
 
-  if (shouldTrack) {
+  if (shouldTrack && visitorKey) {
     const gameId = game.id;
     const linkKind = destination.linkKind;
     const country = countryFromHeaders(request.headers);
     after(async () => {
       try {
-        await recordLinkClick(gameId, linkKind, userId, country);
+        await recordLinkClick(gameId, linkKind, userId, country, visitorKey);
       } catch (error) {
         console.error("[analytics] link click failed", error);
       }

@@ -19,15 +19,21 @@ import {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ handle: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }): Promise<Metadata> {
-  const { handle } = await params;
+  const [{ handle }, query] = await Promise.all([params, searchParams]);
   const profile = await getProfileByHandle(handle);
   if (!profile) return { title: "Profile" };
+  const isPrivateTab = ["archived", "saved", "liked", "comments"].includes(
+    query.tab ?? "",
+  );
   return {
-    title: `${profile.name} · GameBits`,
+    title: `${profile.name}${query.tab && query.tab !== "games" ? ` · ${query.tab}` : ""}`,
     description: profile.headline || profile.bio || `${profile.name} on GameBits`,
+    ...(isPrivateTab ? { robots: { index: false, follow: false } } : {}),
   };
 }
 
@@ -57,7 +63,8 @@ export default async function UserProfilePage({
     redirect(`/u/${profile.handle}${suffix}`);
   }
 
-  const userIdForLists = profile.clerkUserId;
+  const { clerkUserId: profileUserId, ...publicProfile } = profile;
+  const userIdForLists = profileUserId;
   const empty = Promise.resolve({ items: [], nextCursor: null });
   const [published, saved, liked, comments, followers, following, follow, archived, gameCount] =
     await Promise.all([
@@ -74,7 +81,7 @@ export default async function UserProfilePage({
 
   return (
     <ProfileHeader
-      profile={profile}
+      profile={publicProfile}
       isOwner={isOwner}
       follow={follow}
       gameCount={gameCount}

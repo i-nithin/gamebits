@@ -5,10 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { profiles, weekListings } from "@/db/schema";
-import { WEEK_LISTING_CAP } from "@/lib/constants";
 import { requireAdmin } from "@/lib/auth-admin";
 import { getDb } from "@/lib/db";
-import { countWeekListings, getGameById } from "@/lib/queries";
+import { getGameById, placeGameOnWeek } from "@/lib/queries";
 
 export async function assignWeekAction(formData: FormData) {
   await requireAdmin();
@@ -24,36 +23,8 @@ export async function assignWeekAction(formData: FormData) {
   const game = await getGameById(gameId);
   if (!game) throw new Error("Game not found");
 
-  const db = getDb();
-  const existing = await db
-    .select({ id: weekListings.id })
-    .from(weekListings)
-    .where(
-      and(
-        eq(weekListings.gameId, gameId),
-        eq(weekListings.isoYear, year),
-        eq(weekListings.isoWeek, week),
-      ),
-    )
-    .limit(1);
-
-  if (!existing[0]) {
-    const count = await countWeekListings(year, week);
-    if (count >= WEEK_LISTING_CAP) {
-      throw new Error(`This week already has ${WEEK_LISTING_CAP} games`);
-    }
-    await db.insert(weekListings).values({
-      gameId,
-      isoYear: year,
-      isoWeek: week,
-      featured,
-    });
-  } else {
-    await db
-      .update(weekListings)
-      .set({ featured })
-      .where(eq(weekListings.id, existing[0].id));
-  }
+  const placed = await placeGameOnWeek({ gameId, year, week, featured });
+  if (!placed.ok) throw new Error(placed.error);
 
   revalidatePath("/");
   revalidatePath(`/week/${year}/${week}`);

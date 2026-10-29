@@ -43,7 +43,7 @@ function ProfileAction({
     );
   }
 
-  return <FollowButton profileUserId={profile.clerkUserId} following={follow.following} />;
+  return <FollowButton handle={profile.handle} following={follow.following} />;
 }
 
 export function ProfileHeader({

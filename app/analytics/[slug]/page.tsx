@@ -12,10 +12,23 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { getGameAnalytics } from "@/lib/analytics/queries";
 import { analyticsQueryHref } from "@/lib/analytics/range";
 import { getCurrentUserId } from "@/lib/auth-admin";
+import { getGameBySlug } from "@/lib/queries";
 
-export const metadata = {
-  title: "Analytics · GameBits",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const [{ slug }, userId] = await Promise.all([params, getCurrentUserId()]);
+  const game = userId ? await getGameBySlug(slug) : null;
+  return {
+    title: game ? `${game.name} Analytics` : "Game Analytics",
+    description: game
+      ? `Views, engagement, launches, and audience trends for ${game.name}.`
+      : "Track game views, engagement, launch activity, and audience trends.",
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function GameAnalyticsPage({
   params,

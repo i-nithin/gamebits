@@ -34,8 +34,9 @@ export async function recordPageViewAction(gameId: string) {
   if (userId && game.ownerClerkUserId === userId) return;
 
   try {
-    const country = countryFromHeaders(requestHeaders);
     const visitorKey = await resolveVisitorKey(userId);
+    if (!visitorKey) return;
+    const country = countryFromHeaders(requestHeaders);
     await recordPageView(game.id, userId, country, visitorKey);
   } catch (error) {
     console.error("[analytics] page view failed", error);

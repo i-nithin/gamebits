@@ -29,3 +29,5 @@ export default async function NewAdminCarouselAdPage({
     />
   );
 }
+
+export const metadata = { title: 'Create Carousel Ad', robots: { index: false, follow: false } };

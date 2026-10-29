@@ -30,3 +30,5 @@ export default async function EditSidebarAdPage({
     />
   );
 }
+
+export const metadata = { title: 'Sidebar Ad Booking', robots: { index: false, follow: false } };

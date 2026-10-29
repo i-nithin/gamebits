@@ -1,7 +1,10 @@
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import { APIError } from "dodopayments";
 
 import { adOrderWeeks, adOrders, adSlots, dodoWebhookEvents } from "@/db/schema";
-import type { DodoWebhookEvent } from "@/lib/dodo";
+import { adPaymentMatches } from "@/lib/ad-catalog";
+import type { AdPlacement } from "@/lib/ads-types";
+import { getDodo, type DodoWebhookEvent } from "@/lib/dodo";
 import { getDb } from "@/lib/db";
 import { isUuid } from "@/lib/sanitize";
 
@@ -17,6 +20,26 @@ export async function attachAdCheckoutSession(orderId: string, sessionId: string
     .update(adOrders)
     .set({ dodoCheckoutSessionId: sessionId, updatedAt: new Date() })
     .where(and(eq(adOrders.id, orderId), eq(adOrders.paymentStatus, "checkout")));
+}
+
+const CHECKOUT_IN_FLIGHT = new Set(["succeeded", "processing"]);
+
+export async function checkoutInFlight(orderId: string) {
+  const db = getDb();
+  const [row] = await db
+    .select({ sessionId: adOrders.dodoCheckoutSessionId })
+    .from(adOrders)
+    .where(eq(adOrders.id, orderId))
+    .limit(1);
+  if (!row?.sessionId) return false;
+
+  try {
+    const status = await getDodo().checkoutSessions.retrieve(row.sessionId);
+    return status.payment_status != null && CHECKOUT_IN_FLIGHT.has(status.payment_status);
+  } catch (error) {
+    console.error("[dodo] could not read the previous checkout", error);
+    return false;
+  }
 }
 
 export async function getPayableAdOrder(userId: string, orderId: string) {
@@ -56,15 +79,21 @@ function orderIdFromMetadata(metadata: { [key: string]: string | number | boolea
   return typeof value === "string" && isUuid(value) ? value : null;
 }
 
-function quantityForProduct(
-  cart: Array<{ product_id: string; quantity: number }> | null | undefined,
-  productId: string,
-) {
-  if (!cart) return 0;
-  return cart.reduce(
-    (sum, item) => (item.product_id === productId ? sum + item.quantity : sum),
-    0,
-  );
+type PaymentCapture = {
+  orderId: string;
+  productCart: Array<{ product_id: string; quantity: number }> | null | undefined;
+  paymentId: string;
+  checkoutSessionId: string | null;
+  customerId: string | null;
+  amountCents: number;
+  currency: string;
+};
+
+class WebhookRetryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WebhookRetryError";
+  }
 }
 
 async function releaseUnpaidOrder(tx: Tx, orderId: string) {
@@ -92,23 +121,55 @@ async function releaseUnpaidOrder(tx: Tx, orderId: string) {
   return true;
 }
 
-async function fulfillPaidOrder(
-  tx: Tx,
-  input: {
-    orderId: string;
-    productCart: Array<{ product_id: string; quantity: number }> | null | undefined;
-    paymentId: string;
-    customerId: string | null;
-    amountCents: number;
-    currency: string;
-  },
-) {
+function isAdPlacement(value: string): value is AdPlacement {
+  return value === "sidebar" || value === "carousel";
+}
+
+function isAlreadyRefunded(error: unknown) {
+  if (!(error instanceof APIError)) return false;
+  return error.status === 409 || error.message.toLowerCase().includes("already");
+}
+
+async function refundCapturedPayment(paymentId: string) {
+  try {
+    await getDodo().refunds.create({ payment_id: paymentId });
+  } catch (error) {
+    if (isAlreadyRefunded(error)) return;
+    console.error("[dodo] refund failed", paymentId, error);
+    throw error;
+  }
+}
+
+async function rememberUnfulfilledPayment(tx: Tx, orderId: string, input: PaymentCapture, release: boolean) {
+  const now = new Date();
+  if (release) {
+    await tx
+      .update(adSlots)
+      .set({ status: "removed" })
+      .where(and(eq(adSlots.orderId, orderId), eq(adSlots.status, "pending")));
+  }
+  await tx
+    .update(adOrders)
+    .set({
+      dodoPaymentId: input.paymentId,
+      dodoCustomerId: input.customerId,
+      amountCents: input.amountCents,
+      currency: input.currency,
+      updatedAt: now,
+      ...(release ? { status: "removed" as const, paymentStatus: "failed" as const } : {}),
+    })
+    .where(eq(adOrders.id, orderId));
+}
+
+async function fulfillPaidOrder(tx: Tx, input: PaymentCapture) {
   const [order] = await tx
     .select({
       id: adOrders.id,
+      placement: adOrders.placement,
       status: adOrders.status,
       paymentStatus: adOrders.paymentStatus,
       dodoProductId: adOrders.dodoProductId,
+      dodoCheckoutSessionId: adOrders.dodoCheckoutSessionId,
       slotCount: adOrders.slotCount,
       dodoPaymentId: adOrders.dodoPaymentId,
     })
@@ -116,62 +177,80 @@ async function fulfillPaidOrder(
     .where(eq(adOrders.id, input.orderId))
     .for("update")
     .limit(1);
-  if (!order) return;
-  if (order.dodoPaymentId === input.paymentId && order.paymentStatus === "paid") return;
+  if (!order) throw new WebhookRetryError("Payment webhook order was not found");
 
-  const productId = order.dodoProductId ?? "";
-  const quantity = quantityForProduct(input.productCart, productId);
+  if (order.dodoPaymentId === input.paymentId && order.paymentStatus === "paid" && order.status === "approved") {
+    return null;
+  }
+  if (order.dodoPaymentId === input.paymentId && order.paymentStatus === "refunded") return null;
+
+  const staleSession =
+    Boolean(input.checkoutSessionId) &&
+    Boolean(order.dodoCheckoutSessionId) &&
+    input.checkoutSessionId !== order.dodoCheckoutSessionId;
+  if (staleSession || (order.dodoPaymentId && order.dodoPaymentId !== input.paymentId)) {
+    console.error("[dodo] payment needs review", {
+      orderId: order.id,
+      paymentId: input.paymentId,
+      reason: staleSession ? "replaced checkout" : "duplicate payment",
+    });
+    return input.paymentId;
+  }
+
   const weekRows = await tx
     .select({ weekStart: adOrderWeeks.weekStart })
     .from(adOrderWeeks)
     .where(eq(adOrderWeeks.orderId, order.id));
   const expectedQuantity = weekRows.length > 0 ? weekRows.length : order.slotCount;
-  const onlyExpectedProduct =
-    Boolean(productId) &&
-    (input.productCart ?? []).every((item) => item.product_id === productId);
-  const matches = onlyExpectedProduct && quantity === expectedQuantity;
-  const now = new Date();
-  const payment = {
-    dodoPaymentId: input.paymentId,
-    dodoCustomerId: input.customerId,
+  const placement = isAdPlacement(order.placement) ? order.placement : null;
+  const matches =
+    placement != null &&
+    adPaymentMatches({
+      productId: order.dodoProductId ?? "",
+      expectedQuantity,
+      cart: input.productCart,
+      amountCents: input.amountCents,
+      currency: input.currency,
+      placement,
+    });
+  const open = order.status === "pending" && order.paymentStatus === "checkout";
+
+  if (matches && open) {
+    const now = new Date();
+    await tx
+      .update(adSlots)
+      .set({ status: "approved" })
+      .where(and(eq(adSlots.orderId, order.id), eq(adSlots.status, "pending")));
+    await tx
+      .update(adOrders)
+      .set({
+        dodoPaymentId: input.paymentId,
+        dodoCustomerId: input.customerId,
+        amountCents: input.amountCents,
+        currency: input.currency,
+        paidAt: now,
+        updatedAt: now,
+        status: "approved",
+        paymentStatus: "paid",
+        reviewedAt: now,
+      })
+      .where(eq(adOrders.id, order.id));
+    return null;
+  }
+
+  console.error("[dodo] payment needs review", {
+    orderId: order.id,
+    paymentId: input.paymentId,
+    reason: matches ? "booking is not open" : "cart or amount mismatch",
     amountCents: input.amountCents,
     currency: input.currency,
-    paidAt: now,
-    updatedAt: now,
-  };
-
-  if (!matches) {
-    console.error("[dodo] payment did not match the booking", {
-      orderId: input.orderId,
-      productId,
-      quantity,
-    });
-    return;
+  });
+  const canRecord =
+    open || order.status === "removed" || order.paymentStatus === "failed";
+  if (canRecord && !order.dodoPaymentId) {
+    await rememberUnfulfilledPayment(tx, order.id, input, open);
   }
-
-  if (order.status !== "pending" || order.paymentStatus !== "checkout") {
-    if (!order.dodoPaymentId) {
-      await tx
-        .update(adOrders)
-        .set({ ...payment, paymentStatus: "paid" })
-        .where(eq(adOrders.id, order.id));
-    }
-    return;
-  }
-
-  await tx
-    .update(adSlots)
-    .set({ status: "approved" })
-    .where(and(eq(adSlots.orderId, order.id), eq(adSlots.status, "pending")));
-  await tx
-    .update(adOrders)
-    .set({
-      ...payment,
-      status: "approved",
-      paymentStatus: "paid",
-      reviewedAt: now,
-    })
-    .where(eq(adOrders.id, order.id));
+  return input.paymentId;
 }
 
 async function refundOrder(tx: Tx, paymentId: string) {
@@ -194,44 +273,66 @@ async function refundOrder(tx: Tx, paymentId: string) {
     .where(eq(adOrders.id, order.id));
 }
 
+async function prepareDodoEvent(tx: Tx, event: DodoWebhookEvent) {
+  if (
+    event.type === "payment.succeeded" ||
+    event.type === "payment.failed" ||
+    event.type === "payment.cancelled"
+  ) {
+    const payment = event.data;
+    const orderId = orderIdFromMetadata(payment.metadata);
+    if (!orderId) throw new WebhookRetryError("Payment webhook is missing order_id");
+
+    if (event.type !== "payment.succeeded") {
+      const [order] = await tx
+        .select({ id: adOrders.id })
+        .from(adOrders)
+        .where(eq(adOrders.id, orderId))
+        .limit(1);
+      if (!order) throw new WebhookRetryError("Payment webhook order was not found");
+      await releaseUnpaidOrder(tx, orderId);
+      return null;
+    }
+
+    const checkoutSessionId =
+      "checkout_session_id" in payment && typeof payment.checkout_session_id === "string"
+        ? payment.checkout_session_id
+        : null;
+    return fulfillPaidOrder(tx, {
+      orderId,
+      productCart: payment.product_cart,
+      paymentId: payment.payment_id,
+      checkoutSessionId,
+      customerId: payment.customer.customer_id,
+      amountCents: payment.total_amount,
+      currency: payment.currency,
+    });
+  }
+
+  if (event.type === "refund.succeeded") {
+    await refundOrder(tx, event.data.payment_id);
+  }
+  return null;
+}
+
 export async function applyDodoWebhook(webhookId: string, event: DodoWebhookEvent) {
   const db = getDb();
   await db.transaction(async (tx) => {
-    const claim = await tx
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${webhookId})::bigint)`);
+    const [existing] = await tx
+      .select({ webhookId: dodoWebhookEvents.webhookId })
+      .from(dodoWebhookEvents)
+      .where(eq(dodoWebhookEvents.webhookId, webhookId))
+      .limit(1);
+    if (existing) return;
+
+    const refundPaymentId = await prepareDodoEvent(tx, event);
+    if (refundPaymentId) await refundCapturedPayment(refundPaymentId);
+
+    await tx
       .insert(dodoWebhookEvents)
       .values({ webhookId, eventType: event.type })
-      .onConflictDoNothing()
-      .returning({ webhookId: dodoWebhookEvents.webhookId });
-    if (claim.length === 0) return;
-
-    if (
-      event.type === "payment.succeeded" ||
-      event.type === "payment.failed" ||
-      event.type === "payment.cancelled"
-    ) {
-      const payment = event.data;
-      const orderId = orderIdFromMetadata(payment.metadata);
-      if (!orderId) return;
-
-      if (event.type === "payment.succeeded") {
-        await fulfillPaidOrder(tx, {
-          orderId,
-          productCart: payment.product_cart,
-          paymentId: payment.payment_id,
-          customerId: payment.customer.customer_id,
-          amountCents: payment.total_amount,
-          currency: payment.currency,
-        });
-        return;
-      }
-
-      await releaseUnpaidOrder(tx, orderId);
-      return;
-    }
-
-    if (event.type === "refund.succeeded") {
-      await refundOrder(tx, event.data.payment_id);
-    }
+      .onConflictDoNothing();
   });
 }
 

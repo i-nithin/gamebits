@@ -10,6 +10,8 @@ import { getDb, hasDatabase } from "@/lib/db";
 import { slugify } from "@/lib/sanitize";
 import type { PublicProfile, Viewer } from "@/lib/types";
 
+export type LoadedProfile = PublicProfile & { clerkUserId: string };
+
 export const HANDLE_RE = /^[a-z0-9_]{3,30}$/;
 
 export const DELETED_PROFILE_NAME = "Deleted user";
@@ -80,9 +82,22 @@ function toPublicProfile(row: {
   linkedinUrl: string | null;
   redditUrl: string | null;
   joinedAt: Date;
-}): PublicProfile {
+}): LoadedProfile {
   return {
-    ...row,
+    clerkUserId: row.clerkUserId,
+    handle: row.handle,
+    name: row.name,
+    imageUrl: row.imageUrl,
+    coverUrl: row.coverUrl,
+    city: row.city,
+    country: row.country,
+    headline: row.headline,
+    bio: row.bio,
+    websiteUrl: row.websiteUrl,
+    xUrl: row.xUrl,
+    githubUrl: row.githubUrl,
+    linkedinUrl: row.linkedinUrl,
+    redditUrl: row.redditUrl,
     joinedAt: row.joinedAt.toISOString(),
   };
 }

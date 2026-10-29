@@ -86,7 +86,7 @@ export type GameReviewItem = {
   displayName: string;
   imageUrl: string | null;
   createdAt: string;
-  clerkUserId: string;
+  handle: string | null;
 };
 
 export type Viewer = {
@@ -99,7 +99,6 @@ export type Viewer = {
 };
 
 export type PublicProfile = {
-  clerkUserId: string;
   handle: string;
   name: string;
   imageUrl: string | null;
@@ -151,7 +150,6 @@ export type ProfileFeedKey =
   | "comments";
 
 export type FollowProfile = {
-  clerkUserId: string;
   handle: string;
   name: string;
   imageUrl: string | null;

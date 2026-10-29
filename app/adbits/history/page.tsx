@@ -14,3 +14,5 @@ export default async function AdHistoryPage({
   const orders = await listUserAdOrders(userId);
   return <AdHistory orders={orders} checkoutReturn={params.checkout === "return"} />;
 }
+
+export const metadata = { title: 'Ad Booking History', robots: { index: false, follow: false } };

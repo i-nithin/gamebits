@@ -68,9 +68,23 @@ export async function createAdCheckoutSession(input: {
     return_url: `${origin}/adbits/history?checkout=return`,
   });
 
-  if (!session.checkout_url) {
+  if (!session.checkout_url || !allowedCheckoutUrl(session.checkout_url)) {
     throw new Error("Checkout URL was not returned");
   }
 
   return { sessionId: session.session_id, checkoutUrl: session.checkout_url };
+}
+
+const DODO_CHECKOUT_HOSTS = new Set([
+  "checkout.dodopayments.com",
+  "test.checkout.dodopayments.com",
+]);
+
+function allowedCheckoutUrl(raw: string) {
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" && DODO_CHECKOUT_HOSTS.has(url.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
 }

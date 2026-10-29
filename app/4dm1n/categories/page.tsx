@@ -159,3 +159,5 @@ export default async function AdminCategoriesPage({
     </div>
   );
 }
+
+export const metadata = { title: 'Manage Categories', robots: { index: false, follow: false } };

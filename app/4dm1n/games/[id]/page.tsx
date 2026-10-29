@@ -44,3 +44,5 @@ export default async function EditAdminGamePage({
     </div>
   );
 }
+
+export const metadata = { title: 'Edit Game Listing', robots: { index: false, follow: false } };

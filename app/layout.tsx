@@ -24,8 +24,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GameBits",
-  description: "A weekly board of interesting games.",
+  title: {
+    default: "Discover Indie Games",
+    template: "%s | GameBits",
+  },
+  description:
+    "Discover indie games, explore weekly rankings, and meet the people who make them on GameBits.",
+  openGraph: {
+    type: "website",
+    siteName: "GameBits",
+    title: "Discover Indie Games | GameBits",
+    description:
+      "Discover indie games, explore weekly rankings, and meet the people who make them on GameBits.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Discover Indie Games | GameBits",
+    description:
+      "Discover indie games, explore weekly rankings, and meet the people who make them on GameBits.",
+  },
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

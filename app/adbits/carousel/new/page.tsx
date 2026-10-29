@@ -12,3 +12,5 @@ export default async function NewCarouselAdPage({
   const query = search.toString();
   redirect(query ? `/adbits/carousel?${query}` : "/adbits/carousel");
 }
+
+export const metadata = { title: 'Book Carousel Advertising', robots: { index: false, follow: false } };

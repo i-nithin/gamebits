@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { games, profiles } from "@/db/schema";
 import { adProductId } from "@/lib/ad-catalog";
-import { attachAdCheckoutSession, getPayableAdOrder } from "@/lib/ad-payments";
+import { attachAdCheckoutSession, checkoutInFlight, getPayableAdOrder } from "@/lib/ad-payments";
 import {
   cancelAdOrder,
   createAdOrder,
@@ -37,6 +37,7 @@ import {
 import { getDb } from "@/lib/db";
 import { createAdCheckoutSession } from "@/lib/dodo";
 import { isUuid, sanitizePlainText } from "@/lib/sanitize";
+import { sanitizeHttpsUrl } from "@/lib/urls";
 
 const creativeSchema = z.object({
   format: z.enum(["brand", "media"]),
@@ -75,6 +76,10 @@ async function startBookingCheckout(input: {
     return { ok: false as const, error: "Add an email to your account before paying" };
   }
 
+  if (await checkoutInFlight(input.orderId)) {
+    return { ok: false as const, error: "Payment is already processing for this booking." };
+  }
+
   try {
     const session = await createAdCheckoutSession({
       orderId: input.orderId,
@@ -101,14 +106,7 @@ function revalidateAds() {
 }
 
 function httpsDestination(value: string) {
-  try {
-    const url = new URL(value.trim());
-    if (url.protocol !== "https:") return null;
-    if (url.username || url.password) return null;
-    return url.toString();
-  } catch {
-    return null;
-  }
+  return sanitizeHttpsUrl(value);
 }
 
 async function requireBooker() {
@@ -148,7 +146,7 @@ function normalizeCreative(
   const imageOwners = Array.isArray(userId) ? userId : [userId];
   const destinationUrl = httpsDestination(input.destinationUrl);
   if (!destinationUrl) {
-    return { ok: false as const, error: "Use an https link for the click destination" };
+    return { ok: false as const, error: "Use a public https link for the click destination" };
   }
 
   if (input.format !== "brand") {
@@ -409,7 +407,7 @@ async function normalizeCarousel(
 ) {
   const destinationUrl = httpsDestination(input.destinationUrl);
   if (!destinationUrl) {
-    return { ok: false as const, error: "Use an https link for the click destination" };
+    return { ok: false as const, error: "Use a public https link for the click destination" };
   }
   const tagline = input.tagline ? sanitizePlainText(input.tagline, AD_TAGLINE_MAX) : null;
   if (input.tagline && !tagline) {

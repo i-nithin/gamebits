@@ -42,3 +42,5 @@ export default async function EditCarouselAdPage({
     />
   );
 }
+
+export const metadata = { title: 'Carousel Ad Booking', robots: { index: false, follow: false } };

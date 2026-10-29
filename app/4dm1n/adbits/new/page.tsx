@@ -10,3 +10,5 @@ export default async function NewAdminAdbitsPage() {
     <AdBookingForm weeks={booking.weeks} monthLabel={booking.monthLabel} mode="admin" />
   );
 }
+
+export const metadata = { title: 'Create Adbit', robots: { index: false, follow: false } };

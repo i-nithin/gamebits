@@ -8,6 +8,12 @@ import { getIsoWeekUtc } from "@/lib/iso-week";
 import { getWeekBoard } from "@/lib/queries";
 import { listTopTrendingGames } from "@/lib/trending/queries";
 
+export const metadata = {
+  title: "Discover Indie Games | GameBits",
+  description:
+    "Find standout indie games, explore this week’s rankings, and discover your next favorite game on GameBits.",
+};
+
 export default async function HomePage() {
   await connection();
   const current = getIsoWeekUtc();

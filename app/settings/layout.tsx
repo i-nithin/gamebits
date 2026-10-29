@@ -13,6 +13,11 @@ import {
 import { clerkEnabled } from "@/lib/clerk-enabled";
 import { getSettingsGate } from "@/lib/settings/gate";
 
+export const metadata = {
+  title: "Account Settings",
+  robots: { index: false, follow: false },
+};
+
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   const gate = await getSettingsGate();
 

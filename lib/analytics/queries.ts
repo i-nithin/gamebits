@@ -104,6 +104,8 @@ function previousOf(window: AnalyticsWindow): AnalyticsWindow | null {
     ...window,
     start: window.previousStart,
     end: window.previousEnd,
+    isoYear: undefined,
+    isoWeek: undefined,
   };
 }
 
@@ -290,11 +292,14 @@ async function countVotesForGames(gameIds: string[], window: AnalyticsWindow) {
   if (gameIds.length === 0) return new Map<string, number>();
   const db = getDb();
   const conditions: SQL[] = [inArray(votes.gameId, gameIds), isNull(votes.withdrawnAt)];
+  if (window.isoYear != null && window.isoWeek != null) {
+    conditions.push(eq(votes.isoYear, window.isoYear), eq(votes.isoWeek, window.isoWeek));
+  }
   if (window.start && window.end) {
     conditions.push(
       and(
-        gte(votes.createdAt, new Date(`${window.start}T00:00:00.000Z`)),
-        lte(votes.createdAt, new Date(`${window.end}T23:59:59.999Z`)),
+        gte(votes.rankingAt, new Date(`${window.start}T00:00:00.000Z`)),
+        lte(votes.rankingAt, new Date(`${window.end}T23:59:59.999Z`)),
       )!,
     );
   }
@@ -709,6 +714,7 @@ async function launchesForGame(
         gameId: games.id,
         name: games.name,
         finalRank: weekListings.finalRank,
+        rankVoteCount: weekListings.rankVoteCount,
         voteCount: sql<number>`count(${votes.id})::int`,
       })
       .from(weekListings)
@@ -732,6 +738,7 @@ async function launchesForGame(
         weekListings.isoYear,
         weekListings.isoWeek,
         weekListings.finalRank,
+        weekListings.rankVoteCount,
         games.id,
         games.name,
       ),
@@ -754,7 +761,13 @@ async function launchesForGame(
 
   const peersByWeek = new Map<
     string,
-    Array<{ gameId: string; name: string; voteCount: number; finalRank: number | null }>
+    Array<{
+      gameId: string;
+      name: string;
+      voteCount: number;
+      finalRank: number | null;
+      rankVoteCount: number | null;
+    }>
   >();
   for (const peer of peers) {
     const key = weekKey(peer.isoYear, peer.isoWeek);
@@ -764,6 +777,7 @@ async function launchesForGame(
       name: peer.name,
       voteCount: asCount(peer.voteCount),
       finalRank: peer.finalRank,
+      rankVoteCount: peer.rankVoteCount,
     });
     peersByWeek.set(key, list);
   }
@@ -777,15 +791,15 @@ async function launchesForGame(
     const weekPeers = peersByWeek.get(key) ?? [];
     const listed = weekPeers.find((peer) => peer.gameId === gameId);
     const live = isIsoWeekLive(listing.isoYear, listing.isoWeek);
-    const rank = hasIsoWeekEnded(listing.isoYear, listing.isoWeek)
-      ? (listed?.finalRank ?? 0)
-      : rankOnWeek(weekPeers, gameId);
+    const ended = hasIsoWeekEnded(listing.isoYear, listing.isoWeek);
+    const rank = ended ? (listed?.finalRank ?? 0) : rankOnWeek(weekPeers, gameId);
+    const liveCount = votesByWeek.get(key) ?? listed?.voteCount ?? 0;
     return {
       year: listing.isoYear,
       week: listing.isoWeek,
       live,
       rank,
-      voteCount: votesByWeek.get(key) ?? listed?.voteCount ?? 0,
+      voteCount: ended && listed?.rankVoteCount != null ? listed.rankVoteCount : liveCount,
     };
   });
 }

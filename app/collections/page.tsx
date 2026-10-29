@@ -148,6 +148,7 @@ export default async function CollectionsPage({
     <CollectionsBrowser
       games={page.games}
       nextCursor={page.nextCursor}
+      trendPoints={"points" in trending ? trending.points : {}}
       weekBoard={weekBoard}
       currentWeek={current}
       categories={categories}
@@ -156,3 +157,5 @@ export default async function CollectionsPage({
     />
   );
 }
+
+export const metadata = { title: 'Game Collections' };

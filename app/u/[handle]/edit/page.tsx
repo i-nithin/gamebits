@@ -14,3 +14,5 @@ export default async function EditProfilePage({
   if (userId !== profile.clerkUserId) redirect(`/u/${profile.handle}`);
   redirect("/settings/profile");
 }
+
+export const metadata = { title: 'Edit Profile' };

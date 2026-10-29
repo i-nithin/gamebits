@@ -56,3 +56,5 @@ export default async function ProfileIndexPage() {
 
   redirect(`/u/${profile.handle}`);
 }
+
+export const metadata = { title: 'Your Profile', robots: { index: false, follow: false } };
