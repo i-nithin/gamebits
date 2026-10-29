@@ -56,10 +56,12 @@ export function VoteButton({
   }
 
   const classes = cn(
+    "rounded-sm border-iron bg-black/55 text-paper-white hover:bg-white/5 hover:text-paper-white dark:border-iron dark:bg-black/55 dark:text-paper-white dark:hover:bg-white/5 dark:hover:text-paper-white",
     wide
-      ? "h-12 min-w-0 flex-1 flex-row rounded-full border-iron px-6 text-paper-white"
-      : "flex flex-col gap-0.5 rounded-lg border-iron px-2 py-1 text-paper-white",
-    voted && "border-ice-signal bg-ice-soft",
+      ? "h-12 min-w-0 flex-1 flex-row gap-2 px-4"
+      : "h-12 min-w-12 flex-col gap-0.5 px-1.5 py-1",
+    voted &&
+      "border-trend bg-trend/15 text-trend hover:bg-trend/20 hover:text-trend dark:border-trend dark:bg-trend/15 dark:text-trend dark:hover:bg-trend/20 dark:hover:text-trend",
     className,
   );
 
@@ -72,9 +74,9 @@ export function VoteButton({
       onClick={vote}
       className={classes}
     >
-      {pending ? <Spinner data-icon="inline-start" /> : <ChevronUpIcon data-icon="inline-start" />}
+      {pending ? <Spinner /> : <ChevronUpIcon className="size-4" />}
       {wide ? "Vote" : null}
-      <span className="stat-mono text-xs">{voteCount}</span>
+      <span className="stat-mono text-xs leading-none">{voteCount}</span>
     </Button>
   );
 
@@ -94,9 +96,9 @@ export function VoteButton({
             className={classes}
             onClick={openAuth}
           >
-            <ChevronUpIcon data-icon="inline-start" />
+            <ChevronUpIcon className="size-4" />
             {wide ? "Vote" : null}
-            <span className="stat-mono text-xs">{voteCount}</span>
+            <span className="stat-mono text-xs leading-none">{voteCount}</span>
           </Button>
         ) : (
           control

@@ -12,13 +12,12 @@ export async function resolveVisitorKey(clerkUserId: string | null) {
   const existing = jar.get(VISITOR_COOKIE)?.value;
   if (existing && isUuid(existing)) return `anon:${existing}`;
 
-  const id = crypto.randomUUID();
-  jar.set(VISITOR_COOKIE, id, {
+  jar.set(VISITOR_COOKIE, crypto.randomUUID(), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: VISITOR_MAX_AGE,
   });
-  return `anon:${id}`;
+  return null;
 }

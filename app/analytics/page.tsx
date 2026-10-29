@@ -25,7 +25,9 @@ import { getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 
 export const metadata = {
-  title: "Analytics · GameBits",
+  title: "Game Analytics",
+  description: "Track game views, engagement, launch activity, and audience trends.",
+  robots: { index: false, follow: false },
 };
 
 export default async function AnalyticsPage({

@@ -252,10 +252,17 @@ export async function processNotificationJob(jobId: string) {
       updatedAt: now,
     }));
 
-    await db.insert(notifications).values(rows);
+    const inserted = await db
+      .insert(notifications)
+      .values(rows)
+      .onConflictDoNothing({
+        target: [notifications.recipientClerkUserId, notifications.groupKey],
+        where: sql`${notifications.readAt} is null`,
+      })
+      .returning({ recipientClerkUserId: notifications.recipientClerkUserId });
     await bumpUnread(
       db,
-      followers.map((row) => row.followerId),
+      inserted.map((row) => row.recipientClerkUserId),
     );
 
     const lastCursor = followers[followers.length - 1]?.followerId ?? null;

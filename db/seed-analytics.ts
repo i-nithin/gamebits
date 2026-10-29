@@ -6,6 +6,7 @@ import { Pool, type PoolClient } from "pg";
 import { compareIsoWeek, getIsoWeekUtc, isoWeekRangeUtc, shiftIsoWeek } from "../lib/iso-week";
 import {
   bookmarks,
+  gameAnalyticsClickVisitors,
   gameAnalyticsDaily,
   gameAnalyticsVisitors,
   gameLinks,
@@ -620,6 +621,7 @@ async function seedGame(
   const plan = buildGamePlan(game.slug, game.name, linkKinds, now);
 
   await db.delete(gameAnalyticsDaily).where(eq(gameAnalyticsDaily.gameId, game.id));
+  await db.delete(gameAnalyticsClickVisitors).where(eq(gameAnalyticsClickVisitors.gameId, game.id));
   await db.delete(gameAnalyticsVisitors).where(eq(gameAnalyticsVisitors.gameId, game.id));
 
   await db.insert(gameAnalyticsDaily).values(
@@ -767,6 +769,9 @@ async function main() {
     await db.delete(likes).where(like(likes.clerkUserId, SEED_USER));
     await db.delete(bookmarks).where(like(bookmarks.clerkUserId, SEED_USER));
     await db.delete(votes).where(like(votes.clerkUserId, SEED_USER));
+    await db.delete(gameAnalyticsClickVisitors).where(
+      like(gameAnalyticsClickVisitors.visitorKey, SEED_USER),
+    );
     await db.delete(gameAnalyticsVisitors).where(like(gameAnalyticsVisitors.visitorKey, SEED_USER));
 
     const linksByGame = new Map<string, string[]>();

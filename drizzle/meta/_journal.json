@@ -218,6 +218,13 @@
       "when": 1793037474388,
       "tag": "0030_ad_order_weeks",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793219112994,
+      "tag": "0031_analytics_click_visitors",
+      "breakpoints": true
     }
   ]
 }

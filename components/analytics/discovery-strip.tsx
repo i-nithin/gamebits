@@ -73,9 +73,7 @@ export function AnalyticsDiscoveryStrip({
                 <span
                   className={cn(
                     "stat-mono inline-flex items-center gap-1 text-xs",
-                    positive && "text-success",
-                    negative && "text-error",
-                    !positive && !negative && "text-fog",
+                    negative ? "text-error" : "text-trend",
                   )}
                 >
                   {positive ? <TrendingUpIcon className="size-3.5" /> : null}

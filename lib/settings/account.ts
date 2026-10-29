@@ -55,13 +55,14 @@ function providerLabel(provider: string) {
 }
 
 export async function getClerkAccount(userId: string): Promise<ClerkAccount> {
-  const authPromise = auth();
-  const clientPromise = clerkClient();
-  const client = await clientPromise;
-  const [authState, user, sessionList] = await Promise.all([
-    authPromise,
-    client.users.getUser(userId),
-    client.sessions.getSessionList({ userId, status: "active", limit: 100 }),
+  const authState = await auth();
+  if (!authState.userId || authState.userId !== userId) {
+    throw new Error("Unauthorized");
+  }
+  const client = await clerkClient();
+  const [user, sessionList] = await Promise.all([
+    client.users.getUser(authState.userId),
+    client.sessions.getSessionList({ userId: authState.userId, status: "active", limit: 100 }),
   ]);
 
   const emails = user.emailAddresses

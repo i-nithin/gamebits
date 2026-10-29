@@ -102,3 +102,5 @@ export default async function AdminGamesPage({
     </div>
   );
 }
+
+export const metadata = { title: 'Manage Games', robots: { index: false, follow: false } };

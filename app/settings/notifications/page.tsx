@@ -11,3 +11,5 @@ export default async function SettingsNotificationsPage() {
   const preferences = await getNotificationPreferences(gate.profile.clerkUserId);
   return <NotificationSettings preferences={preferences} />;
 }
+
+export const metadata = { title: 'Notification Settings', robots: { index: false, follow: false } };

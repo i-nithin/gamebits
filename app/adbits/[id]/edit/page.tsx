@@ -8,3 +8,5 @@ export default async function EditAdbitsPage({
   const { id } = await params;
   redirect(`/adbits/sidebar/${id}`);
 }
+
+export const metadata = { title: 'Edit Ad Booking', robots: { index: false, follow: false } };

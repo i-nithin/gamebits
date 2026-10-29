@@ -1,7 +1,44 @@
 import type { GameLinkKind } from "@/lib/constants";
 import { isLocalPlatformLogoUrl } from "@/lib/platform-catalog";
 
-const BLOCKED_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
+function ipv4Parts(host: string) {
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!match) return null;
+  const parts = [Number(match[1]), Number(match[2]), Number(match[3]), Number(match[4])];
+  if (parts.some((part) => part > 255)) return null;
+  return parts;
+}
+
+function isPrivateIpv4(parts: number[]) {
+  const [a, b] = parts;
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  return false;
+}
+
+function isBlockedHost(host: string) {
+  const normalized = host.toLowerCase().replace(/^\[|\]$/g, "");
+  if (
+    normalized === "localhost" ||
+    normalized.endsWith(".localhost") ||
+    normalized.endsWith(".local")
+  ) {
+    return true;
+  }
+  const ipv4 = ipv4Parts(normalized);
+  if (ipv4) return isPrivateIpv4(ipv4);
+  if (!normalized.includes(":")) return false;
+  if (normalized === "::1" || normalized === "0:0:0:0:0:0:0:1") return true;
+  if (normalized.startsWith("fe80:")) return true;
+  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
+  if (normalized.startsWith("::ffff:")) {
+    const mapped = ipv4Parts(normalized.slice("::ffff:".length));
+    if (mapped) return isPrivateIpv4(mapped);
+  }
+  return false;
+}
 
 const LINK_HOSTS: Record<GameLinkKind, string[]> = {
   web: [],
@@ -81,8 +118,7 @@ function parseHttpsUrl(raw: string) {
   }
   if (parsed.protocol !== "https:") return null;
   if (parsed.username || parsed.password) return null;
-  const host = parsed.hostname.toLowerCase();
-  if (BLOCKED_HOSTS.has(host) || host.endsWith(".local")) return null;
+  if (isBlockedHost(parsed.hostname)) return null;
   return parsed;
 }
 

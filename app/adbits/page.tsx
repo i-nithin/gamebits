@@ -15,3 +15,5 @@ export default async function AdbitsPage({
   if (params.placement === "carousel") redirect("/adbits/carousel");
   redirect("/adbits/sidebar");
 }
+
+export const metadata = { title: 'Advertise', robots: { index: false, follow: false } };

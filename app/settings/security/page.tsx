@@ -34,3 +34,5 @@ export default async function SettingsSecurityPage() {
     />
   );
 }
+
+export const metadata = { title: 'Security Settings', robots: { index: false, follow: false } };

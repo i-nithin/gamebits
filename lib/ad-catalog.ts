@@ -21,6 +21,27 @@ export function adUnitCents(placement: "sidebar" | "carousel") {
   return placement === "carousel" ? CAROUSEL_AD_UNIT_CENTS : SIDEBAR_AD_UNIT_CENTS;
 }
 
+export function adPaymentMatches(input: {
+  productId: string;
+  expectedQuantity: number;
+  cart: Array<{ product_id: string; quantity: number }> | null | undefined;
+  amountCents: number;
+  currency: string;
+  placement: "sidebar" | "carousel";
+}) {
+  if (!input.productId || input.expectedQuantity < 1) return false;
+  const cart = input.cart ?? [];
+  if (cart.length === 0 || cart.some((item) => item.product_id !== input.productId)) {
+    return false;
+  }
+  const quantity = cart.reduce((sum, item) => sum + item.quantity, 0);
+  return (
+    quantity === input.expectedQuantity &&
+    input.amountCents === adUnitCents(input.placement) * input.expectedQuantity &&
+    input.currency.toUpperCase() === "USD"
+  );
+}
+
 export function formatUsd(cents: number) {
   const dollars = cents / 100;
   return new Intl.NumberFormat("en-US", {

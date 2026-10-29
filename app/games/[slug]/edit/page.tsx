@@ -37,3 +37,5 @@ export default async function EditGamePage({
     />
   );
 }
+
+export const metadata = { title: 'Edit Game Listing', robots: { index: false, follow: false } };

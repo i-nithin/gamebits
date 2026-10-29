@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { sparklinePoints } from "./sparkline";
+import { sparklineDirection, sparklinePoints } from "./sparkline";
 import type { TrendEvent } from "./score";
 
 const START = new Date("2026-06-15T00:00:00.000Z");
@@ -28,5 +28,18 @@ describe("sparklinePoints", () => {
   it("keeps equal slices equal", () => {
     const events = [0, 1, 2, 3, 4, 5].map((hour) => atHour(hour));
     assert.deepEqual(sparklinePoints(events, START, END, 6), [6, 6, 6, 6, 6, 6]);
+  });
+});
+
+describe("sparklineDirection", () => {
+  it("treats a rise and a flat line as not down", () => {
+    assert.equal(sparklineDirection([0, 1, 4]), "up");
+    assert.equal(sparklineDirection([2, 2, 2]), "flat");
+    assert.equal(sparklineDirection([1]), "flat");
+    assert.equal(sparklineDirection([]), "flat");
+  });
+
+  it("marks a line that finishes lower as down", () => {
+    assert.equal(sparklineDirection([4, 3, 1]), "down");
   });
 });

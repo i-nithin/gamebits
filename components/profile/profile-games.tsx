@@ -87,7 +87,7 @@ function gameKey(game: SavedGame) {
 }
 
 function personKey(person: FollowProfile) {
-  return person.clerkUserId;
+  return person.handle;
 }
 
 function reviewKey(review: ProfileReview) {

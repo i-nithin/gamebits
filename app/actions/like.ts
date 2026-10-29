@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { games } from "@/db/schema";
 import { accountBlockReason, getCurrentUserId } from "@/lib/auth-admin";
+import { rateLimit } from "@/lib/rate-limit";
 import { getDb } from "@/lib/db";
 import {
   emitDirectNotification,
@@ -17,6 +18,9 @@ export async function toggleLikeAction(formData: FormData) {
   const userId = await getCurrentUserId();
   const blocked = await accountBlockReason(userId);
   if (!userId || blocked) return { ok: false as const, reason: blocked ?? "unauthenticated" };
+  if ((await rateLimit("like", userId)) !== "ok") {
+    return { ok: false as const, reason: "limited" as const };
+  }
 
   const gameId = String(formData.get("gameId") ?? "");
   if (!gameId) {

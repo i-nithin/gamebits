@@ -143,3 +143,5 @@ export default async function AdminReportPage({ params }: { params: Promise<{ id
     </div>
   );
 }
+
+export const metadata = { title: 'Review Report', robots: { index: false, follow: false } };

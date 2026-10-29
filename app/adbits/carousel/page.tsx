@@ -44,3 +44,5 @@ export default async function CarouselAdPage({
     />
   );
 }
+
+export const metadata = { title: 'Carousel Advertising', robots: { index: false, follow: false } };

@@ -7,6 +7,8 @@ export type AnalyticsWindow = {
   end: string | null;
   previousStart: string | null;
   previousEnd: string | null;
+  isoYear?: number;
+  isoWeek?: number;
 };
 
 const MS_PER_DAY = 86_400_000;
@@ -64,7 +66,7 @@ export function buildLaunchWindow(
   const { start, end } = isoWeekRangeUtc(year, week);
   const startDay = toUtcDay(start);
   const endDay = toUtcDay(end > now ? now : end);
-  return withPrevious("launch", startDay, endDay);
+  return { ...withPrevious("launch", startDay, endDay), isoYear: year, isoWeek: week };
 }
 
 export function buildAllWindow(): AnalyticsWindow {

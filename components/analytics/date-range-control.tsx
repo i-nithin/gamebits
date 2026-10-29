@@ -112,10 +112,14 @@ export function AnalyticsDateRangeControl({
 
   function applyCustom() {
     if (!from || !to) return;
+    const start = from <= to ? from : to;
+    const end = from <= to ? to : from;
+    setFrom(start);
+    setTo(end);
     pushParams((next) => {
       next.delete("range");
-      next.set("from", from);
-      next.set("to", to);
+      next.set("from", start);
+      next.set("to", end);
     });
     setOpen(false);
   }

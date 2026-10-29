@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { accountBlockReason, getCurrentUserId } from "@/lib/auth-admin";
-import { ensureCurrentProfile } from "@/lib/profile";
+import { ensureCurrentProfile, getProfileByHandle, HANDLE_RE } from "@/lib/profile";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   emitDirectNotification,
   ensureActorPayload,
@@ -13,11 +14,14 @@ import { toggleFollow } from "@/lib/queries";
 export async function toggleFollowAction(formData: FormData) {
   const userId = await getCurrentUserId();
   const blocked = await accountBlockReason(userId);
-  if (blocked) return { ok: false as const, reason: blocked };
+  if (!userId || blocked) return { ok: false as const, reason: blocked ?? "unauthenticated" };
 
-  const profileUserId = String(formData.get("profileUserId") ?? "");
-  if (!profileUserId || profileUserId === userId) {
+  const handle = String(formData.get("handle") ?? "").toLowerCase();
+  if (!HANDLE_RE.test(handle)) {
     return { ok: false as const, reason: "invalid" as const };
+  }
+  if ((await rateLimit("follow", userId)) !== "ok") {
+    return { ok: false as const, reason: "limited" as const };
   }
 
   const follower = await ensureCurrentProfile();
@@ -25,7 +29,12 @@ export async function toggleFollowAction(formData: FormData) {
     return { ok: false as const, reason: "unauthenticated" as const };
   }
 
-  const result = await toggleFollow({ followerId: userId, followingId: profileUserId });
+  const target = await getProfileByHandle(handle);
+  if (!target || target.clerkUserId === userId) {
+    return { ok: false as const, reason: "invalid" as const };
+  }
+
+  const result = await toggleFollow({ followerId: userId, followingId: target.clerkUserId });
   if (!result) {
     return { ok: false as const, reason: "invalid" as const };
   }
@@ -33,7 +42,7 @@ export async function toggleFollowAction(formData: FormData) {
   if (result.following) {
     const actor = await ensureActorPayload(userId);
     void emitDirectNotification({
-      recipientId: profileUserId,
+      recipientId: target.clerkUserId,
       actorId: userId,
       type: "follow",
       entityType: "profile",

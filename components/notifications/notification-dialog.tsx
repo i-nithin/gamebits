@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { notifyError } from "@/lib/notify";
 import type { NotificationFilter, NotificationItem } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
 
@@ -42,10 +43,17 @@ export function NotificationDialog({
   useEffect(() => {
     if (!open) return;
     startTransition(() => {
-      void loadNotifications({ filter }).then((result) => {
-        setItems(result.items);
-        setCursor(result.nextCursor);
-      });
+      void loadNotifications({ filter })
+        .then((result) => {
+          setItems(result.items);
+          setCursor(result.nextCursor);
+        })
+        .catch((error) => {
+          console.error("[notifications] dialog failed", error);
+          setItems([]);
+          setCursor(null);
+          notifyError("Couldn't load notifications.");
+        });
     });
   }, [open, filter, loadNotifications]);
 
@@ -56,6 +64,9 @@ export function NotificationDialog({
       const result = await loadNotifications({ filter, cursor });
       setItems((current) => [...current, ...result.items]);
       setCursor(result.nextCursor);
+    } catch (error) {
+      console.error("[notifications] dialog failed", error);
+      notifyError("Couldn't load notifications.");
     } finally {
       setLoadingMore(false);
     }

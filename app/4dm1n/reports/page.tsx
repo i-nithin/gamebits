@@ -132,3 +132,5 @@ export default async function AdminReportsPage({
     </div>
   );
 }
+
+export const metadata = { title: 'Review Reports', robots: { index: false, follow: false } };

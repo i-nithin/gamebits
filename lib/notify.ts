@@ -25,5 +25,17 @@ export function notifyReason(title: string, reason: string) {
     notifyError(title, "Voting opens when this week starts.");
     return;
   }
+  if (reason === "unlisted") {
+    notifyError(title, "This game is not on that week's board.");
+    return;
+  }
+  if (reason === "missing") {
+    notifyError(title, "That game is no longer available.");
+    return;
+  }
+  if (reason === "limited") {
+    notifyError(title, "Too many requests. Try again in a moment.");
+    return;
+  }
   notifyError(title, "Try again in a moment.");
 }

@@ -28,3 +28,5 @@ export default async function EditAdminAdbitsPage({
     />
   );
 }
+
+export const metadata = { title: 'Edit Adbit', robots: { index: false, follow: false } };

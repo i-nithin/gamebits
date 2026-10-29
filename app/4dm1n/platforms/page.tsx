@@ -152,3 +152,5 @@ export default async function AdminPlatformsPage({
     </div>
   );
 }
+
+export const metadata = { title: 'Manage Platforms', robots: { index: false, follow: false } };

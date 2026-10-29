@@ -26,3 +26,5 @@ export default async function SidebarAdPage({
     />
   );
 }
+
+export const metadata = { title: 'Sidebar Advertising', robots: { index: false, follow: false } };

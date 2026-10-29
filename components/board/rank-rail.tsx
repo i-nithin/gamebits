@@ -6,30 +6,11 @@ import { OpenAdSlot } from "@/components/ads/open-ad-slot";
 import { SidebarAdStack } from "@/components/ads/sidebar-ad-stack";
 import { FacebookMark, InstagramMark, RedditMark, XMark } from "@/components/settings/brand-marks";
 import type { SidebarAd } from "@/lib/ads-types";
-import { sparklinePolyline } from "@/lib/trending/sparkline";
+import { TrendSpark } from "@/components/trending/trend-spark";
 import type { TrendingRailItem } from "@/lib/trending/queries";
 
 const socialBubble =
   "flex size-8 items-center justify-center rounded-full border border-white/30 text-paper-white";
-
-function TrendSpark({ points }: { points: number[] }) {
-  return (
-    <svg
-      viewBox="0 0 52 22"
-      aria-hidden
-      className="h-[22px] w-[52px] shrink-0"
-    >
-      <polyline
-        points={sparklinePolyline(points)}
-        fill="none"
-        stroke="#5cdb7c"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 function RailSocials() {
   return (

@@ -8,3 +8,5 @@ export default async function LaunchGamePage({
   const { slug } = await params;
   redirect(`/games/${slug}?launch=1`);
 }
+
+export const metadata = { title: 'Launch Game', robots: { index: false, follow: false } };
