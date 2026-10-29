@@ -4,6 +4,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { and, eq, isNotNull, isNull, lt } from "drizzle-orm";
 
 import { gameReviews, profiles } from "@/db/schema";
+import { revokeUserApiKeys } from "@/lib/api/keys";
 import { ACCOUNT_DELETION_GRACE_MS, deletionGraceEnded } from "@/lib/account-deletion";
 import { getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
@@ -87,6 +88,11 @@ export async function purgeAccount(clerkUserId: string) {
       })
       .where(eq(gameReviews.clerkUserId, clerkUserId));
   });
+  try {
+    await revokeUserApiKeys(clerkUserId);
+  } catch (error) {
+    console.error("[account] api key revoke failed", error);
+  }
   return true;
 }
 

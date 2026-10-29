@@ -17,6 +17,7 @@ import {
 } from "@/db/schema";
 import { COLLECTION_PAGE_SIZE, GAME_STATUSES, type GameStatus } from "@/lib/constants";
 import { getDb, hasDatabase } from "@/lib/db";
+import { publicGameWhere } from "@/lib/public-games";
 import { asCatalogGame, withCatalog, type CollectionPage } from "@/lib/queries";
 import { isTrendRange, trendRangePeriod, type TrendRange } from "@/lib/trending/periods";
 import { ensureFreshTrends } from "@/lib/trending/recompute";
@@ -33,9 +34,13 @@ export const listTrendingGamesPage = cache(async function listTrendingGamesPage(
   statuses?: GameStatus[];
   cursor?: string | null;
   limit?: number;
+  ensureFresh?: boolean;
+  includePoints?: boolean;
 }): Promise<CollectionPage & { points: Record<string, number[]> }> {
   if (!hasDatabase()) return { games: [], nextCursor: null, points: {} };
-  await ensureFreshTrends();
+  if (opts?.ensureFresh !== false) {
+    await ensureFreshTrends();
+  }
 
   const range = opts?.range && isTrendRange(opts.range) ? opts.range : "today";
   const period = trendRangePeriod(range);
@@ -77,7 +82,7 @@ export const listTrendingGamesPage = cache(async function listTrendingGamesPage(
       and(
         eq(trendSnapshots.kind, period.kind),
         eq(trendSnapshots.periodKey, period.key),
-        isNull(games.archivedAt),
+        publicGameWhere(),
         statuses.length > 0 ? inArray(games.status, statuses) : undefined,
         categoryMatch,
         platformMatch,
@@ -91,11 +96,14 @@ export const listTrendingGamesPage = cache(async function listTrendingGamesPage(
   const page = hasMore ? rows.slice(0, limit) : rows;
   const last = page[page.length - 1];
   const ranked = await withCatalog(page.map((row) => asCatalogGame(row.game, row.rank)));
-  const pointMap = await sparklinePointsForWindow(
-    ranked.map((game) => game.id),
-    period.hotStart,
-    period.hotEnd,
-  );
+  const pointMap =
+    opts?.includePoints === false
+      ? new Map<string, number[]>()
+      : await sparklinePointsForWindow(
+          ranked.map((game) => game.id),
+          period.hotStart,
+          period.hotEnd,
+        );
   return {
     games: ranked,
     nextCursor: hasMore && last ? encodeTrendCursor(last.rank, range) : null,

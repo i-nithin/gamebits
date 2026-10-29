@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 
 import { profiles } from "@/db/schema";
 import { deletionGraceEnded } from "@/lib/account-deletion";
+import { revokeUserApiKeys } from "@/lib/api/keys";
 import { purgeAccount, revokeUserSessions } from "@/lib/account-purge";
 import { accountAccessError, getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
@@ -170,6 +171,11 @@ export async function deleteAccountAction(confirmation: string) {
         error: "Add another admin before deleting this account",
         expired: false as const,
       };
+    }
+    try {
+      await revokeUserApiKeys(userId);
+    } catch (error) {
+      console.error("[settings] api key revoke failed", error);
     }
     revalidatePath(`/u/${committed.handle}`);
   } else {

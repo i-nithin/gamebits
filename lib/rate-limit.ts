@@ -11,19 +11,33 @@ export type RateLimitName =
   | "like"
   | "bookmark"
   | "follow"
-  | "review";
+  | "review"
+  | "api"
+  | "apiDay"
+  | "apiAuthFail"
+  | "apiKeyCreate";
 
-const WINDOWS: Record<RateLimitName, [number, `${number} s`]> = {
-  search: [30, "60 s"],
-  upload: [20, "60 s"],
-  pageview: [30, "60 s"],
-  click: [60, "60 s"],
-  report: [8, "600 s"],
-  vote: [30, "60 s"],
-  like: [30, "60 s"],
-  bookmark: [30, "60 s"],
-  follow: [20, "60 s"],
-  review: [10, "60 s"],
+type WindowSpec = {
+  tokens: number;
+  window: `${number} s`;
+  mode?: "fixed";
+};
+
+const WINDOWS: Record<RateLimitName, WindowSpec> = {
+  search: { tokens: 30, window: "60 s" },
+  upload: { tokens: 20, window: "60 s" },
+  pageview: { tokens: 30, window: "60 s" },
+  click: { tokens: 60, window: "60 s" },
+  report: { tokens: 8, window: "600 s" },
+  vote: { tokens: 30, window: "60 s" },
+  like: { tokens: 30, window: "60 s" },
+  bookmark: { tokens: 30, window: "60 s" },
+  follow: { tokens: 20, window: "60 s" },
+  review: { tokens: 10, window: "60 s" },
+  api: { tokens: 60, window: "60 s" },
+  apiDay: { tokens: 5000, window: "86400 s", mode: "fixed" },
+  apiAuthFail: { tokens: 20, window: "60 s" },
+  apiKeyCreate: { tokens: 10, window: "3600 s" },
 };
 
 let redis: Redis | null = null;
@@ -37,10 +51,13 @@ function limiter(name: RateLimitName) {
   const existing = limiters.get(name);
   if (existing) return existing;
   redis ??= Redis.fromEnv();
-  const [tokens, window] = WINDOWS[name];
+  const spec = WINDOWS[name];
   const created = new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(tokens, window),
+    limiter:
+      spec.mode === "fixed"
+        ? Ratelimit.fixedWindow(spec.tokens, spec.window)
+        : Ratelimit.slidingWindow(spec.tokens, spec.window),
     prefix: `gb:${name}`,
     analytics: false,
   });
@@ -48,20 +65,44 @@ function limiter(name: RateLimitName) {
   return created;
 }
 
+export type RateLimitDetail = {
+  status: "ok" | "limited" | "unavailable";
+  limit: number;
+  remaining: number;
+  reset: number;
+};
+
+export async function rateLimitDetail(
+  name: RateLimitName,
+  key: string,
+): Promise<RateLimitDetail> {
+  const tokens = WINDOWS[name].tokens;
+  if (!configured()) {
+    if (process.env.NODE_ENV === "production") {
+      return { status: "unavailable", limit: tokens, remaining: 0, reset: Date.now() + 1000 };
+    }
+    return { status: "ok", limit: tokens, remaining: tokens, reset: Date.now() + 60_000 };
+  }
+  try {
+    const result = await limiter(name).limit(key || "unknown");
+    return {
+      status: result.success ? "ok" : "limited",
+      limit: result.limit,
+      remaining: result.remaining,
+      reset: result.reset,
+    };
+  } catch (error) {
+    console.error("[rate-limit] failed", error);
+    return { status: "unavailable", limit: tokens, remaining: 0, reset: Date.now() + 1000 };
+  }
+}
+
 export async function rateLimit(
   name: RateLimitName,
   key: string,
 ): Promise<"ok" | "limited" | "unavailable"> {
-  if (!configured()) {
-    return process.env.NODE_ENV === "production" ? "unavailable" : "ok";
-  }
-  try {
-    const result = await limiter(name).limit(key || "unknown");
-    return result.success ? "ok" : "limited";
-  } catch (error) {
-    console.error("[rate-limit] failed", error);
-    return "unavailable";
-  }
+  const detail = await rateLimitDetail(name, key);
+  return detail.status;
 }
 
 function lastHop(value: string | null) {

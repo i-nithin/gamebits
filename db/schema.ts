@@ -809,6 +809,27 @@ export const trendSnapshotRanks = pgTable(
   ],
 );
 
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clerkUserId: text("clerk_user_id").notNull(),
+    name: text("name").notNull(),
+    keyPrefix: text("key_prefix").notNull(),
+    keyLast4: text("key_last4").notNull(),
+    keyHash: text("key_hash").notNull(),
+    scopes: text("scopes").array().notNull().default(sql`'{read}'::text[]`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("api_keys_hash_idx").on(table.keyHash),
+    index("api_keys_user_idx").on(table.clerkUserId),
+  ],
+);
+
 export const notificationJobs = pgTable(
   "notification_jobs",
   {

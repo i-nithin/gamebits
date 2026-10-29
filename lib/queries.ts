@@ -16,7 +16,8 @@ import {
 } from "@/lib/constants";
 import { getDb, hasDatabase } from "@/lib/db";
 import { hasIsoWeekEnded, hasIsoWeekStarted, isIsoWeekLive, isoWeekRangeUtc } from "@/lib/iso-week";
-import { ensureWeekRankSnapshot, nextRevoteStamp } from "@/lib/week-rank";
+import { publicGameWhere } from "@/lib/public-games";
+import { boardRankMode, ensureWeekRankSnapshot, nextRevoteStamp } from "@/lib/week-rank";
 import { isUuid } from "@/lib/sanitize";
 import type {
   FollowProfile,
@@ -484,7 +485,7 @@ export const listCollectionGamesPage = cache(async function listCollectionGamesP
     .from(games)
     .where(
       and(
-        isNull(games.archivedAt),
+        publicGameWhere(),
         statuses.length > 0 ? inArray(games.status, statuses) : undefined,
         categoryMatch,
         platformMatch,
@@ -532,15 +533,16 @@ export const getWeekBoard = cache(async function getWeekBoard(
   year: number,
   week: number,
   userId?: string | null,
+  snapshot = true,
 ): Promise<WeekBoard> {
   const live = isIsoWeekLive(year, week);
   const ended = hasIsoWeekEnded(year, week);
   const votingOpen = hasIsoWeekStarted(year, week);
   if (!hasDatabase()) {
-    return { year, week, live, votingOpen, games: [] };
+    return { year, week, live, votingOpen, games: [], ranksFrozen: false };
   }
 
-  if (ended) {
+  if (ended && snapshot) {
     await ensureWeekRankSnapshot(year, week);
   }
 
@@ -570,17 +572,23 @@ export const getWeekBoard = cache(async function getWeekBoard(
       and(
         eq(weekListings.isoYear, year),
         eq(weekListings.isoWeek, week),
-        isNull(games.archivedAt),
+        publicGameWhere(),
       ),
     )
     .groupBy(games.id, weekListings.id);
+
+  const mode = boardRankMode(
+    ended,
+    rows.map((row) => row.finalRank),
+  );
 
   return {
     year,
     week,
     live,
     votingOpen,
-    games: await withCatalog(ended ? toFrozen(rows) : toRanked(rows)),
+    ranksFrozen: mode === "frozen",
+    games: await withCatalog(mode === "frozen" ? toFrozen(rows) : toRanked(rows)),
   };
 });
 
@@ -1082,7 +1090,7 @@ export async function listProfileReviews(userId: string): Promise<ProfileReview[
       and(
         eq(gameReviews.clerkUserId, userId),
         isNull(gameReviews.removedAt),
-        isNull(games.archivedAt),
+        publicGameWhere(),
       ),
     )
     .orderBy(desc(gameReviews.createdAt));
@@ -1159,7 +1167,7 @@ export async function listProfileGamesPage(opts: {
     .where(
       and(
         eq(games.ownerClerkUserId, opts.userId),
-        opts.view === "published" ? isNull(games.archivedAt) : undefined,
+        opts.view === "published" ? publicGameWhere() : undefined,
         opts.view === "archived" ? isNotNull(games.archivedAt) : undefined,
         search ? or(textContains(games.name, search), textContains(games.tagline, search)) : undefined,
         olderThan(stamp, games.id, cursor),
@@ -1341,7 +1349,7 @@ export async function listProfileReviewsPage(opts: {
       and(
         eq(gameReviews.clerkUserId, opts.userId),
         isNull(gameReviews.removedAt),
-        isNull(games.archivedAt),
+        publicGameWhere(),
         search ? or(textContains(gameReviews.body, search), textContains(games.name, search)) : undefined,
         olderThan(gameReviews.createdAt, gameReviews.id, cursor),
       ),
@@ -1455,6 +1463,7 @@ export async function getGamePageData(
   slug: string,
   userId?: string | null,
   reviewId?: string | null,
+  snapshot = true,
 ): Promise<GamePageData | null> {
   const gameRow = await getGameBySlug(slug);
   if (!gameRow) return null;
@@ -1463,7 +1472,7 @@ export async function getGamePageData(
     getAdminAccess(userId),
     canManageGame(userId, gameRow.ownerClerkUserId),
   ]);
-  if (gameRow.archivedAt && !isOwner) return null;
+  if ((gameRow.archivedAt || gameRow.takenDownAt || gameRow.hiddenByBan) && !isOwner) return null;
 
   if (!hasDatabase()) return null;
   const db = getDb();
@@ -1527,7 +1536,7 @@ export async function getGamePageData(
     ]);
 
   const boards = await Promise.all(
-    listingRows.map((listing) => getWeekBoard(listing.isoYear, listing.isoWeek, userId)),
+    listingRows.map((listing) => getWeekBoard(listing.isoYear, listing.isoWeek, userId, snapshot)),
   );
 
   const launches: GameLaunchItem[] = listingRows.map((listing, index) => {

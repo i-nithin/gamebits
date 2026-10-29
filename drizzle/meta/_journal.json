@@ -225,6 +225,20 @@
       "when": 1793219112994,
       "tag": "0031_analytics_click_visitors",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793247796285,
+      "tag": "0032_api_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793287011102,
+      "tag": "0033_api_key_expiry",
+      "breakpoints": true
     }
   ]
 }

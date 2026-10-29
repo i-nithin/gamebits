@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { gameReviews, games, profiles, reports } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth-admin";
+import { revokeUserApiKeys } from "@/lib/api/keys";
 import { revokeUserSessions } from "@/lib/account-purge";
 import { getDb } from "@/lib/db";
 import { emitAccountBanned, emitContentRemoved } from "@/lib/notifications/notices";
@@ -343,6 +344,11 @@ async function banUser(adminId: string, clerkUserId: string, reason: string) {
     await revokeUserSessions(clerkUserId);
   } catch (error) {
     console.error("[reports] session revoke failed", error);
+  }
+  try {
+    await revokeUserApiKeys(clerkUserId);
+  } catch (error) {
+    console.error("[reports] api key revoke failed", error);
   }
   revalidatePath("/4dm1n");
   revalidatePath("/", "layout");
