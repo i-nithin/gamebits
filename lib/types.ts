@@ -56,6 +56,8 @@ export type WeekBoard = {
   live: boolean;
   votingOpen: boolean;
   games: RankedGame[];
+  /** Ended week whose listings all have a stored final rank. */
+  ranksFrozen: boolean;
 };
 
 export type GameMediaItem = {

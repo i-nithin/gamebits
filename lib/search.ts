@@ -2,6 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 
 import { gamePlatforms, games, platforms, profiles } from "@/db/schema";
 import { getDb, hasDatabase } from "@/lib/db";
+import { publicGameSql } from "@/lib/public-games";
 import type { SearchGameHit, SearchPersonHit, SearchScope } from "@/lib/types";
 
 const LIMIT = 8;
@@ -124,7 +125,7 @@ function gameBranch(match: SQL, order: SQL, platform: string | null, signal: Sig
            ${games.logoUrl} as logo_url,
            ${signal}::text as signal
     from ${games}
-    where ${games.archivedAt} is null
+    where ${publicGameSql()}
       and (${match})
       ${platformFilter(platform)}
     order by ${order}
@@ -190,7 +191,7 @@ async function searchGames(
              'fts'::text as signal
       from ${games}
       cross join q
-      where ${games.archivedAt} is null
+      where ${publicGameSql()}
         and q.tsq <> ''::tsquery
         and ${games.searchTsv} @@ q.tsq
         ${platformFilter(platform)}

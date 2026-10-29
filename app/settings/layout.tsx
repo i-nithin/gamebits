@@ -32,7 +32,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
           <EmptyHeader>
             <EmptyTitle>Sign in to manage settings</EmptyTitle>
             <EmptyDescription>
-              Profile, notifications, and account sessions live here.
+              Profile, notifications, security, and API keys live here.
             </EmptyDescription>
           </EmptyHeader>
           {clerkEnabled ? (

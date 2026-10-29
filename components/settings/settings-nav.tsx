@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BellIcon, ShieldIcon, UserRoundIcon, type LucideIcon } from "lucide-react";
+import { BellIcon, KeyRoundIcon, ShieldIcon, UserRoundIcon, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const TABS: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/settings/profile", label: "Profile", icon: UserRoundIcon },
   { href: "/settings/notifications", label: "Notifications", icon: BellIcon },
+  { href: "/settings/developer", label: "Developer", icon: KeyRoundIcon },
   { href: "/settings/security", label: "Security", icon: ShieldIcon },
 ];
 
