@@ -7,3 +7,5 @@ export default async function SettingsPage() {
   if (gate.status === "ready") redirect("/settings/profile");
   return null;
 }
+
+export const metadata = { title: 'Account Settings', robots: { index: false, follow: false } };

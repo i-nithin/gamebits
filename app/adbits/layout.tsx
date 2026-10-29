@@ -12,6 +12,11 @@ import {
 import { accountBlockReason, getCurrentUserId } from "@/lib/auth-admin";
 import { clerkEnabled } from "@/lib/clerk-enabled";
 
+export const metadata = {
+  title: "Advertise on GameBits",
+  robots: { index: false, follow: false },
+};
+
 export default async function AdbitsLayout({ children }: { children: React.ReactNode }) {
   const userId = await getCurrentUserId();
 

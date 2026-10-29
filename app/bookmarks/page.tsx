@@ -60,3 +60,5 @@ async function SavedGames({ userId }: { userId: string }) {
 
   return <BookmarkList games={games} />;
 }
+
+export const metadata = { title: 'Saved Games', robots: { index: false, follow: false } };

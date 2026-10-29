@@ -11,7 +11,7 @@ export function ProfilePeople({ people }: { people: FollowProfile[] }) {
         const initial = person.name.trim().charAt(0).toUpperCase() || "?";
         return (
           <Link
-            key={person.clerkUserId}
+            key={person.handle}
             href={`/u/${person.handle}`}
             className="group flex min-w-0 items-center gap-3 rounded-sm bg-obsidian/40 p-4 transition-[background-color,transform] hover:-translate-y-0.5 hover:bg-obsidian/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ice-signal border border-iron"
           >

@@ -40,3 +40,5 @@ export default async function EditAdminCarouselAdPage({
     />
   );
 }
+
+export const metadata = { title: 'Edit Carousel Ad', robots: { index: false, follow: false } };

@@ -31,3 +31,5 @@ export default async function SettingsProfilePage() {
     />
   );
 }
+
+export const metadata = { title: 'Profile Settings', robots: { index: false, follow: false } };

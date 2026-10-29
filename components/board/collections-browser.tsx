@@ -28,6 +28,7 @@ import {
 import { loadMoreCollectionGames, loadMoreTrendingGames } from "@/app/actions/collections";
 import { WeekFilter } from "@/components/board/week-filter";
 import { VoteButton } from "@/components/game/vote-button";
+import { TrendSpark } from "@/components/trending/trend-spark";
 import { PlatformChipList } from "@/components/game/platform-chip";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
@@ -135,6 +136,7 @@ function matchesFilters(game: RankedGame, filters: CollectionFilters) {
 export function CollectionsBrowser({
   games,
   nextCursor,
+  trendPoints = {},
   weekBoard,
   currentWeek,
   categories,
@@ -143,6 +145,7 @@ export function CollectionsBrowser({
 }: {
   games: RankedGame[];
   nextCursor: string | null;
+  trendPoints?: Record<string, number[]>;
   weekBoard: WeekBoard | null;
   currentWeek: IsoWeek;
   categories: GameCategoryItem[];
@@ -246,6 +249,7 @@ export function CollectionsBrowser({
             key={catalogKey}
             games={games}
             nextCursor={nextCursor}
+            trendPoints={trendPoints}
             filters={filters}
           />
         )}
@@ -527,13 +531,16 @@ function CollectionEmpty({
 function CatalogList({
   games,
   nextCursor,
+  trendPoints,
   filters,
 }: {
   games: RankedGame[];
   nextCursor: string | null;
+  trendPoints: Record<string, number[]>;
   filters: CollectionFilters;
 }) {
   const [extra, setExtra] = useState<RankedGame[]>([]);
+  const [points, setPoints] = useState(trendPoints);
   const [cursor, setCursor] = useState(nextCursor);
   const [pending, setPending] = useState(false);
 
@@ -541,25 +548,29 @@ function CatalogList({
     if (!cursor || pending) return;
     setPending(true);
     try {
-      const page =
-        filters.view === "trending"
-          ? await loadMoreTrendingGames({
-              cursor,
-              range: filters.range,
-              categories: filters.categories,
-              platforms: filters.platforms,
-              statuses: filters.statuses,
-            })
-          : await loadMoreCollectionGames({
-              cursor,
-              categories: filters.categories,
-              platforms: filters.platforms,
-              statuses: filters.statuses,
-              sort: filters.sort,
-              dir: filters.dir,
-            });
-      setExtra((current) => [...current, ...page.games]);
-      setCursor(page.nextCursor);
+      if (filters.view === "trending") {
+        const page = await loadMoreTrendingGames({
+          cursor,
+          range: filters.range,
+          categories: filters.categories,
+          platforms: filters.platforms,
+          statuses: filters.statuses,
+        });
+        setExtra((current) => [...current, ...page.games]);
+        setPoints((current) => ({ ...current, ...page.points }));
+        setCursor(page.nextCursor);
+      } else {
+        const page = await loadMoreCollectionGames({
+          cursor,
+          categories: filters.categories,
+          platforms: filters.platforms,
+          statuses: filters.statuses,
+          sort: filters.sort,
+          dir: filters.dir,
+        });
+        setExtra((current) => [...current, ...page.games]);
+        setCursor(page.nextCursor);
+      }
     } catch {
       notifyError("Couldn't load more games.", "Try again in a moment.");
     } finally {
@@ -569,7 +580,12 @@ function CatalogList({
 
   return (
     <div className="flex flex-col gap-4">
-      <CollectionsTable games={[...games, ...extra]} filters={filters} sortable={filters.view !== "trending"} />
+      <CollectionsTable
+        games={[...games, ...extra]}
+        filters={filters}
+        trendPoints={points}
+        sortable={filters.view !== "trending"}
+      />
       {cursor ? (
         <button
           type="button"
@@ -878,13 +894,16 @@ function CollectionsTable({
   games,
   filters,
   vote,
+  trendPoints = {},
   sortable = true,
 }: {
   games: RankedGame[];
   filters: CollectionFilters;
   vote?: { year: number; week: number; open: boolean };
+  trendPoints?: Record<string, number[]>;
   sortable?: boolean;
 }) {
+  const showTrend = filters.view === "trending";
   const sticky = "sticky left-0 z-10 bg-page md:static md:bg-transparent";
 
   return (
@@ -904,6 +923,7 @@ function CollectionsTable({
               <TableHead className={headClass}>Status</TableHead>
             )}
             {vote ? <SortHead filters={filters} column="votes" label="Votes" align="right" /> : null}
+            {showTrend ? <TableHead className={cn(headClass, "text-right")}>Trend</TableHead> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -949,6 +969,13 @@ function CollectionsTable({
                       open={vote.open}
                       compact
                     />
+                  </div>
+                </TableCell>
+              ) : null}
+              {showTrend ? (
+                <TableCell className="text-right">
+                  <div className="flex justify-end">
+                    <TrendSpark points={trendPoints[game.id] ?? []} />
                   </div>
                 </TableCell>
               ) : null}

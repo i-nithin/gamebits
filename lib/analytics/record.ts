@@ -1,6 +1,12 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 
-import { gameAnalyticsDaily, gameAnalyticsEvents, gameAnalyticsVisitors, games } from "@/db/schema";
+import {
+  gameAnalyticsClickVisitors,
+  gameAnalyticsDaily,
+  gameAnalyticsEvents,
+  gameAnalyticsVisitors,
+  games,
+} from "@/db/schema";
 import type { AnalyticsLinkKind } from "@/lib/analytics/links";
 import { getDb, hasDatabase } from "@/lib/db";
 
@@ -83,11 +89,19 @@ export async function recordLinkClick(
   linkKind: AnalyticsLinkKind,
   clerkUserId: string | null,
   country: string | null = null,
+  visitorKey: string,
 ) {
-  if (!hasDatabase()) return;
+  if (!hasDatabase() || !visitorKey) return;
   const db = getDb();
   const day = utcDayString();
   const countries = country ? { [country]: { pageViews: 0, linkClicks: 1 } } : {};
+
+  const inserted = await db
+    .insert(gameAnalyticsClickVisitors)
+    .values({ gameId, visitorKey, day })
+    .onConflictDoNothing()
+    .returning({ visitorKey: gameAnalyticsClickVisitors.visitorKey });
+  if (inserted.length === 0) return;
 
   await db.insert(gameAnalyticsEvents).values({
     gameId,

@@ -14,10 +14,10 @@ import { notifyReason, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 export function FollowButton({
-  profileUserId,
+  handle,
   following,
 }: {
-  profileUserId: string;
+  handle: string;
   following: boolean;
 }) {
   const router = useRouter();
@@ -26,7 +26,7 @@ export function FollowButton({
 
   function toggle() {
     const formData = new FormData();
-    formData.set("profileUserId", profileUserId);
+    formData.set("handle", handle);
     startTransition(async () => {
       const result = await toggleFollowAction(formData);
       if (!result.ok) {

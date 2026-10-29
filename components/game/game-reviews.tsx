@@ -63,7 +63,7 @@ export function GameReviews({
   slug,
   gameId,
   signedIn,
-  viewerId = null,
+  viewerHandle = null,
   initialReviews,
   nextCursor,
   average,
@@ -74,7 +74,7 @@ export function GameReviews({
   slug: string;
   gameId: string;
   signedIn: boolean;
-  viewerId?: string | null;
+  viewerHandle?: string | null;
   initialReviews: GameReviewItem[];
   nextCursor: string | null;
   average: number | null;
@@ -109,13 +109,22 @@ export function GameReviews({
       const currentCursor = cursorRef.current;
       loadingRef.current = true;
       void fetch(`/api/games/${slug}/reviews?cursor=${encodeURIComponent(currentCursor)}`)
-        .then((response) => response.json())
-        .then((page: { items: GameReviewItem[]; nextCursor: string | null }) => {
+        .then(async (response) => {
+          if (!response.ok) throw new Error("Could not load reviews");
+          const page: { items?: GameReviewItem[]; nextCursor?: string | null } = await response.json();
+          if (!Array.isArray(page.items)) throw new Error("Could not load reviews");
+          return { items: page.items, nextCursor: page.nextCursor ?? null };
+        })
+        .then((page) => {
           setReviews((current) => {
             const seen = new Set(current.map((item) => item.id));
             return [...current, ...page.items.filter((item) => !seen.has(item.id))];
           });
           setCursor(page.nextCursor);
+          setError(null);
+        })
+        .catch(() => {
+          setError("Could not load more reviews.");
         })
         .finally(() => {
           loadingRef.current = false;
@@ -124,6 +133,10 @@ export function GameReviews({
     observer.observe(node);
     return () => observer.disconnect();
   }, [slug]);
+
+  useEffect(() => {
+    scrolledRef.current = false;
+  }, [highlightReviewId, slug]);
 
   useEffect(() => {
     if (!highlightReviewId || scrolledRef.current) return;
@@ -223,7 +236,7 @@ export function GameReviews({
               <div className="flex items-center gap-2">
                 <span className="truncate text-sm font-medium">{review.displayName}</span>
                 {editingId === review.id ? null : <Stars value={review.rating} />}
-                {viewerId && review.clerkUserId === viewerId && editingId !== review.id ? (
+                {viewerHandle && review.handle === viewerHandle && editingId !== review.id ? (
                   <span className="ml-auto flex shrink-0 gap-3">
                     <button
                       type="button"

@@ -16,3 +16,5 @@ export default async function EditAdminPlatformPage({
 
   return <PlatformForm platform={platform} />;
 }
+
+export const metadata = { title: 'Edit Platform', robots: { index: false, follow: false } };

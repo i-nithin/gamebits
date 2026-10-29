@@ -26,6 +26,23 @@ export function sparklinePoints(
   return points;
 }
 
+/** Net direction of a sparkline. Flat and rising series stay green; only a drop is red. */
+export function sparklineDirection(points: number[]): "up" | "flat" | "down" {
+  if (points.length < 2) return "flat";
+  const delta = points[points.length - 1] - points[0];
+  if (delta > 0) return "up";
+  if (delta < 0) return "down";
+  return "flat";
+}
+
+export function trendLineClass(points: number[]) {
+  return sparklineDirection(points) === "down" ? "text-error" : "text-trend";
+}
+
+export function trendLineColor(points: number[]) {
+  return sparklineDirection(points) === "down" ? "var(--gb-error)" : "var(--gb-trend)";
+}
+
 export function sparklinePolyline(points: number[], width = 52, height = 22, pad = 2) {
   if (points.length === 0) return "";
   const min = Math.min(...points);

@@ -25,3 +25,5 @@ export default async function NewGamePage({
     />
   );
 }
+
+export const metadata = { title: 'Submit a Game' };

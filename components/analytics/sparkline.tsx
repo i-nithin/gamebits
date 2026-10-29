@@ -1,5 +1,8 @@
 "use client";
 
+import { trendLineClass } from "@/lib/trending/sparkline";
+import { cn } from "@/lib/utils";
+
 export function AnalyticsSparkline({
   values,
   className,
@@ -27,14 +30,14 @@ export function AnalyticsSparkline({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className={className}
+      className={cn(trendLineClass(values), className)}
       aria-hidden
       width={width}
       height={height}
     >
       <polyline
         fill="none"
-        stroke="var(--gb-ice-signal)"
+        stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"

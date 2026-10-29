@@ -147,3 +147,5 @@ export default async function AdminUsersPage({
     </div>
   );
 }
+
+export const metadata = { title: 'Admin Dashboard', robots: { index: false, follow: false } };

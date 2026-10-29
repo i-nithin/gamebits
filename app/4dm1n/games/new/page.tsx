@@ -21,3 +21,5 @@ export default async function NewAdminGamePage({
     />
   );
 }
+
+export const metadata = { title: 'Create Game Listing', robots: { index: false, follow: false } };

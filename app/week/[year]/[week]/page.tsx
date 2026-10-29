@@ -11,6 +11,21 @@ import { getCurrentUserId } from "@/lib/auth-admin";
 import { formatIsoWeekLabel, parseWeekParams } from "@/lib/iso-week";
 import { getWeekBoard } from "@/lib/queries";
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ year: string; week: string }>;
+}) {
+  const { year, week } = await params;
+  const parsed = parseWeekParams(year, week);
+  if (!parsed) return { title: "Weekly Indie Games" };
+  const label = formatIsoWeekLabel(parsed.year, parsed.week);
+  return {
+    title: `${label} Indie Games`,
+    description: `Explore the GameBits weekly indie game rankings for ${label}.`,
+  };
+}
+
 export default async function WeekPage({
   params,
 }: {

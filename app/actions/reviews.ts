@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { gameReviews, games } from "@/db/schema";
 import { accountAccessError, getCurrentUserId } from "@/lib/auth-admin";
+import { rateLimit } from "@/lib/rate-limit";
 import { REVIEW_BODY_MAX } from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { ensureCurrentProfile, getProfileHandle } from "@/lib/profile";
@@ -21,6 +22,9 @@ export async function upsertReviewAction(formData: FormData) {
   const userId = await getCurrentUserId();
   const blocked = await accountAccessError(userId);
   if (!userId || blocked) throw new Error(blocked ?? "Sign in to continue");
+  if ((await rateLimit("review", userId)) !== "ok") {
+    throw new Error("Too many requests. Try again in a moment.");
+  }
   const parsed = reviewSchema.parse({
     gameId: String(formData.get("gameId") ?? ""),
     rating: String(formData.get("rating") ?? ""),
@@ -99,7 +103,7 @@ export async function upsertReviewAction(formData: FormData) {
       displayName,
       imageUrl,
       createdAt: now.toISOString(),
-      clerkUserId: userId,
+      handle,
     },
   };
 }
@@ -110,6 +114,9 @@ export async function deleteReviewAction(
   const userId = await getCurrentUserId();
   const blocked = await accountAccessError(userId);
   if (!userId || blocked) return { error: blocked ?? "Sign in to continue." };
+  if ((await rateLimit("review", userId)) !== "ok") {
+    return { error: "Too many requests. Try again in a moment." };
+  }
   if (!z.string().uuid().safeParse(reviewId).success) {
     return { error: "Comment not found." };
   }

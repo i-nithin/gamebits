@@ -9,6 +9,7 @@ import {
   GAME_STATUSES,
   PROFILE_PAGE_SIZE,
   REVIEW_PAGE_SIZE,
+  WEEK_LISTING_CAP,
   type CollectionSort,
   type GameStatus,
   type SortDirection,
@@ -631,6 +632,73 @@ export async function getGameById(id: string) {
   return game ?? null;
 }
 
+const WEEK_BOARD_LOCK = 84215048;
+
+export async function placeGameOnWeek(opts: {
+  gameId: string;
+  year: number;
+  week: number;
+  featured: boolean | null;
+}): Promise<{ ok: true; created: boolean } | { ok: false; error: string }> {
+  if (!hasDatabase()) return { ok: false, error: "Database is unavailable" };
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(${WEEK_BOARD_LOCK}, ${opts.year * 100 + opts.week})`,
+    );
+
+    const [existing] = await tx
+      .select({ id: weekListings.id })
+      .from(weekListings)
+      .where(
+        and(
+          eq(weekListings.gameId, opts.gameId),
+          eq(weekListings.isoYear, opts.year),
+          eq(weekListings.isoWeek, opts.week),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      if (opts.featured == null) {
+        return { ok: false as const, error: "This game is already on that week" };
+      }
+      await tx
+        .update(weekListings)
+        .set({ featured: opts.featured })
+        .where(eq(weekListings.id, existing.id));
+      return { ok: true as const, created: false };
+    }
+
+    if (hasIsoWeekEnded(opts.year, opts.week)) {
+      return { ok: false as const, error: "That week is closed" };
+    }
+
+    const [row] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(weekListings)
+      .innerJoin(games, eq(weekListings.gameId, games.id))
+      .where(
+        and(
+          eq(weekListings.isoYear, opts.year),
+          eq(weekListings.isoWeek, opts.week),
+          isNull(games.archivedAt),
+        ),
+      );
+    if ((row?.count ?? 0) >= WEEK_LISTING_CAP) {
+      return { ok: false as const, error: `This week already has ${WEEK_LISTING_CAP} games` };
+    }
+
+    await tx.insert(weekListings).values({
+      gameId: opts.gameId,
+      isoYear: opts.year,
+      isoWeek: opts.week,
+      featured: opts.featured ?? false,
+    });
+    return { ok: true as const, created: true };
+  });
+}
+
 export async function countWeekListings(year: number, week: number) {
   if (!hasDatabase()) return 0;
   const db = getDb();
@@ -667,54 +735,72 @@ export async function toggleWeekVote(opts: {
   week: number;
 }) {
   const db = getDb();
-  const [game] = await db
-    .select({ id: games.id })
-    .from(games)
-    .where(and(eq(games.id, opts.gameId), isNull(games.archivedAt)))
-    .limit(1);
-  if (!game) throw new Error("Game not found");
+  return db.transaction(async (tx) => {
+    const lockKey = `${opts.userId}:${opts.gameId}:${opts.year}:${opts.week}`;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey})::bigint)`);
 
-  const now = new Date();
-  const { end } = isoWeekRangeUtc(opts.year, opts.week);
-  const [existing] = await db
-    .select({
-      id: votes.id,
-      rankingAt: votes.rankingAt,
-      withdrawnAt: votes.withdrawnAt,
-    })
-    .from(votes)
-    .where(
-      and(
-        eq(votes.clerkUserId, opts.userId),
-        eq(votes.gameId, opts.gameId),
-        eq(votes.isoYear, opts.year),
-        eq(votes.isoWeek, opts.week),
-      ),
-    )
-    .limit(1);
+    const [game] = await tx
+      .select({ id: games.id })
+      .from(games)
+      .where(and(eq(games.id, opts.gameId), isNull(games.archivedAt)))
+      .limit(1);
+    if (!game) return { ok: false as const, reason: "missing" as const };
 
-  if (existing && !existing.withdrawnAt) {
-    await db.update(votes).set({ withdrawnAt: now }).where(eq(votes.id, existing.id));
-    return { voted: false };
-  }
+    const [listing] = await tx
+      .select({ id: weekListings.id })
+      .from(weekListings)
+      .where(
+        and(
+          eq(weekListings.gameId, opts.gameId),
+          eq(weekListings.isoYear, opts.year),
+          eq(weekListings.isoWeek, opts.week),
+        ),
+      )
+      .limit(1);
+    if (!listing) return { ok: false as const, reason: "unlisted" as const };
 
-  if (existing) {
-    await db
-      .update(votes)
-      .set(nextRevoteStamp(existing, end, now))
-      .where(eq(votes.id, existing.id));
-    return { voted: true };
-  }
+    const now = new Date();
+    const { end } = isoWeekRangeUtc(opts.year, opts.week);
+    const [existing] = await tx
+      .select({
+        id: votes.id,
+        rankingAt: votes.rankingAt,
+        withdrawnAt: votes.withdrawnAt,
+      })
+      .from(votes)
+      .where(
+        and(
+          eq(votes.clerkUserId, opts.userId),
+          eq(votes.gameId, opts.gameId),
+          eq(votes.isoYear, opts.year),
+          eq(votes.isoWeek, opts.week),
+        ),
+      )
+      .limit(1);
 
-  await db.insert(votes).values({
-    clerkUserId: opts.userId,
-    gameId: opts.gameId,
-    isoYear: opts.year,
-    isoWeek: opts.week,
-    rankingAt: now,
-    createdAt: now,
+    if (existing && !existing.withdrawnAt) {
+      await tx.update(votes).set({ withdrawnAt: now }).where(eq(votes.id, existing.id));
+      return { ok: true as const, voted: false };
+    }
+
+    if (existing) {
+      await tx
+        .update(votes)
+        .set(nextRevoteStamp(existing, end, now))
+        .where(eq(votes.id, existing.id));
+      return { ok: true as const, voted: true };
+    }
+
+    await tx.insert(votes).values({
+      clerkUserId: opts.userId,
+      gameId: opts.gameId,
+      isoYear: opts.year,
+      isoWeek: opts.week,
+      rankingAt: now,
+      createdAt: now,
+    });
+    return { ok: true as const, voted: true };
   });
-  return { voted: true };
 }
 
 export async function toggleBookmark(opts: { userId: string; gameId: string }) {
@@ -877,7 +963,6 @@ export async function listArchivedGames(userId: string): Promise<SavedGame[]> {
 }
 
 const followProfileColumns = {
-  clerkUserId: profiles.clerkUserId,
   handle: profiles.handle,
   name: profiles.name,
   imageUrl: profiles.imageUrl,
@@ -1149,7 +1234,6 @@ async function listProfilePeoplePage(opts: {
   const { page, nextCursor } = sliceProfilePage(rows, limit, (row) => row.createdAt);
   return {
     items: page.map((row) => ({
-      clerkUserId: row.clerkUserId,
       handle: row.handle,
       name: row.name,
       imageUrl: row.imageUrl,
@@ -1287,7 +1371,7 @@ function toPublicReview(row: {
   displayName: string;
   imageUrl: string | null;
   createdAt: Date;
-  clerkUserId: string;
+  handle: string | null;
   authorDeletedAt: Date | null;
 }): GameReviewItem {
   const deleted = row.authorDeletedAt != null;
@@ -1298,7 +1382,7 @@ function toPublicReview(row: {
     displayName: deleted ? DELETED_PROFILE_NAME : row.displayName,
     imageUrl: deleted ? null : row.imageUrl,
     createdAt: row.createdAt.toISOString(),
-    clerkUserId: row.clerkUserId,
+    handle: deleted ? null : row.handle,
   };
 }
 
@@ -1338,7 +1422,7 @@ export async function listGameReviews(opts: {
       displayName: gameReviews.displayName,
       imageUrl: gameReviews.imageUrl,
       createdAt: gameReviews.createdAt,
-      clerkUserId: gameReviews.clerkUserId,
+      handle: profiles.handle,
       authorDeletedAt: profiles.deletedAt,
     })
     .from(gameReviews)
@@ -1483,7 +1567,7 @@ export async function getGamePageData(
         displayName: gameReviews.displayName,
         imageUrl: gameReviews.imageUrl,
         createdAt: gameReviews.createdAt,
-        clerkUserId: gameReviews.clerkUserId,
+        handle: profiles.handle,
         authorDeletedAt: profiles.deletedAt,
       })
       .from(gameReviews)

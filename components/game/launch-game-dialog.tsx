@@ -152,10 +152,6 @@ function LaunchForm({
             Defaults to {formatIsoWeekLabel(defaultYear, defaultWeek)}. Weeks run Monday–Sunday UTC.
           </p>
         </Field>
-        <Field orientation="horizontal">
-          <input id="launch-featured" name="featured" type="checkbox" className="size-4 rounded border-iron" />
-          <FieldLabel htmlFor="launch-featured">Featured</FieldLabel>
-        </Field>
       </FieldGroup>
 
       <div className="flex items-center justify-end gap-2">

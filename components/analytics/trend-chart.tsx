@@ -13,18 +13,8 @@ import {
 } from "@/components/ui/chart";
 import { formatAnalyticsCount, formatChartDay } from "@/lib/analytics/format";
 import type { AnalyticsSeriesPoint } from "@/lib/analytics/types";
+import { trendLineColor } from "@/lib/trending/sparkline";
 import { cn } from "@/lib/utils";
-
-const chartConfig = {
-  pageViews: {
-    label: "Views",
-    color: "var(--chart-1)",
-  },
-  linkClicks: {
-    label: "Link clicks",
-    color: "var(--chart-5)",
-  },
-} satisfies ChartConfig;
 
 const MODES = [
   { key: "all", label: "All" },
@@ -42,6 +32,16 @@ export function AnalyticsTrendChart({
   className?: string;
 }) {
   const [mode, setMode] = useState<SeriesMode>("all");
+  const chartConfig = {
+    pageViews: {
+      label: "Views",
+      color: trendLineColor(series.map((point) => point.pageViews)),
+    },
+    linkClicks: {
+      label: "Link clicks",
+      color: trendLineColor(series.map((point) => point.linkClicks)),
+    },
+  } satisfies ChartConfig;
   const gradientId = useId().replace(/:/g, "");
   const viewsFill = `${gradientId}-views`;
   const clicksFill = `${gradientId}-clicks`;

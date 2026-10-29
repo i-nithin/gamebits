@@ -19,6 +19,7 @@
   --color-ice-strong: var(--gb-ice-strong);
   --color-ice-soft: var(--gb-ice-soft);
   --color-success: var(--gb-success);
+  --color-trend: var(--gb-trend);
   --color-error: var(--gb-error);
   --color-hairline: var(--gb-hairline);
   --color-scrim: var(--gb-scrim);
@@ -80,6 +81,7 @@
   --gb-ice-strong: #2a93ff;
   --gb-ice-soft: #1f3347;
   --gb-success: #47bb64;
+  --gb-trend: #5cdb7c;
   --gb-error: #e24756;
   --gb-hairline: rgba(255, 255, 255, 0.08);
   --gb-scrim: rgba(8, 8, 9, 0.72);

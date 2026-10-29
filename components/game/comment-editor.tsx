@@ -25,7 +25,7 @@ export type SavedComment = {
   displayName: string;
   imageUrl: string | null;
   createdAt: string;
-  clerkUserId: string;
+  handle: string | null;
 };
 
 function StarPicker({

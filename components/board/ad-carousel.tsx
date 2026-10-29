@@ -74,7 +74,7 @@ export function AdCarousel({
         {ads.map((ad, slideIndex) => (
           <a
             key={ad.id}
-            href={ad.destinationUrl}
+            href={`/out/ad/${ad.id}`}
             target="_blank"
             rel="sponsored noopener noreferrer"
             aria-label={`Advertisement: ${ad.gameName}`}
@@ -84,9 +84,6 @@ export function AdCarousel({
               "absolute inset-0 outline-none transition-opacity duration-500 focus-visible:ring-2 focus-visible:ring-white/40",
               slideIndex === activeIndex ? "z-10 opacity-100" : "pointer-events-none opacity-0",
             )}
-            onClick={() => {
-              void fetch(`/out/ad/${ad.id}`, { keepalive: true });
-            }}
           >
             <CarouselSlide slide={ad} active={slideIndex === activeIndex} />
           </a>

@@ -589,6 +589,24 @@ export const gameAnalyticsVisitors = pgTable(
   ],
 );
 
+export const gameAnalyticsClickVisitors = pgTable(
+  "game_analytics_click_visitors",
+  {
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    visitorKey: text("visitor_key").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.gameId, table.visitorKey, table.day],
+      name: "game_analytics_click_visitors_pk",
+    }),
+    index("game_analytics_click_visitors_game_day_idx").on(table.gameId, table.day),
+  ],
+);
+
 export const adPlacementEnum = pgEnum("ad_placement", ["sidebar", "carousel"]);
 
 export const carouselBadgeEnum = pgEnum("carousel_badge", [

@@ -189,3 +189,5 @@ export default async function AdminAdbitsPage({
     </div>
   );
 }
+
+export const metadata = { title: 'Manage Adbits', robots: { index: false, follow: false } };

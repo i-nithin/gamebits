@@ -3,8 +3,31 @@ import { notFound } from "next/navigation";
 import { RecordPageView } from "@/components/analytics/record-page-view";
 import { GameDetail } from "@/components/game/game-detail";
 import { getCurrentUserId } from "@/lib/auth-admin";
+import { getProfileHandle } from "@/lib/profile";
 import { getIsoWeekUtc, hasIsoWeekStarted } from "@/lib/iso-week";
-import { getGamePageData } from "@/lib/queries";
+import { descriptionPlainText, sanitizeStoredDescription } from "@/lib/description";
+import { getGameBySlug, getGamePageData } from "@/lib/queries";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const game = await getGameBySlug(slug);
+  if (!game) return { title: "Game not found" };
+
+  const description = descriptionPlainText(
+    sanitizeStoredDescription(game.description),
+  );
+  return {
+    title: game.name,
+    description: description
+      ? description.slice(0, 160)
+      : `Discover ${game.name}, view its details, and follow its weekly ranking on GameBits.`,
+    openGraph: { type: "website", title: game.name },
+  };
+}
 
 export default async function GamePage({
   params,
@@ -19,7 +42,10 @@ export default async function GamePage({
     getCurrentUserId(),
   ]);
   const reviewId = query.review?.trim() || null;
-  const data = await getGamePageData(slug, userId, reviewId);
+  const [data, viewerHandle] = await Promise.all([
+    getGamePageData(slug, userId, reviewId),
+    userId ? getProfileHandle(userId) : Promise.resolve(null),
+  ]);
   if (!data) notFound();
 
   const current = getIsoWeekUtc();
@@ -40,7 +66,7 @@ export default async function GamePage({
           hasIsoWeekStarted(year, week)
         }
         signedIn={Boolean(userId)}
-        viewerId={userId}
+        viewerHandle={viewerHandle}
         highlightReviewId={reviewId && data.reviews.some((review) => review.id === reviewId) ? reviewId : null}
         launchRequested={query.launch === "1" && (data.isOwner || data.isAdmin)}
         launchYear={current.year}

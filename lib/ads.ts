@@ -221,6 +221,7 @@ export async function listLiveSidebarAds(now = new Date()): Promise<SidebarAd[]>
         eq(adOrders.placement, "sidebar"),
         eq(adOrders.format, "brand"),
         eq(adOrders.status, "approved"),
+        inArray(adOrders.paymentStatus, ["paid", "waived"]),
         eq(adSlots.status, "approved"),
         liveWindowSql(now),
       ),
@@ -276,11 +277,12 @@ export async function listLiveCarouselAds(now = new Date()): Promise<CarouselAd[
       and(
         eq(adOrders.placement, "carousel"),
         eq(adOrders.status, "approved"),
+        inArray(adOrders.paymentStatus, ["paid", "waived"]),
         liveWindowSql(now),
         isNull(games.archivedAt),
         sql`exists (
           select 1 from ad_slots
-          where ad_slots.order_id = ${adOrders.id} and ad_slots.status = 'approved'
+          where ad_slots.order_id = ad_orders.id and ad_slots.status = 'approved'
         )`,
       ),
     )
@@ -960,11 +962,16 @@ export async function getApprovedAdDestination(orderId: string) {
         month: adOrders.month,
         active: sql<number>`(
           select count(*)::int from ad_slots
-          where ad_slots.order_id = ${adOrders.id} and ad_slots.status = 'approved'
+          where ad_slots.order_id = ad_orders.id and ad_slots.status = 'approved'
         )`,
       })
       .from(adOrders)
-      .where(eq(adOrders.id, orderId))
+      .where(
+        and(
+          eq(adOrders.id, orderId),
+          inArray(adOrders.paymentStatus, ["paid", "waived"]),
+        ),
+      )
       .limit(1),
     db
       .select({ weekStart: adOrderWeeks.weekStart })

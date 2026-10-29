@@ -35,8 +35,8 @@ export async function loadMoreTrendingGames(input: {
   categories: string[];
   platforms: string[];
   statuses: string[];
-}): Promise<CollectionPage> {
-  if (!input.cursor) return { games: [], nextCursor: null };
+}): Promise<CollectionPage & { points: Record<string, number[]> }> {
+  if (!input.cursor) return { games: [], nextCursor: null, points: {} };
   const statuses = input.statuses.filter((status): status is GameStatus =>
     GAME_STATUSES.includes(status as GameStatus),
   );

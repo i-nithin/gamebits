@@ -24,10 +24,6 @@ const railMuted = "text-[#a3a3a3]";
 const railVisitClass =
   "inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-white/20 bg-[#3c3c3c] px-3 text-sm font-medium text-white";
 
-function recordAdClick(id: string) {
-  void fetch(`/out/ad/${id}`, { keepalive: true });
-}
-
 function AdLogo({ src, className }: { src: string | null; className?: string }) {
   if (!src) {
     return <span className={cn("block bg-white/10", className)} />;
@@ -52,16 +48,13 @@ function VisitControl({
       </span>
     );
   }
-  const id = ad.id;
-  const href = ad.destinationUrl;
   return (
     <a
-      href={href}
+      href={`/out/ad/${ad.id}`}
       target="_blank"
       rel="sponsored noopener noreferrer"
       aria-label={label}
       className={cn(railVisitClass, "outline-none focus-visible:ring-2 focus-visible:ring-white/40")}
-      onClick={() => recordAdClick(id)}
     >
       Visit
       {icon}
@@ -113,7 +106,7 @@ export function BrandAdBar({
   className?: string;
 }) {
   const label = ad.productName ? `Visit ${ad.productName}` : "Visit";
-  const linkedVisit = linked && ad.destinationUrl && ad.id ? { id: ad.id, href: ad.destinationUrl } : null;
+  const linkedVisit = linked && ad.destinationUrl && ad.id ? ad.id : null;
   const face = (
     <>
       <AdLogo src={ad.logoUrl} className="size-10 rounded-sm bg-white/10" />
@@ -137,12 +130,11 @@ export function BrandAdBar({
     <div className={cn("flex items-center gap-1 rounded-2xl p-2", railCard, className)}>
       {linkedVisit ? (
         <a
-          href={linkedVisit.href}
+          href={`/out/ad/${linkedVisit}`}
           target="_blank"
           rel="sponsored noopener noreferrer"
           aria-label={label}
           className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-          onClick={() => recordAdClick(linkedVisit.id)}
         >
           {face}
         </a>
